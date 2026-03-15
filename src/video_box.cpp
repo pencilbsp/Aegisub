@@ -68,6 +68,21 @@ wxString TrimPlaybackSpeedSuffix(wxString text) {
 		text.RemoveLast();
 	return text;
 }
+
+void SizeComboBoxToFit(wxComboBox *combo, wxString const& initial_value, wxArrayString const& choices) {
+	wxString widest = initial_value;
+	int widest_width = combo->GetTextExtent(widest).GetWidth();
+
+	for (auto const& choice : choices) {
+		int width = combo->GetTextExtent(choice).GetWidth();
+		if (width > widest_width) {
+			widest = choice;
+			widest_width = width;
+		}
+	}
+
+	combo->SetInitialSize(combo->GetSizeFromText(widest));
+}
 }
 
 VideoBox::VideoBox(wxWindow *parent, bool isDetached, agi::Context *context)
@@ -88,7 +103,8 @@ VideoBox::VideoBox(wxWindow *parent, bool isDetached, agi::Context *context)
 	wxArrayString choices;
 	for (int i = 1; i <= 24; ++i)
 		choices.Add(fmt_wx("%g%%", i * 12.5));
-	auto zoomBox = new wxComboBox(this, -1, "75%", wxDefaultPosition, wxSize(74, -1), choices, wxCB_DROPDOWN | wxTE_PROCESS_ENTER);
+	auto zoomBox = new wxComboBox(this, -1, "75%", wxDefaultPosition, wxDefaultSize, choices, wxCB_DROPDOWN | wxTE_PROCESS_ENTER);
+	SizeComboBoxToFit(zoomBox, "75%", choices);
 
 	// Playback speed selector
 	wxArrayString speedChoices;
@@ -98,7 +114,8 @@ VideoBox::VideoBox(wxWindow *parent, bool isDetached, agi::Context *context)
 	speedChoices.Add("1.25x");
 	speedChoices.Add("1.5x");
 	speedChoices.Add("2.0x");
-	SpeedBox = new wxComboBox(this, -1, "1.0x", wxDefaultPosition, wxSize(72, -1), speedChoices, wxCB_DROPDOWN | wxTE_PROCESS_ENTER);
+	SpeedBox = new wxComboBox(this, -1, "1.0x", wxDefaultPosition, wxDefaultSize, speedChoices, wxCB_DROPDOWN | wxTE_PROCESS_ENTER);
+	SizeComboBoxToFit(SpeedBox, "10.0x", speedChoices);
 	SpeedBox->SetToolTip(_("Playback speed"));
 	auto applySpeed = [this](bool show_suffix) {
 		wxString text = TrimPlaybackSpeedSuffix(SpeedBox->GetValue());
@@ -136,7 +153,14 @@ VideoBox::VideoBox(wxWindow *parent, bool isDetached, agi::Context *context)
 
 	auto topSizer = new wxBoxSizer(wxHORIZONTAL);
 	topSizer->Add(toolbarSizer, 0, wxEXPAND);
-	topSizer->Add(videoDisplay, isDetached, isDetached ? wxEXPAND : 0);
+	if (isDetached) {
+		topSizer->Add(videoDisplay, 1, wxEXPAND);
+	}
+	else {
+		topSizer->AddStretchSpacer();
+		topSizer->Add(videoDisplay, wxSizerFlags().CenterVertical());
+		topSizer->AddStretchSpacer();
+	}
 
 	auto videoBottomSizer = new wxBoxSizer(wxHORIZONTAL);
 	videoBottomSizer->Add(mainToolbar, wxSizerFlags(0).Center());
