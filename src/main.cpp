@@ -510,6 +510,14 @@ void AegisubApp::OpenFiles(wxArrayStringsAdapter filenames) {
 		agi::Context *c;
 		if (i == 0 && !frames.empty()) {
 			c = frames[0]->context.get();
+			bool is_empty = !c->subsController->HasFilename() &&
+			                !c->subsController->IsModified() &&
+			                c->subsController->IsUndoStackEmpty() &&
+			                c->project->VideoName().empty() &&
+			                c->project->AudioName().empty();
+			if (!is_empty) {
+				c = &NewProjectContext();
+			}
 		} else {
 			c = &NewProjectContext();
 		}
