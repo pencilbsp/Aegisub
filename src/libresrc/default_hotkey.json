@@ -210,6 +210,9 @@
 		"video/jump/start" : [
 			"Ctrl-1"
 		],
+		"video/open" : [
+			"Ctrl-Shift-O"
+		],
 		"video/play" : [
 			"Ctrl-P"
 		],

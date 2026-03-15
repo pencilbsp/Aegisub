@@ -50,7 +50,25 @@
 #include <wx/statline.h>
 #include <wx/textctrl.h>
 #include <wx/toolbar.h>
-#include <wx/valnum.h>
+
+namespace {
+wxString FormatPlaybackSpeed(double speed, bool with_suffix = false) {
+	wxString formatted = wxString::Format("%.3f", speed);
+	while (formatted.EndsWith("0") && !formatted.EndsWith(".0"))
+		formatted.RemoveLast();
+	if (formatted.EndsWith("."))
+		formatted += "0";
+	if (with_suffix)
+		formatted += "x";
+	return formatted;
+}
+
+wxString TrimPlaybackSpeedSuffix(wxString text) {
+	if (text.EndsWith("x") || text.EndsWith("X"))
+		text.RemoveLast();
+	return text;
+}
+}
 
 VideoBox::VideoBox(wxWindow *parent, bool isDetached, agi::Context *context)
 : wxPanel(parent, -1)
@@ -70,36 +88,41 @@ VideoBox::VideoBox(wxWindow *parent, bool isDetached, agi::Context *context)
 	wxArrayString choices;
 	for (int i = 1; i <= 24; ++i)
 		choices.Add(fmt_wx("%g%%", i * 12.5));
-	auto zoomBox = new wxComboBox(this, -1, "75%", wxDefaultPosition, wxDefaultSize, choices, wxCB_DROPDOWN | wxTE_PROCESS_ENTER);
+	auto zoomBox = new wxComboBox(this, -1, "75%", wxDefaultPosition, wxSize(74, -1), choices, wxCB_DROPDOWN | wxTE_PROCESS_ENTER);
 
 	// Playback speed selector
 	wxArrayString speedChoices;
-	speedChoices.Add("0.5");
-	speedChoices.Add("0.75");
-	speedChoices.Add("1");
-	speedChoices.Add("1.25");
-	speedChoices.Add("1.5");
-	speedChoices.Add("2");
-	auto speedBox = new wxComboBox(this, -1, "1", wxDefaultPosition, wxDefaultSize, speedChoices, wxCB_DROPDOWN | wxTE_PROCESS_ENTER);
-	wxFloatingPointValidator<double> speedValidator(3);
-	speedValidator.SetRange(0.1, 10.0);
-	speedBox->SetValidator(speedValidator);
-	speedBox->SetToolTip(_("Playback speed"));
-	auto applySpeed = [=](wxCommandEvent &) {
-		wxString text = speedBox->GetValue();
-		if (text.EndsWith("x") || text.EndsWith("X"))
-			text = text.Left(text.Length() - 1);
+	speedChoices.Add("0.5x");
+	speedChoices.Add("0.75x");
+	speedChoices.Add("1.0x");
+	speedChoices.Add("1.25x");
+	speedChoices.Add("1.5x");
+	speedChoices.Add("2.0x");
+	SpeedBox = new wxComboBox(this, -1, "1.0x", wxDefaultPosition, wxSize(72, -1), speedChoices, wxCB_DROPDOWN | wxTE_PROCESS_ENTER);
+	SpeedBox->SetToolTip(_("Playback speed"));
+	auto applySpeed = [this](bool show_suffix) {
+		wxString text = TrimPlaybackSpeedSuffix(SpeedBox->GetValue());
 		double speed = 1.0;
 		if (text.ToDouble(&speed)) {
 			speed = std::max(0.1, std::min(speed, 10.0));
-			context->videoController->SetPlaybackSpeed(speed);
-			speedBox->SetValue(fmt_wx("%g", speed));
+			this->context->videoController->SetPlaybackSpeed(speed);
+			SpeedBox->SetValue(FormatPlaybackSpeed(speed, show_suffix));
 		} else {
-			speedBox->SetValue(fmt_wx("%g", context->videoController->GetPlaybackSpeed()));
+			SpeedBox->SetValue(FormatPlaybackSpeed(this->context->videoController->GetPlaybackSpeed(), show_suffix));
 		}
 	};
-	speedBox->Bind(wxEVT_COMBOBOX, applySpeed);
-	speedBox->Bind(wxEVT_TEXT_ENTER, applySpeed);
+	SpeedBox->Bind(wxEVT_COMBOBOX, [applySpeed](wxCommandEvent &) { applySpeed(true); });
+	SpeedBox->Bind(wxEVT_TEXT_ENTER, [applySpeed](wxCommandEvent &) { applySpeed(true); });
+	SpeedBox->Bind(wxEVT_SET_FOCUS, [this](wxFocusEvent &event) {
+		SpeedBox->SetValue(TrimPlaybackSpeedSuffix(SpeedBox->GetValue()));
+		SpeedBox->SetInsertionPointEnd();
+		event.Skip();
+	});
+	SpeedBox->Bind(wxEVT_KILL_FOCUS, [applySpeed](wxFocusEvent &event) {
+		applySpeed(true);
+		event.Skip();
+	});
+	UpdatePlaybackSpeed(context->videoController->GetPlaybackSpeed());
 
 	auto visualToolBar = toolbar::GetToolbar(this, "visual_tools", context, "Video", true);
 	auto visualSubToolBar = new wxToolBar(this, -1, wxDefaultPosition, wxDefaultSize, wxTB_VERTICAL | wxTB_BOTTOM | wxTB_NODIVIDER | wxTB_FLAT);
@@ -120,7 +143,7 @@ VideoBox::VideoBox(wxWindow *parent, bool isDetached, agi::Context *context)
 	videoBottomSizer->Add(VideoPosition, wxSizerFlags(1).Center().Border(wxLEFT));
 	videoBottomSizer->Add(VideoSubsPos, wxSizerFlags(1).Center().Border(wxLEFT));
 	videoBottomSizer->Add(zoomBox, wxSizerFlags(0).Center().Border(wxLEFT | wxRIGHT));
-	videoBottomSizer->Add(speedBox, wxSizerFlags(0).Center().Border(wxRIGHT));
+	videoBottomSizer->Add(SpeedBox, wxSizerFlags(0).Center().Border(wxRIGHT));
 
 	auto VideoSizer = new wxBoxSizer(wxVERTICAL);
 	VideoSizer->Add(topSizer, 1, wxEXPAND, 0);
@@ -138,7 +161,12 @@ VideoBox::VideoBox(wxWindow *parent, bool isDetached, agi::Context *context)
 		context->project->AddVideoProviderListener(&VideoBox::UpdateTimeBoxes, this),
 		context->selectionController->AddSelectionListener(&VideoBox::UpdateTimeBoxes, this),
 		context->videoController->AddSeekListener(&VideoBox::UpdateTimeBoxes, this),
+		context->videoController->AddPlaybackSpeedChangeListener(&VideoBox::UpdatePlaybackSpeed, this),
 	});
+}
+
+void VideoBox::UpdatePlaybackSpeed(double speed) {
+	SpeedBox->SetValue(FormatPlaybackSpeed(speed, !SpeedBox->HasFocus()));
 }
 
 void VideoBox::UpdateTimeBoxes() {

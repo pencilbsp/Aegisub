@@ -192,8 +192,24 @@ void VideoController::OnPlayTimer(wxTimerEvent &) {
 
 void VideoController::SetPlaybackSpeed(double speed) {
 	if (speed <= 0) return;
+	if (speed == playback_speed) return;
+
+	// Keep playback position continuous when speed changes mid-playback.
+	// Otherwise, elapsed time would be reinterpreted using the new speed
+	// and cause the video/subtitles to jump out of sync.
+	if (IsPlaying()) {
+		using namespace std::chrono;
+		int elapsed_ms = duration_cast<milliseconds>(steady_clock::now() - playback_start_time).count();
+		int current_ms = start_ms + static_cast<int>(elapsed_ms * playback_speed);
+		if (provider)
+			current_ms = mid(0, current_ms, TimeAtFrame(provider->GetFrameCount() - 1));
+		start_ms = current_ms;
+		playback_start_time = steady_clock::now();
+	}
+
 	playback_speed = speed;
 	context->audioController->SetPlaybackSpeed(speed);
+	PlaybackSpeedChange(playback_speed);
 }
 
 double VideoController::GetARFromType(AspectRatio type) const {

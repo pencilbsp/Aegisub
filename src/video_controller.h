@@ -59,6 +59,8 @@ class VideoController final : public wxEvtHandler {
 	agi::signal::Signal<int> Seek;
 	/// Aspect ratio was changed (type, value)
 	agi::signal::Signal<AspectRatio, double> ARChange;
+	/// Playback speed was changed (new speed multiplier)
+	agi::signal::Signal<double> PlaybackSpeedChange;
 
 	agi::Context *context;
 
@@ -164,6 +166,7 @@ public:
 
 	DEFINE_SIGNAL_ADDERS(Seek, AddSeekListener)
 	DEFINE_SIGNAL_ADDERS(ARChange, AddARChangeListener)
+	DEFINE_SIGNAL_ADDERS(PlaybackSpeedChange, AddPlaybackSpeedChangeListener)
 
 	int TimeAtFrame(int frame, agi::vfr::Time type = agi::vfr::EXACT) const;
 	int FrameAtTime(int time, agi::vfr::Time type = agi::vfr::EXACT) const;

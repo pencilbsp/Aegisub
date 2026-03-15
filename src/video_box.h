@@ -33,6 +33,7 @@
 #include <wx/panel.h>
 
 namespace agi { struct Context; }
+class wxComboBox;
 class wxTextCtrl;
 
 /// @class VideoBox
@@ -42,9 +43,12 @@ class VideoBox final : public wxPanel {
 	agi::Context *context;     ///< Project context
 	wxTextCtrl *VideoPosition; ///< Current frame/time
 	wxTextCtrl *VideoSubsPos;  ///< Time relative to the active subtitle line
+	wxComboBox *SpeedBox;      ///< Playback speed selector
 
 	/// Update VideoPosition and VideoSubsPos
 	void UpdateTimeBoxes();
+	/// Update playback speed selector when playback speed changes
+	void UpdatePlaybackSpeed(double speed);
 
 public:
 	VideoBox(wxWindow *parent, bool isDetached, agi::Context *context);

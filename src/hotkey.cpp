@@ -53,6 +53,11 @@ namespace {
 		{nullptr}
 	};
 
+	const char *added_hotkeys_open_video[][3] = {
+		{"video/open", "Default", "Ctrl-Shift-O"},
+		{nullptr}
+	};
+
 #ifdef __WXMAC__
 	const char *added_hotkeys_minimize[][3] = {
 		{"app/minimize", "Default", "Ctrl-M"},
@@ -107,6 +112,11 @@ void init() {
 	if (boost::find(migrations, "video/playback/speed/hotkeys") == end(migrations)) {
 		migrate_hotkeys(added_hotkeys_playback_rate);
 		migrations.emplace_back("video/playback/speed/hotkeys");
+	}
+
+	if (boost::find(migrations, "video/open/hotkey") == end(migrations)) {
+		migrate_hotkeys(added_hotkeys_open_video);
+		migrations.emplace_back("video/open/hotkey");
 	}
 
 	if (boost::find(migrations, "duplicate -> split") == end(migrations)) {
