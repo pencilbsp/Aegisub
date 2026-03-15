@@ -40,39 +40,39 @@ jobs:
           #  os: windows-latest,
           #  msvc: false
           #}
-          - {
-            name: Ubuntu Debug,
-            os: ubuntu-latest,
-            buildtype: debugoptimized,
-            args: -Db_pch=false
-          }
+          # - {
+          #   name: Ubuntu Debug,
+          #   os: ubuntu-latest,
+          #   buildtype: debugoptimized,
+          #   args: -Db_pch=false
+          # }
           - {
             name: Ubuntu Release,
             os: ubuntu-latest,
             buildtype: release,
             args: -Db_pch=false
           }
-          - {
-            name: macOS x86_64 Debug,
-            os: macos-26-intel,
-            buildtype: debugoptimized,
-            args: -Ddefault_library=static -Dbuild_osx_bundle=true -Dlocal_boost=true --force-fallback-for=ffms2
-          }
+          # - {
+          #   name: macOS x86_64 Debug,
+          #   os: macos-15-intel,
+          #   buildtype: debugoptimized,
+          #   args: -Ddefault_library=static -Dbuild_osx_bundle=true -Dlocal_boost=true --force-fallback-for=ffms2
+          # }
           - {
             name: macOS x86_64 Release,
-            os: macos-26-intel,
+            os: macos-15-intel,
             buildtype: release,
             args: -Ddefault_library=static -Dbuild_osx_bundle=true -Dlocal_boost=true --force-fallback-for=ffms2
           }
-          - {
-            name: macOS arm64 Debug,
-            os: macos-26,
-            buildtype: debugoptimized,
-            args: -Ddefault_library=static -Dbuild_osx_bundle=true -Dlocal_boost=true --force-fallback-for=ffms2
-          }
+          # - {
+          #   name: macOS arm64 Debug,
+          #   os: macos-15,
+          #   buildtype: debugoptimized,
+          #   args: -Ddefault_library=static -Dbuild_osx_bundle=true -Dlocal_boost=true --force-fallback-for=ffms2
+          # }
           - {
             name: macOS arm64 Release,
-            os: macos-26,
+            os: macos-15,
             buildtype: release,
             args: -Ddefault_library=static -Dbuild_osx_bundle=true -Dlocal_boost=true --force-fallback-for=ffms2
           }
@@ -118,12 +118,6 @@ jobs:
       - name: Install dependencies (MacOS)
         if: startsWith(matrix.config.os, 'macos-')
         run: |
-          XCODE_APP="$(ls -1d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -n1)"
-          if [ -z "${XCODE_APP}" ]; then
-            XCODE_APP="/Applications/Xcode.app"
-          fi
-          sudo xcode-select -s "${XCODE_APP}"
-          xcodebuild -version
           export HOMEBREW_NO_INSTALL_CLEANUP=1
           export HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1
           # Skip brew update for now, see https://github.com/actions/setup-python/issues/577
