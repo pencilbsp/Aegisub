@@ -41,8 +41,11 @@
 
 #include <libaegisub/audio/provider.h>
 #include <libaegisub/log.h>
+#include <libaegisub/sonic.h>
 
+#include <algorithm>
 #include <cstdio>
+#include <vector>
 #include <pulse/pulseaudio.h>
 
 namespace {
@@ -170,6 +173,7 @@ public:
 
 class PulseAudioPlayer final : public AudioPlayer {
 	float volume = 1.f;
+	float playback_speed = 1.f;
 	bool is_playing = false;
 
 	unsigned long start_frame = 0;
@@ -186,6 +190,8 @@ class PulseAudioPlayer final : public AudioPlayer {
 	PAStream stream;
 
 	pa_usec_t play_start_time; // timestamp when playback was started
+	sonicStream sonic_stream = nullptr;
+	std::vector<short> provider_buf;
 
 	/// Called by PA to notify about other context-related stuff
 	static void PAContextNotifyCB(pa_context *c, pa_threaded_mainloop *mainloop);
@@ -209,6 +215,14 @@ public:
 	void SetEndPosition(int64_t pos);
 
 	void SetVolume(double vol) { volume = vol; }
+	void SetPlaybackSpeed(double speed) override {
+		if (speed <= 0)
+			return;
+		PAThreadedMainloopLock lock{mainloop.get()};
+		playback_speed = speed;
+		if (sonic_stream)
+			sonicSetSpeed(sonic_stream, playback_speed);
+	}
 };
 
 PulseAudioPlayer::PulseAudioPlayer(agi::AudioProvider *provider) : AudioPlayer(provider) {
@@ -288,6 +302,10 @@ PulseAudioPlayer::~PulseAudioPlayer()
 {
 	PAThreadedMainloopLock lock{mainloop.get()};
 	if (is_playing) Stop();
+	if (sonic_stream) {
+		sonicDestroyStream(sonic_stream);
+		sonic_stream = nullptr;
+	}
 }
 
 void PulseAudioPlayer::Play(int64_t start,int64_t count)
@@ -311,6 +329,12 @@ void PulseAudioPlayer::Play(int64_t start,int64_t count)
 	start_frame = start;
 	cur_frame = start;
 	end_frame = start + count;
+	if (sonic_stream)
+		sonicDestroyStream(sonic_stream);
+	sonic_stream = sonicCreateStream(provider->GetSampleRate(), provider->GetChannels());
+	if (sonic_stream)
+		sonicSetSpeed(sonic_stream, playback_speed);
+	provider_buf.clear();
 
 	is_playing = true;
 
@@ -352,6 +376,11 @@ void PulseAudioPlayer::Stop()
 		int paerror = context.get_errno();
 		LOG_E("audio/player/pulse") << "Error flushing stream: " << pa_strerror(paerror) << "(" << paerror << ")";
 	}
+
+	if (sonic_stream) {
+		sonicDestroyStream(sonic_stream);
+		sonic_stream = nullptr;
+	}
 }
 
 void PulseAudioPlayer::SetEndPosition(int64_t pos)
@@ -375,7 +404,7 @@ int64_t PulseAudioPlayer::GetCurrentPosition()
 		LOG_E("audio/player/pulse") << "Error getting stream time: " << pa_strerror(paerror) << "(" << paerror << ")";
 	pa_usec_t playtime = play_cur_time - play_start_time;
 
-	return start_frame + playtime * provider->GetSampleRate() / (1000*1000);
+	return start_frame + static_cast<int64_t>(playtime * provider->GetSampleRate() * playback_speed / (1000 * 1000));
 }
 
 /// @brief Called by PA to notify about other context-related stuff
@@ -396,30 +425,80 @@ void PulseAudioPlayer::PAStreamWriteCB(pa_stream *p, size_t length, PulseAudioPl
 {
 	if (!thread->is_playing) return;
 
-	if (thread->cur_frame >= thread->end_frame + thread->provider->GetSampleRate()) {
-		// More than a second past end of stream
-		thread->is_playing = false;
-		PAOperation op{pa_stream_drain(p, nullptr, nullptr)};
-		return;
+	if (!thread->sonic_stream) {
+		if (thread->cur_frame >= thread->end_frame + thread->provider->GetSampleRate()) {
+			// More than a second past end of stream
+			thread->is_playing = false;
+			PAOperation op{pa_stream_drain(p, nullptr, nullptr)};
+			return;
 
-	} else if (thread->cur_frame >= thread->end_frame) {
-		// Past end of stream, but not a full second, add some silence
-		void *buf = calloc(length, 1);
-		if (pa_stream_write(p, buf, length, free, 0, PA_SEEK_RELATIVE))
+		} else if (thread->cur_frame >= thread->end_frame) {
+			// Past end of stream, but not a full second, add some silence
+			void *buf = calloc(length, 1);
+			if (pa_stream_write(p, buf, length, free, 0, PA_SEEK_RELATIVE))
+				LOG_E("audio/player/pulse") << "Error writing to stream";
+			thread->cur_frame += length / thread->bpf;
+			return;
+		}
+
+		unsigned long bpf = thread->bpf;
+		unsigned long frames = length / thread->bpf;
+		unsigned long maxframes = thread->end_frame - thread->cur_frame;
+		if (frames > maxframes) frames = maxframes;
+		void *buf = malloc(frames * bpf);
+		thread->provider->GetAudioWithVolume(buf, thread->cur_frame, frames, thread->volume);
+		if (pa_stream_write(p, buf, frames*bpf, free, 0, PA_SEEK_RELATIVE))
 			LOG_E("audio/player/pulse") << "Error writing to stream";
-		thread->cur_frame += length / thread->bpf;
+		thread->cur_frame += frames;
 		return;
 	}
 
-	unsigned long bpf = thread->bpf;
-	unsigned long frames = length / thread->bpf;
-	unsigned long maxframes = thread->end_frame - thread->cur_frame;
-	if (frames > maxframes) frames = maxframes;
-	void *buf = malloc(frames * bpf);
-	thread->provider->GetAudioWithVolume(buf, thread->cur_frame, frames, thread->volume);
-	if (pa_stream_write(p, buf, frames*bpf, free, 0, PA_SEEK_RELATIVE))
+	unsigned long channels = thread->provider->GetChannels();
+	unsigned long out_frames_needed = length / thread->bpf;
+	void *buf = calloc(length, 1);
+	if (!buf) {
+		thread->is_playing = false;
+		return;
+	}
+	auto *out_ptr = static_cast<short *>(buf);
+	unsigned long out_frames_generated = 0;
+
+	while (out_frames_generated < out_frames_needed) {
+		int frames_read = sonicReadShortFromStream(
+			thread->sonic_stream,
+			out_ptr + out_frames_generated * channels,
+			static_cast<int>(std::min<unsigned long>(out_frames_needed - out_frames_generated, 2048)));
+		out_frames_generated += frames_read;
+
+		if (out_frames_generated >= out_frames_needed)
+			break;
+
+		if (thread->cur_frame >= thread->end_frame) {
+			sonicFlushStream(thread->sonic_stream);
+			frames_read = sonicReadShortFromStream(
+				thread->sonic_stream,
+				out_ptr + out_frames_generated * channels,
+				static_cast<int>(out_frames_needed - out_frames_generated));
+			out_frames_generated += frames_read;
+			break;
+		}
+
+		unsigned long fill_len = std::min<unsigned long>(2048, thread->end_frame - thread->cur_frame);
+		thread->provider_buf.resize(fill_len * channels);
+		thread->provider->GetAudioWithVolume(thread->provider_buf.data(), thread->cur_frame, fill_len, thread->volume);
+		sonicWriteShortToStream(thread->sonic_stream, thread->provider_buf.data(), static_cast<int>(fill_len));
+		thread->cur_frame += fill_len;
+	}
+
+	if (out_frames_generated == 0 && thread->cur_frame >= thread->end_frame) {
+		free(buf);
+		thread->is_playing = false;
+		PAOperation op{pa_stream_drain(p, nullptr, nullptr)};
+		return;
+	}
+
+	if (pa_stream_write(p, buf, length, free, 0, PA_SEEK_RELATIVE))
 		LOG_E("audio/player/pulse") << "Error writing to stream";
-	thread->cur_frame += frames;
 }
 
 /// @brief Called by PA to notify about other stuff

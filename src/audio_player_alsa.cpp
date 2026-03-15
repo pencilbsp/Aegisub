@@ -42,6 +42,7 @@
 
 #include <libaegisub/audio/provider.h>
 #include <libaegisub/log.h>
+#include <libaegisub/sonic.h>
 
 #include <atomic>
 #include <algorithm>
@@ -76,6 +77,7 @@ class AlsaPlayer final : public AudioPlayer {
 
 	std::atomic<bool> playing{false};
 	std::atomic<double> volume{1.0};
+	std::atomic<double> playback_speed{1.0};
 	int64_t start_position = 0;
 	std::atomic<int64_t> end_position{0};
 
@@ -89,13 +91,13 @@ class AlsaPlayer final : public AudioPlayer {
 
 	void PlaybackThread();
 
-	void UpdatePlaybackPosition(snd_pcm_t *pcm, int64_t position)
+	void UpdatePlaybackPosition(snd_pcm_t *pcm, int64_t output_position)
 	{
 		snd_pcm_sframes_t delay;
 		if (snd_pcm_delay(pcm, &delay) == 0)
 		{
-			std::unique_lock<std::mutex> playback_lock;
-			last_position = position - delay;
+			std::unique_lock<std::mutex> playback_lock(position_mutex);
+			last_position = start_position + (output_position - delay) * playback_speed.load();
 			last_position_time = clock::now();
 		}
 	}
@@ -109,6 +111,12 @@ public:
 	bool IsPlaying() override { return playing; }
 
 	void SetVolume(double vol) override { volume = vol; }
+	void SetPlaybackSpeed(double speed) override {
+		if (speed <= 0)
+			return;
+		playback_speed = speed;
+		cond.notify_all();
+	}
 	int64_t GetEndPosition() override { return end_position; }
 	int64_t GetCurrentPosition() override;
 	void SetEndPosition(int64_t pos) override;
@@ -151,6 +159,59 @@ do_setup:
 	LOG_D("audio/player/alsa") << "set pcm params";
 
 	size_t framesize = provider->GetChannels() * provider->GetBytesPerSample();
+	int channels = provider->GetChannels();
+	sonicStream sonic_stream = nullptr;
+	std::vector<short> provider_buffer;
+	BOOST_SCOPE_EXIT_ALL(&) {
+		if (sonic_stream)
+			sonicDestroyStream(sonic_stream);
+	};
+
+	auto fill_output = [&](int64_t &input_position, snd_pcm_sframes_t out_frames) {
+		decode_buffer.resize(out_frames * framesize);
+
+		if (!sonic_stream) {
+			int64_t cur_end = end_position.load();
+			snd_pcm_sframes_t frames = std::min<snd_pcm_sframes_t>(out_frames, std::max<int64_t>(0, cur_end - input_position));
+			if (frames > 0)
+				provider->GetAudioWithVolume(decode_buffer.data(), input_position, frames, volume);
+			input_position += frames;
+			return frames;
+		}
+
+		auto *out_ptr = reinterpret_cast<short *>(decode_buffer.data());
+		snd_pcm_sframes_t out_frames_generated = 0;
+		while (out_frames_generated < out_frames) {
+			sonicSetSpeed(sonic_stream, playback_speed.load());
+			int frames_read = sonicReadShortFromStream(
+				sonic_stream,
+				out_ptr + out_frames_generated * channels,
+				static_cast<int>(std::min<snd_pcm_sframes_t>(out_frames - out_frames_generated, 2048)));
+			out_frames_generated += frames_read;
+
+			if (out_frames_generated >= out_frames)
+				break;
+
+			int64_t cur_end = end_position.load();
+			if (input_position >= cur_end) {
+				sonicFlushStream(sonic_stream);
+				frames_read = sonicReadShortFromStream(
+					sonic_stream,
+					out_ptr + out_frames_generated * channels,
+					static_cast<int>(out_frames - out_frames_generated));
+				out_frames_generated += frames_read;
+				break;
+			}
+
+			int64_t fill_len = std::min<int64_t>(2048, cur_end - input_position);
+			provider_buffer.resize(fill_len * channels);
+			provider->GetAudioWithVolume(provider_buffer.data(), input_position, fill_len, volume);
+			sonicWriteShortToStream(sonic_stream, provider_buffer.data(), static_cast<int>(fill_len));
+			input_position += fill_len;
+		}
+
+		return out_frames_generated;
+	};
 
 	while (true)
 	{
@@ -168,18 +229,36 @@ do_setup:
 		message = Message::None;
 
 		LOG_D("audio/player/alsa") << "starting playback";
-		int64_t position = start_position;
+		if (sonic_stream)
+			sonicDestroyStream(sonic_stream);
+		sonic_stream = sonicCreateStream(provider->GetSampleRate(), provider->GetChannels());
+		if (sonic_stream)
+			sonicSetSpeed(sonic_stream, playback_speed.load());
+		provider_buffer.clear();
+
+		int64_t input_position = start_position;
+		int64_t output_position = 0;
 
 		// Initial buffer-fill
 		{
-			auto avail = std::min(snd_pcm_avail(pcm), (snd_pcm_sframes_t)(end_position-position));
-			decode_buffer.resize(avail * framesize);
-			provider->GetAudioWithVolume(decode_buffer.data(), position, avail, volume);
+			auto avail = snd_pcm_avail(pcm);
+			if (avail < 0) {
+				if (snd_pcm_recover(pcm, avail, 1) < 0) {
+					LOG_D("audio/player/alsa") << "failed to recover from initial underrun";
+					return;
+				}
+				avail = snd_pcm_avail(pcm);
+			}
+			if (avail <= 0)
+				avail = provider->GetSampleRate() / 25;
 
+			auto frames = fill_output(input_position, avail);
+			if (frames <= 0)
+				continue;
 			snd_pcm_sframes_t written = 0;
 			while (written <= 0)
 			{
-				written = snd_pcm_writei(pcm, decode_buffer.data(), avail);
+				written = snd_pcm_writei(pcm, decode_buffer.data(), frames);
 				if (written == -ESTRPIPE)
 					snd_pcm_recover(pcm, written, 0);
 				else if (written <= 0)
@@ -188,14 +267,14 @@ do_setup:
 					return;
 				}
 			}
-			position += written;
+			output_position += written;
 		}
 
 		// Start playback
 		LOG_D("audio/player/alsa") << "initial buffer filled, hitting start";
 		snd_pcm_start(pcm);
 
-		UpdatePlaybackPosition(pcm, position);
+		UpdatePlaybackPosition(pcm, output_position);
 		playing = true;
 		BOOST_SCOPE_EXIT_ALL(&) { playing = false; };
 		while (true)
@@ -228,17 +307,26 @@ do_setup:
 				}
 				tmp_pcm_avail = snd_pcm_avail(pcm);
 			}
-			auto avail = std::min(tmp_pcm_avail, (snd_pcm_sframes_t)(end_position-position));
+			auto avail = tmp_pcm_avail;
 			if (avail < 0)
+				continue;
+			if (avail == 0)
 				continue;
 
 			{
-				decode_buffer.resize(avail * framesize);
-				provider->GetAudioWithVolume(decode_buffer.data(), position, avail, volume);
+				auto frames = fill_output(input_position, avail);
+				if (frames <= 0) {
+					if (input_position >= end_position.load() && (!sonic_stream || sonicSamplesAvailable(sonic_stream) == 0)) {
+						LOG_D("audio/player/alsa") << "playback loop, past end, draining";
+						snd_pcm_drain(pcm);
+						break;
+					}
+					continue;
+				}
 				snd_pcm_sframes_t written = 0;
 				while (written <= 0)
 				{
-					written = snd_pcm_writei(pcm, decode_buffer.data(), avail);
+					written = snd_pcm_writei(pcm, decode_buffer.data(), frames);
 					if (written == -ESTRPIPE || written == -EPIPE)
 						snd_pcm_recover(pcm, written, 0);
 					else if (written == 0)
@@ -249,13 +337,13 @@ do_setup:
 						return;
 					}
 				}
-				position += written;
+				output_position += written;
 			}
 
-			UpdatePlaybackPosition(pcm, position);
+			UpdatePlaybackPosition(pcm, output_position);
 
 			// Check for end of playback
-			if (position >= end_position)
+			if (input_position >= end_position.load() && (!sonic_stream || sonicSamplesAvailable(sonic_stream) == 0))
 			{
 				LOG_D("audio/player/alsa") << "playback loop, past end, draining";
 				snd_pcm_drain(pcm);
@@ -336,13 +424,13 @@ int64_t AlsaPlayer::GetCurrentPosition()
 	clock::time_point lasttime;
 
 	{
-		std::unique_lock<std::mutex> playback_lock;
+		std::unique_lock<std::mutex> playback_lock(position_mutex);
 		lastpos = last_position;
 		lasttime = last_position_time;
 	}
 
 	auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(clock::now() - lasttime).count();
-	return lastpos + ms * provider->GetSampleRate() / 1000;
+	return lastpos + ms * provider->GetSampleRate() * playback_speed.load() / 1000;
 }
 }
 

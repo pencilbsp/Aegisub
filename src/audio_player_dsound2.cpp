@@ -43,10 +43,13 @@
 #include <libaegisub/audio/provider.h>
 #include <libaegisub/scoped_ptr.h>
 #include <libaegisub/log.h>
+#include <libaegisub/sonic.h>
 
 #include <mmsystem.h>
 #include <process.h>
 #include <dsound.h>
+#include <algorithm>
+#include <vector>
 
 namespace {
 class DirectSoundPlayer2Thread;
@@ -184,6 +187,7 @@ class DirectSoundPlayer2Thread {
 	/// @param bfr         DirectSound buffer object owning the buffer pair
 	/// @return Number of bytes written
 	DWORD FillAndUnlockBuffers(void *buf1, DWORD buf1sz, void *buf2, DWORD buf2sz, int64_t &input_frame, IDirectSoundBuffer8 *bfr);
+	DWORD FillSonicBuffer(void *buf, DWORD bufsz, int64_t &input_frame);
 
 	/// @brief Check for error state and throw exception if one occurred
 	void CheckError();
@@ -247,6 +251,10 @@ class DirectSoundPlayer2Thread {
 	/// Audio provider to take sample data from
 	agi::AudioProvider *provider;
 
+	/// Stream used for tempo-adjusted playback without pitch distortion
+	sonicStream sonic_stream = nullptr;
+	std::vector<short> provider_buf;
+
 public:
 	/// @brief Constructor, creates and starts playback thread
 	/// @param provider       Audio provider to take sample data from
@@ -307,6 +315,10 @@ unsigned int __stdcall DirectSoundPlayer2Thread::ThreadProc(void *parameter)
 #define REPORT_ERROR(msg) \
 { \
 	ResetEvent(is_playing); \
+	if (sonic_stream) { \
+		sonicDestroyStream(sonic_stream); \
+		sonic_stream = nullptr; \
+	} \
 	error_message = "DirectSoundPlayer2Thread: " msg; \
 	SetEvent(error_happened); \
 	return; \
@@ -397,6 +409,17 @@ void DirectSoundPlayer2Thread::Run()
 				bfr->Stop();
 
 				next_input_frame = start_frame;
+				if (sonic_stream)
+					sonicDestroyStream(sonic_stream);
+				sonic_stream = sonicCreateStream(waveFormat.nSamplesPerSec, waveFormat.nChannels);
+				if (sonic_stream) {
+					sonicSetSpeed(sonic_stream, playback_speed);
+					bfr->SetFrequency(waveFormat.nSamplesPerSec);
+				}
+				else {
+					bfr->SetFrequency(waveFormat.nSamplesPerSec * playback_speed);
+				}
+				provider_buf.clear();
 
 				DWORD buf_size; // size of buffer locked for filling
 				void *buf;
@@ -488,7 +511,9 @@ stop_playback:
 
 		case WAIT_OBJECT_0+5:
 			// Change playback speed
-			if (bfr)
+			if (sonic_stream)
+				sonicSetSpeed(sonic_stream, playback_speed);
+			else if (bfr)
 				bfr->SetFrequency(waveFormat.nSamplesPerSec * playback_speed);
 			goto do_fill_buffer;
 
@@ -589,9 +614,56 @@ do_fill_buffer:
 			break;
 		}
 	}
+
+	if (sonic_stream) {
+		sonicDestroyStream(sonic_stream);
+		sonic_stream = nullptr;
+	}
 }
 
 #undef REPORT_ERROR
+
+DWORD DirectSoundPlayer2Thread::FillSonicBuffer(void *buf, DWORD bufsz, int64_t &input_frame)
+{
+	const DWORD bytes_per_frame = provider->GetChannels() * provider->GetBytesPerSample();
+	const int channels = provider->GetChannels();
+	const DWORD out_frames_needed = bufsz / bytes_per_frame;
+	DWORD out_frames_generated = 0;
+	auto *out_ptr = static_cast<short *>(buf);
+
+	while (out_frames_generated < out_frames_needed) {
+		int frames_read = sonicReadShortFromStream(
+			sonic_stream,
+			out_ptr + out_frames_generated * channels,
+			static_cast<int>(std::min<DWORD>(out_frames_needed - out_frames_generated, 2048)));
+		out_frames_generated += frames_read;
+
+		if (out_frames_generated >= out_frames_needed)
+			break;
+
+		if (input_frame >= end_frame) {
+			sonicFlushStream(sonic_stream);
+			frames_read = sonicReadShortFromStream(
+				sonic_stream,
+				out_ptr + out_frames_generated * channels,
+				static_cast<int>(out_frames_needed - out_frames_generated));
+			out_frames_generated += frames_read;
+			break;
+		}
+
+		int64_t frames_to_read = std::min<int64_t>(2048, end_frame - input_frame);
+		provider_buf.resize(frames_to_read * channels);
+		provider->GetAudioWithVolume(provider_buf.data(), input_frame, frames_to_read, volume);
+		sonicWriteShortToStream(sonic_stream, provider_buf.data(), static_cast<int>(frames_to_read));
+		input_frame += frames_to_read;
+	}
+
+	DWORD fill_bytes = out_frames_generated * bytes_per_frame;
+	if (fill_bytes < bufsz)
+		memset(static_cast<char *>(buf) + fill_bytes, 0, bufsz - fill_bytes);
+
+	return fill_bytes;
+}
 
 DWORD DirectSoundPlayer2Thread::FillAndUnlockBuffers(void *buf1, DWORD buf1sz, void *buf2, DWORD buf2sz, int64_t &input_frame, IDirectSoundBuffer8 *bfr)
 {
@@ -600,6 +672,17 @@ DWORD DirectSoundPlayer2Thread::FillAndUnlockBuffers(void *buf1, DWORD buf1sz, v
 	DWORD bytes_per_frame = provider->GetChannels() * provider->GetBytesPerSample();
 	DWORD buf1szf = buf1sz / bytes_per_frame;
 	DWORD buf2szf = buf2sz / bytes_per_frame;
+
+	if (sonic_stream) {
+		DWORD bytes_filled = 0;
+		if (buf1 && buf1sz)
+			bytes_filled += FillSonicBuffer(buf1, buf1sz, input_frame);
+		if (buf2 && buf2sz)
+			bytes_filled += FillSonicBuffer(buf2, buf2sz, input_frame);
+
+		bfr->Unlock(buf1, buf1sz, buf2, buf2sz);
+		return bytes_filled;
+	}
 
 	if (input_frame >= end_frame)
 	{
