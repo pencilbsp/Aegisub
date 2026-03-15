@@ -65,6 +65,7 @@
 #include <libaegisub/path.h>
 #include <libaegisub/util.h>
 
+#include <boost/algorithm/string/case_conv.hpp>
 #include <boost/interprocess/streams/bufferstream.hpp>
 #include <wx/clipbrd.h>
 #include <wx/msgdlg.h>
@@ -477,6 +478,41 @@ void AegisubApp::OpenFiles(wxArrayStringsAdapter filenames) {
 	std::vector<agi::fs::path> files;
 	for (size_t i = 0; i < filenames.GetCount(); ++i)
 		files.push_back(from_wx(filenames[i]));
-	if (!files.empty())
-		frames[0]->context->project->LoadList(files);
+
+	if (files.empty()) return;
+
+	std::vector<agi::fs::path> subs, videos, audios, others;
+	for (auto file : files) {
+		auto ext = file.extension().string();
+		boost::to_lower(ext);
+		if (ext == ".ass" || ext == ".srt" || ext == ".ssa" || ext == ".sub" || ext == ".ttxt")
+			subs.push_back(file);
+		else if (ext == ".mkv" || ext == ".mp4" || ext == ".avi" || ext == ".mov" || ext == ".wmv" || ext == ".webm" || ext == ".y4m" || ext == ".yuv" || ext == ".ts" || ext == ".m2ts" || ext == ".mpeg" || ext == ".mpg")
+			videos.push_back(file);
+		else if (ext == ".wav" || ext == ".mp3" || ext == ".aac" || ext == ".m4a" || ext == ".flac" || ext == ".ac3" || ext == ".ogg" || ext == ".opus")
+			audios.push_back(file);
+		else
+			others.push_back(file);
+	}
+
+	size_t num_projects = subs.size();
+	if (videos.size() > num_projects) num_projects = videos.size();
+	if (audios.size() > num_projects) num_projects = audios.size();
+	if (num_projects == 0 && !others.empty()) num_projects = 1;
+
+	for (size_t i = 0; i < num_projects; ++i) {
+		std::vector<agi::fs::path> project_files;
+		if (i < subs.size()) project_files.push_back(subs[i]);
+		if (i < videos.size()) project_files.push_back(videos[i]);
+		if (i < audios.size()) project_files.push_back(audios[i]);
+		if (i == 0) project_files.insert(project_files.end(), others.begin(), others.end());
+
+		agi::Context *c;
+		if (i == 0 && !frames.empty()) {
+			c = frames[0]->context.get();
+		} else {
+			c = &NewProjectContext();
+		}
+		c->project->LoadList(project_files);
+	}
 }
