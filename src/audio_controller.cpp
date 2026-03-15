@@ -100,6 +100,8 @@ void AudioController::OnAudioPlayerChanged()
 	try
 	{
 		player = AudioPlayerFactory::GetAudioPlayer(provider, context->parent);
+		if (playback_speed != 1.0)
+			player->SetPlaybackSpeed(playback_speed);
 	}
 	catch (...)
 	{
@@ -212,6 +214,13 @@ void AudioController::SetVolume(double volume)
 {
 	if (!player) return;
 	player->SetVolume(volume);
+}
+
+void AudioController::SetPlaybackSpeed(double speed)
+{
+	playback_speed = speed;
+	if (player)
+		player->SetPlaybackSpeed(speed);
 }
 
 int64_t AudioController::SamplesFromMilliseconds(int64_t ms) const

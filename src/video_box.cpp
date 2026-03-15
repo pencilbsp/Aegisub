@@ -31,6 +31,7 @@
 
 #include "ass_dialogue.h"
 #include "ass_file.h"
+#include "audio_controller.h"
 #include "compat.h"
 #include "format.h"
 #include "include/aegisub/context.h"
@@ -43,6 +44,7 @@
 #include "video_slider.h"
 
 #include <boost/range/algorithm/binary_search.hpp>
+#include <wx/choice.h>
 #include <wx/combobox.h>
 #include <wx/sizer.h>
 #include <wx/statline.h>
@@ -69,6 +71,32 @@ VideoBox::VideoBox(wxWindow *parent, bool isDetached, agi::Context *context)
 		choices.Add(fmt_wx("%g%%", i * 12.5));
 	auto zoomBox = new wxComboBox(this, -1, "75%", wxDefaultPosition, wxDefaultSize, choices, wxCB_DROPDOWN | wxTE_PROCESS_ENTER);
 
+	// Playback speed selector
+	wxArrayString speedChoices;
+	speedChoices.Add("0.5");
+	speedChoices.Add("0.75");
+	speedChoices.Add("1");
+	speedChoices.Add("1.25");
+	speedChoices.Add("1.5");
+	speedChoices.Add("2");
+	auto speedBox = new wxComboBox(this, -1, "1", wxDefaultPosition, wxDefaultSize, speedChoices, wxCB_DROPDOWN | wxTE_PROCESS_ENTER);
+	speedBox->SetToolTip(_("Playback speed"));
+	auto applySpeed = [=](wxCommandEvent &) {
+		wxString text = speedBox->GetValue();
+		if (text.EndsWith("x") || text.EndsWith("X"))
+			text = text.Left(text.Length() - 1);
+		double speed = 1.0;
+		if (text.ToDouble(&speed)) {
+			speed = std::max(0.1, std::min(speed, 10.0));
+			context->videoController->SetPlaybackSpeed(speed);
+			speedBox->SetValue(fmt_wx("%g", speed));
+		} else {
+			speedBox->SetValue(fmt_wx("%g", context->videoController->GetPlaybackSpeed()));
+		}
+	};
+	speedBox->Bind(wxEVT_COMBOBOX, applySpeed);
+	speedBox->Bind(wxEVT_TEXT_ENTER, applySpeed);
+
 	auto visualToolBar = toolbar::GetToolbar(this, "visual_tools", context, "Video", true);
 	auto visualSubToolBar = new wxToolBar(this, -1, wxDefaultPosition, wxDefaultSize, wxTB_VERTICAL | wxTB_BOTTOM | wxTB_NODIVIDER | wxTB_FLAT);
 
@@ -88,6 +116,7 @@ VideoBox::VideoBox(wxWindow *parent, bool isDetached, agi::Context *context)
 	videoBottomSizer->Add(VideoPosition, wxSizerFlags(1).Center().Border(wxLEFT));
 	videoBottomSizer->Add(VideoSubsPos, wxSizerFlags(1).Center().Border(wxLEFT));
 	videoBottomSizer->Add(zoomBox, wxSizerFlags(0).Center().Border(wxLEFT | wxRIGHT));
+	videoBottomSizer->Add(speedBox, wxSizerFlags(0).Center().Border(wxRIGHT));
 
 	auto VideoSizer = new wxBoxSizer(wxVERTICAL);
 	VideoSizer->Add(topSizer, 1, wxEXPAND, 0);

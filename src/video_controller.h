@@ -97,6 +97,9 @@ class VideoController final : public wxEvtHandler {
 	/// Cached option for audio playing when frame stepping
 	const agi::OptionValue* playAudioOnStep;
 
+	/// Playback speed multiplier (1.0 = normal)
+	double playback_speed = 1.0;
+
 	std::vector<agi::signal::Connection> connections;
 
 	void OnPlayTimer(wxTimerEvent &event);
@@ -153,6 +156,11 @@ public:
 	void PlayLine();
 	/// Stop playing
 	void Stop();
+
+	/// Set playback speed multiplier (e.g. 0.5 = half speed, 2.0 = double speed)
+	void SetPlaybackSpeed(double speed);
+	/// Get the current playback speed multiplier
+	double GetPlaybackSpeed() const { return playback_speed; }
 
 	DEFINE_SIGNAL_ADDERS(Seek, AddSeekListener)
 	DEFINE_SIGNAL_ADDERS(ARChange, AddARChangeListener)

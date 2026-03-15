@@ -68,6 +68,7 @@ class OpenALPlayer final : public AudioPlayer, wxTimer {
 	bool playing = false; ///< Is audio currently playing?
 
 	float volume = 1.f; ///< Current audio volume
+	float playback_speed = 1.f; ///< Playback speed multiplier
 	ALsizei samplerate; ///< Sample rate of the audio
 	int bpf; ///< Bytes per frame
 
@@ -119,6 +120,13 @@ public:
 	void SetEndPosition(int64_t pos) override;
 
 	void SetVolume(double vol) override { volume = vol; }
+	void SetPlaybackSpeed(double speed) override {
+		playback_speed = speed;
+		if (context) {
+			alcMakeContextCurrent(context);
+			alSourcef(source, AL_PITCH, playback_speed);
+		}
+	}
 };
 
 OpenALPlayer::OpenALPlayer(agi::AudioProvider *provider)
@@ -207,6 +215,7 @@ void OpenALPlayer::Play(int64_t start, int64_t count)
 	FillBuffers(num_buffers);
 
 	// And go!
+	alSourcef(source, AL_PITCH, playback_speed);
 	alSourcePlay(source);
 	wxTimer::Start(100);
 	playback_segment_timer.Start();

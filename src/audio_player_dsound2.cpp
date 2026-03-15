@@ -108,6 +108,10 @@ public:
 	/// @brief Change playback volume
 	/// @param vol Amplification factor
 	void SetVolume(double vol);
+
+	/// @brief Change playback speed
+	/// @param speed Playback speed multiplier
+	void SetPlaybackSpeed(double speed);
 };
 
 /// @brief RAII support class to init and de-init the COM library
@@ -201,6 +205,9 @@ class DirectSoundPlayer2Thread {
 	/// Event object, world to thread, set if the volume was changed
 	Win32KernelHandle event_set_volume;
 
+	/// Event object, world to thread, set if the playback speed was changed
+	Win32KernelHandle event_set_speed;
+
 	/// Event object, world to thread, set if the thread should end as soon as possible
 	Win32KernelHandle event_kill_self;
 
@@ -218,6 +225,9 @@ class DirectSoundPlayer2Thread {
 
 	/// Playback volume, 1.0 is "unchanged"
 	double volume = 1.0;
+
+	/// Playback speed multiplier
+	double playback_speed = 1.0;
 
 	/// Audio frame to start playback at
 	int64_t start_frame = 0;
@@ -263,6 +273,10 @@ public:
 	/// @brief Change audio playback volume
 	/// @param new_volume New playback amplification factor, 1.0 is "unchanged"
 	void SetVolume(double new_volume);
+
+	/// @brief Change audio playback speed
+	/// @param new_speed New playback speed multiplier
+	void SetPlaybackSpeed(double new_speed);
 
 	/// @brief Tell whether audio playback is active
 	/// @return True if audio is being played back, false if it is not
@@ -331,7 +345,7 @@ void DirectSoundPlayer2Thread::Run()
 	DWORD bufSize = mid(min,aim,max); // size of entire playback buffer
 	DSBUFFERDESC desc;
 	desc.dwSize = sizeof(DSBUFFERDESC);
-	desc.dwFlags = DSBCAPS_GETCURRENTPOSITION2 | DSBCAPS_GLOBALFOCUS;
+	desc.dwFlags = DSBCAPS_GETCURRENTPOSITION2 | DSBCAPS_GLOBALFOCUS | DSBCAPS_CTRLFREQUENCY;
 	desc.dwBufferBytes = bufSize;
 	desc.dwReserved = 0;
 	desc.lpwfxFormat = &waveFormat;
@@ -361,7 +375,8 @@ void DirectSoundPlayer2Thread::Run()
 		event_stop_playback,
 		event_update_end_time,
 		event_set_volume,
-		event_kill_self
+		event_kill_self,
+		event_set_speed
 	};
 
 	int64_t next_input_frame = 0;
@@ -470,6 +485,12 @@ stop_playback:
 			// Perform suicide
 			running = false;
 			goto stop_playback;
+
+		case WAIT_OBJECT_0+5:
+			// Change playback speed
+			if (bfr)
+				bfr->SetFrequency(waveFormat.nSamplesPerSec * playback_speed);
+			goto do_fill_buffer;
 
 		case WAIT_TIMEOUT:
 do_fill_buffer:
@@ -664,6 +685,7 @@ DirectSoundPlayer2Thread::DirectSoundPlayer2Thread(agi::AudioProvider *provider,
 , event_stop_playback   (CreateEvent(0, FALSE, FALSE, 0))
 , event_update_end_time (CreateEvent(0, FALSE, FALSE, 0))
 , event_set_volume      (CreateEvent(0, FALSE, FALSE, 0))
+, event_set_speed       (CreateEvent(0, FALSE, FALSE, 0))
 , event_kill_self       (CreateEvent(0, FALSE, FALSE, 0))
 , thread_running        (CreateEvent(0,  TRUE, FALSE, 0))
 , is_playing            (CreateEvent(0,  TRUE, FALSE, 0))
@@ -747,6 +769,19 @@ void DirectSoundPlayer2Thread::SetVolume(double new_volume)
 	SetEvent(event_set_volume);
 }
 
+void DirectSoundPlayer2Thread::SetPlaybackSpeed(double new_speed)
+{
+	CheckError();
+
+	if (IsPlaying()) {
+		int64_t current_frame = GetCurrentFrame();
+		start_frame = current_frame;
+		last_playback_restart = GetTickCount();
+	}
+	playback_speed = new_speed;
+	SetEvent(event_set_speed);
+}
+
 bool DirectSoundPlayer2Thread::IsPlaying()
 {
 	CheckError();
@@ -776,7 +811,7 @@ int64_t DirectSoundPlayer2Thread::GetCurrentFrame()
 
 	int64_t milliseconds_elapsed = GetTickCount() - last_playback_restart;
 
-	return start_frame + milliseconds_elapsed * provider->GetSampleRate() / 1000;
+	return start_frame + milliseconds_elapsed * playback_speed * provider->GetSampleRate() / 1000;
 }
 
 int64_t DirectSoundPlayer2Thread::GetEndFrame()
@@ -919,6 +954,18 @@ void DirectSoundPlayer2::SetVolume(double vol)
 	try
 	{
 		if (IsThreadAlive()) thread->SetVolume(vol);
+	}
+	catch (const char *msg)
+	{
+		LOG_E("audio/player/dsound") << msg;
+	}
+}
+
+void DirectSoundPlayer2::SetPlaybackSpeed(double speed)
+{
+	try
+	{
+		if (IsThreadAlive()) thread->SetPlaybackSpeed(speed);
 	}
 	catch (const char *msg)
 	{

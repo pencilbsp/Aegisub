@@ -89,6 +89,9 @@ class AudioController final : public wxEvtHandler, private agi::signal::Connecti
 	agi::AudioProvider *provider = nullptr;
 	agi::signal::Connection provider_connection;
 
+	/// Playback speed multiplier (1.0 = normal)
+	double playback_speed = 1.0;
+
 	void OnAudioProvider(agi::AudioProvider *new_provider);
 
 	/// Event handler for the playback timer
@@ -177,6 +180,10 @@ public:
 	/// @brief Set the playback audio volume
 	/// @param volume The new amplification factor for the audio
 	void SetVolume(double volume);
+
+	/// @brief Set the playback speed
+	/// @param speed The playback speed multiplier (1.0 = normal)
+	void SetPlaybackSpeed(double speed);
 
 	/// @brief Return the current timing controller
 	/// @return The current timing controller or 0

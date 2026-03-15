@@ -177,7 +177,8 @@ void VideoController::Stop() {
 
 void VideoController::OnPlayTimer(wxTimerEvent &) {
 	using namespace std::chrono;
-	int next_frame = FrameAtTime(start_ms + duration_cast<milliseconds>(steady_clock::now() - playback_start_time).count());
+	int elapsed_ms = duration_cast<milliseconds>(steady_clock::now() - playback_start_time).count();
+	int next_frame = FrameAtTime(start_ms + (int)(elapsed_ms * playback_speed));
 	if (next_frame == frame_n) return;
 
 	if (next_frame >= end_frame)
@@ -187,6 +188,12 @@ void VideoController::OnPlayTimer(wxTimerEvent &) {
 		RequestFrame();
 		Seek(frame_n);
 	}
+}
+
+void VideoController::SetPlaybackSpeed(double speed) {
+	if (speed <= 0) return;
+	playback_speed = speed;
+	context->audioController->SetPlaybackSpeed(speed);
 }
 
 double VideoController::GetARFromType(AspectRatio type) const {
