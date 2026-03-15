@@ -213,6 +213,12 @@
 		"video/play" : [
 			"Ctrl-P"
 		],
+		"video/playback/speed/decrease" : [
+			"Ctrl-["
+		],
+		"video/playback/speed/increase" : [
+			"Ctrl-]"
+		],
 		"video/zoom/in" : [
 			"Ctrl-KP_Add"
 		],

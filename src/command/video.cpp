@@ -651,6 +651,40 @@ struct video_play_line final : public validator_video_loaded {
 	}
 };
 
+static void change_playback_speed(agi::Context *c, double delta) {
+	constexpr double min_speed = 0.1;
+	constexpr double max_speed = 10.0;
+	constexpr double speed_step = 0.25;
+
+	double speed = c->videoController->GetPlaybackSpeed() + delta * speed_step;
+	speed = mid(min_speed, speed, max_speed);
+
+	c->videoController->SetPlaybackSpeed(speed);
+	c->frame->StatusTimeout(fmt_tl("Playback speed: %gx", speed), 2000);
+}
+
+struct video_playback_speed_decrease final : public validator_video_loaded {
+	CMD_NAME("video/playback/speed/decrease")
+	STR_MENU("Decrease playback speed")
+	STR_DISP("Decrease playback speed")
+	STR_HELP("Decrease playback speed by 0.25x")
+
+	void operator()(agi::Context *c) override {
+		change_playback_speed(c, -1.0);
+	}
+};
+
+struct video_playback_speed_increase final : public validator_video_loaded {
+	CMD_NAME("video/playback/speed/increase")
+	STR_MENU("Increase playback speed")
+	STR_DISP("Increase playback speed")
+	STR_HELP("Increase playback speed by 0.25x")
+
+	void operator()(agi::Context *c) override {
+		change_playback_speed(c, 1.0);
+	}
+};
+
 struct video_show_overscan final : public validator_video_loaded {
 	CMD_NAME("video/show_overscan")
 	STR_MENU("Show &Overscan Mask")
@@ -806,6 +840,8 @@ namespace cmd {
 		reg(std::make_unique<video_opt_autoscroll>());
 		reg(std::make_unique<video_play>());
 		reg(std::make_unique<video_play_line>());
+		reg(std::make_unique<video_playback_speed_decrease>());
+		reg(std::make_unique<video_playback_speed_increase>());
 		reg(std::make_unique<video_show_overscan>());
 		reg(std::make_unique<video_reset_pan>());
 		reg(std::make_unique<video_stop>());

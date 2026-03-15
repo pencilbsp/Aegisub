@@ -47,6 +47,12 @@ namespace {
 		{nullptr}
 	};
 
+	const char *added_hotkeys_playback_rate[][3] = {
+		{"video/playback/speed/decrease", "Default", "Ctrl-["},
+		{"video/playback/speed/increase", "Default", "Ctrl-]"},
+		{nullptr}
+	};
+
 #ifdef __WXMAC__
 	const char *added_hotkeys_minimize[][3] = {
 		{"app/minimize", "Default", "Ctrl-M"},
@@ -96,6 +102,11 @@ void init() {
 	if (boost::find(migrations, "edit/line/duplicate/shift_back") == end(migrations)) {
 		migrate_hotkeys(added_hotkeys_shift_back);
 		migrations.emplace_back("edit/line/duplicate/shift_back");
+	}
+
+	if (boost::find(migrations, "video/playback/speed/hotkeys") == end(migrations)) {
+		migrate_hotkeys(added_hotkeys_playback_rate);
+		migrations.emplace_back("video/playback/speed/hotkeys");
 	}
 
 	if (boost::find(migrations, "duplicate -> split") == end(migrations)) {
