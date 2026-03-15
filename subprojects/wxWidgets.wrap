@@ -3,3 +3,4 @@ directory = wxWidgets
 url = https://github.com/wxWidgets/wxWidgets.git
 revision = 3.2
 clone-recursive = true
+patch_directory = wxWidgets
