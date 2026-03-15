@@ -50,6 +50,7 @@
 #include <wx/statline.h>
 #include <wx/textctrl.h>
 #include <wx/toolbar.h>
+#include <wx/valnum.h>
 
 VideoBox::VideoBox(wxWindow *parent, bool isDetached, agi::Context *context)
 : wxPanel(parent, -1)
@@ -80,6 +81,9 @@ VideoBox::VideoBox(wxWindow *parent, bool isDetached, agi::Context *context)
 	speedChoices.Add("1.5");
 	speedChoices.Add("2");
 	auto speedBox = new wxComboBox(this, -1, "1", wxDefaultPosition, wxDefaultSize, speedChoices, wxCB_DROPDOWN | wxTE_PROCESS_ENTER);
+	wxFloatingPointValidator<double> speedValidator(3);
+	speedValidator.SetRange(0.1, 10.0);
+	speedBox->SetValidator(speedValidator);
 	speedBox->SetToolTip(_("Playback speed"));
 	auto applySpeed = [=](wxCommandEvent &) {
 		wxString text = speedBox->GetValue();

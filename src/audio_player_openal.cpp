@@ -40,6 +40,7 @@
 
 #include <libaegisub/audio/provider.h>
 #include <libaegisub/log.h>
+#include <libaegisub/sonic.h>
 
 #ifdef __WINDOWS__
 #include <al.h>
@@ -97,6 +98,8 @@ class OpenALPlayer final : public AudioPlayer, wxTimer {
 
 	/// Buffer to decode audio into
 	std::vector<char> decode_buffer;
+	std::vector<short> provider_buf;
+	sonicStream sonic_stream = nullptr;
 
 	/// Fill count OpenAL buffers
 	void FillBuffers(ALsizei count);
@@ -122,9 +125,8 @@ public:
 	void SetVolume(double vol) override { volume = vol; }
 	void SetPlaybackSpeed(double speed) override {
 		playback_speed = speed;
-		if (context) {
-			alcMakeContextCurrent(context);
-			alSourcef(source, AL_PITCH, playback_speed);
+		if (sonic_stream) {
+			sonicSetSpeed(sonic_stream, playback_speed);
 		}
 	}
 };
@@ -145,6 +147,7 @@ OpenALPlayer::~OpenALPlayer()
 {
 	Stop();
 	alcCloseDevice(device);
+	if (sonic_stream) sonicDestroyStream(sonic_stream);
 }
 
 void OpenALPlayer::InitContext()
@@ -212,10 +215,14 @@ void OpenALPlayer::Play(int64_t start, int64_t count)
 	buffers_played = 0;
 	buf_first_free = 0;
 	buf_first_queued = 0;
+
+	if (sonic_stream) sonicDestroyStream(sonic_stream);
+	sonic_stream = sonicCreateStream(samplerate, provider->GetChannels());
+	if (sonic_stream) sonicSetSpeed(sonic_stream, playback_speed);
+
 	FillBuffers(num_buffers);
 
 	// And go!
-	alSourcef(source, AL_PITCH, playback_speed);
 	alSourcePlay(source);
 	wxTimer::Start(100);
 	playback_segment_timer.Start();
@@ -224,7 +231,13 @@ void OpenALPlayer::Play(int64_t start, int64_t count)
 void OpenALPlayer::Stop()
 {
 	TeardownContext();
-	if (!playing) return;
+	if (!playing) {
+		if (sonic_stream) {
+			sonicDestroyStream(sonic_stream);
+			sonic_stream = nullptr;
+		}
+		return;
+	}
 
 	// Reset data
 	wxTimer::Stop();
@@ -238,25 +251,55 @@ void OpenALPlayer::Stop()
 	alSourceStop(source);
 	alSourcei(source, AL_BUFFER, 0);
 	alcMakeContextCurrent(nullptr);
+
+	if (sonic_stream) {
+		sonicDestroyStream(sonic_stream);
+		sonic_stream = nullptr;
+	}
 }
 
 void OpenALPlayer::FillBuffers(ALsizei count)
 {
 	InitContext();
+	int channels = provider->GetChannels();
+	ALenum format = channels == 1 ? AL_FORMAT_MONO16 : AL_FORMAT_STEREO16;
+
 	// Do the actual filling/queueing
 	for (count = mid(1, count, buffers_free); count > 0; --count) {
-		ALsizei fill_len = mid<ALsizei>(0, decode_buffer.size() / bpf, end_frame - cur_frame);
+		ALsizei out_frames_needed = decode_buffer.size() / bpf;
+		ALsizei out_frames_generated = 0;
+		short *out_ptr = (short*)&decode_buffer[0];
 
-		if (fill_len > 0)
-			// Get fill_len frames of audio
-			provider->GetAudioWithVolume(&decode_buffer[0], cur_frame, fill_len, volume);
-		if ((size_t)fill_len * bpf < decode_buffer.size())
-			// And zerofill the rest
-			memset(&decode_buffer[fill_len * bpf], 0, decode_buffer.size() - fill_len * bpf);
+		while (out_frames_generated < out_frames_needed) {
+			int frames_read = 0;
+			if (sonic_stream) {
+				frames_read = sonicReadShortFromStream(sonic_stream, out_ptr + out_frames_generated * channels, out_frames_needed - out_frames_generated);
+			}
+			out_frames_generated += frames_read;
 
-		cur_frame += fill_len;
+			if (out_frames_generated >= out_frames_needed)
+				break;
 
-		alBufferData(buffers[buf_first_free], AL_FORMAT_MONO16, &decode_buffer[0], decode_buffer.size(), samplerate);
+			ALsizei frames_to_read = 2048;
+			if (cur_frame >= end_frame) {
+				if (sonic_stream) sonicFlushStream(sonic_stream);
+				frames_read = sonic_stream ? sonicReadShortFromStream(sonic_stream, out_ptr + out_frames_generated * channels, out_frames_needed - out_frames_generated) : 0;
+				out_frames_generated += frames_read;
+				break;
+			}
+
+			ALsizei fill_len = mid<ALsizei>(0, frames_to_read, end_frame - cur_frame);
+			provider_buf.resize(fill_len * channels);
+			provider->GetAudioWithVolume(&provider_buf[0], cur_frame, fill_len, volume);
+			if (sonic_stream) sonicWriteShortToStream(sonic_stream, &provider_buf[0], fill_len);
+			cur_frame += fill_len;
+		}
+
+		ALsizei fill_bytes = out_frames_generated * bpf;
+		if (fill_bytes < (ALsizei)decode_buffer.size())
+			memset(&decode_buffer[fill_bytes], 0, decode_buffer.size() - fill_bytes);
+
+		alBufferData(buffers[buf_first_free], format, &decode_buffer[0], decode_buffer.size(), samplerate);
 		alSourceQueueBuffers(source, 1, &buffers[buf_first_free]); // FIXME: collect buffer handles and queue all at once instead of one at a time?
 		buf_first_free = (buf_first_free + 1) % num_buffers;
 		--buffers_free;
@@ -292,7 +335,8 @@ void OpenALPlayer::Notify()
 
 	LOG_D("player/audio/openal") << "frames played=" << (buffers_played - num_buffers) * decode_buffer.size() / bpf << " num frames=" << end_frame - start_frame;
 	// Check that all of the selected audio plus one full set of buffers has been queued
-	if ((buffers_played - num_buffers) * (int64_t)decode_buffer.size() > (end_frame - start_frame) * bpf) {
+	int64_t played_frames = (buffers_played - num_buffers) * (int64_t)(decode_buffer.size() / bpf);
+	if (played_frames >= (end_frame - start_frame) / playback_speed) {
 		Stop();
 	}
 }
@@ -307,7 +351,8 @@ int64_t OpenALPlayer::GetCurrentPosition()
 	// FIXME: this should be based on not duration played but actual sample being heard
 	// (during video playback, cur_frame might get changed to resync)
 	long extra = playback_segment_timer.Time();
-	return buffers_played * decode_buffer.size() / bpf + start_frame + extra * samplerate / 1000;
+	int64_t out_frames = buffers_played * decode_buffer.size() / bpf + extra * samplerate / 1000;
+	return start_frame + out_frames * playback_speed;
 }
 }
 

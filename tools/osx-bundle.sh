@@ -103,7 +103,7 @@ mkdir -vp "${PKG_DIR}/Contents/Resources/en.lproj"
 
 echo
 echo "---- Fixing libraries ----"
-sudo python3 "${SRC_DIR}/tools/osx-fix-libs.py" "${PKG_DIR}/Contents/MacOS/aegisub" || exit $?
+python3 "${SRC_DIR}/tools/osx-fix-libs.py" "${PKG_DIR}/Contents/MacOS/aegisub" || exit $?
 
 echo
 echo "---- Signing ----"
