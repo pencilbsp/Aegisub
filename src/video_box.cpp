@@ -108,6 +108,7 @@ VideoBox::VideoBox(wxWindow *parent, bool isDetached, agi::Context *context)
 
 	// Playback speed selector
 	wxArrayString speedChoices;
+	speedChoices.Add("0.25x");
 	speedChoices.Add("0.5x");
 	speedChoices.Add("0.75x");
 	speedChoices.Add("1.0x");
@@ -121,7 +122,7 @@ VideoBox::VideoBox(wxWindow *parent, bool isDetached, agi::Context *context)
 		wxString text = TrimPlaybackSpeedSuffix(SpeedBox->GetValue());
 		double speed = 1.0;
 		if (text.ToDouble(&speed)) {
-			speed = std::max(0.1, std::min(speed, 10.0));
+			speed = std::max(VideoController::MinPlaybackSpeed, std::min(speed, VideoController::MaxPlaybackSpeed));
 			this->context->videoController->SetPlaybackSpeed(speed);
 			SpeedBox->SetValue(FormatPlaybackSpeed(speed, show_suffix));
 		} else {

@@ -116,6 +116,9 @@ class VideoController final : public wxEvtHandler {
 	void RequestFrame();
 
 public:
+	static constexpr double MinPlaybackSpeed = 0.25;
+	static constexpr double MaxPlaybackSpeed = 10.0;
+
 	VideoController(agi::Context *context);
 
 	/// Is the video currently playing?

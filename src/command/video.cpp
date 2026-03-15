@@ -652,12 +652,10 @@ struct video_play_line final : public validator_video_loaded {
 };
 
 static void change_playback_speed(agi::Context *c, double delta) {
-	constexpr double min_speed = 0.1;
-	constexpr double max_speed = 10.0;
 	constexpr double speed_step = 0.25;
 
 	double speed = c->videoController->GetPlaybackSpeed() + delta * speed_step;
-	speed = mid(min_speed, speed, max_speed);
+	speed = mid(VideoController::MinPlaybackSpeed, speed, VideoController::MaxPlaybackSpeed);
 
 	c->videoController->SetPlaybackSpeed(speed);
 	c->frame->StatusTimeout(fmt_tl("Playback speed: %gx", speed), 2000);

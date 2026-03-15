@@ -191,7 +191,7 @@ void VideoController::OnPlayTimer(wxTimerEvent &) {
 }
 
 void VideoController::SetPlaybackSpeed(double speed) {
-	if (speed <= 0) return;
+	speed = mid(MinPlaybackSpeed, speed, MaxPlaybackSpeed);
 	if (speed == playback_speed) return;
 
 	// Keep playback position continuous when speed changes mid-playback.
