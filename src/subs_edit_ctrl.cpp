@@ -48,6 +48,7 @@
 
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string/replace.hpp>
+#include <array>
 #include <functional>
 
 #include <wx/clipbrd.h>
@@ -80,6 +81,54 @@ enum {
 	EDIT_MENU_THES_LANGUAGE = EDIT_MENU_DIC_LANGUAGE + LANGS_MAX,
 	EDIT_MENU_THES_LANGS
 };
+
+namespace {
+struct ThemeColorOverride {
+	const char *option_name;
+	agi::Color light;
+	agi::Color dark;
+};
+
+bool IsDarkAppearanceActive() {
+	return wxSystemSettings::GetAppearance().IsDark();
+}
+
+wxColour ThemedSubtitleEditColor(std::string const& option_name) {
+	agi::Color color = OPT_GET(option_name)->GetColor();
+	if (!IsDarkAppearanceActive())
+		return to_wx(color);
+
+	// Keep the edit box background aligned with native text controls in dark mode.
+	if (option_name == "Colour/Subtitle/Background" && color == agi::Color{255, 255, 255})
+		return wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW);
+
+	static const std::array<ThemeColorOverride, 14> overrides = {{
+		{"Colour/Subtitle/Syntax/Brackets", {20, 50, 255}, {125, 165, 255}},
+		{"Colour/Subtitle/Syntax/Comment", {0, 0, 0}, {188, 194, 202}},
+		{"Colour/Subtitle/Syntax/Drawing Command", {0, 0, 0}, {188, 194, 202}},
+		{"Colour/Subtitle/Syntax/Drawing X", {90, 40, 40}, {227, 141, 141}},
+		{"Colour/Subtitle/Syntax/Drawing Y", {40, 90, 40}, {132, 201, 132}},
+		{"Colour/Subtitle/Syntax/Error", {200, 0, 0}, {255, 120, 120}},
+		{"Colour/Subtitle/Syntax/Karaoke Template", {128, 0, 192}, {211, 158, 255}},
+		{"Colour/Subtitle/Syntax/Karaoke Variable", {128, 0, 192}, {211, 158, 255}},
+		{"Colour/Subtitle/Syntax/Line Break", {160, 160, 160}, {139, 147, 155}},
+		{"Colour/Subtitle/Syntax/Normal", {0, 0, 0}, {224, 228, 233}},
+		{"Colour/Subtitle/Syntax/Parameters", {40, 90, 40}, {132, 201, 132}},
+		{"Colour/Subtitle/Syntax/Slashes", {255, 0, 200}, {255, 132, 227}},
+		{"Colour/Subtitle/Syntax/Tags", {90, 90, 90}, {181, 186, 192}},
+		{"Colour/Subtitle/Syntax/Background/Error", {255, 200, 200}, {96, 42, 42}},
+	}};
+
+	for (auto const& override : overrides) {
+		if (option_name == override.option_name && color == override.light) {
+			color = override.dark;
+			break;
+		}
+	}
+
+	return to_wx(color);
+}
+}
 
 SubsTextEditCtrl::SubsTextEditCtrl(wxWindow* parent, wxSize wsize, long style, agi::Context *context)
 : wxStyledTextCtrl(parent, -1, wxDefaultPosition, wsize, style)
@@ -154,6 +203,11 @@ SubsTextEditCtrl::SubsTextEditCtrl(wxWindow* parent, wxSize wsize, long style, a
 	BindConnection(OPT_SUB("Colour/Subtitle/Background", &SubsTextEditCtrl::SetStyles, this));
 	BindConnection(OPT_SUB("Subtitle/Highlight/Syntax", &SubsTextEditCtrl::UpdateStyle, this));
 	BindConnection(OPT_SUB("App/Call Tips", &SubsTextEditCtrl::UpdateCallTip, this));
+	Bind(wxEVT_SYS_COLOUR_CHANGED, [this](wxSysColourChangedEvent &event) {
+		SetStyles();
+		UpdateStyle();
+		event.Skip();
+	});
 
 	Bind(wxEVT_MENU, [this](wxCommandEvent&) {
 		if (spellchecker) spellchecker->AddWord(currentWord);
@@ -213,10 +267,10 @@ void SubsTextEditCtrl::OnKeyDown(wxKeyEvent &event) {
 void SubsTextEditCtrl::SetSyntaxStyle(int id, wxFont &font, std::string const& name, wxColor const& default_background) {
 	StyleSetFont(id, font);
 	StyleSetBold(id, OPT_GET("Colour/Subtitle/Syntax/Bold/" + name)->GetBool());
-	StyleSetForeground(id, to_wx(OPT_GET("Colour/Subtitle/Syntax/" + name)->GetColor()));
+	StyleSetForeground(id, ThemedSubtitleEditColor("Colour/Subtitle/Syntax/" + name));
 	const agi::OptionValue *background = OPT_GET("Colour/Subtitle/Syntax/Background/" + name);
 	if (background->GetType() == agi::OptionType::Color)
-		StyleSetBackground(id, to_wx(background->GetColor()));
+		StyleSetBackground(id, ThemedSubtitleEditColor("Colour/Subtitle/Syntax/Background/" + name));
 	else
 		StyleSetBackground(id, default_background);
 }
@@ -228,7 +282,11 @@ void SubsTextEditCtrl::SetStyles() {
 	if (!fontname.empty()) font.SetFaceName(fontname);
 	font.SetPointSize(OPT_GET("Subtitle/Edit Box/Font Size")->GetInt());
 
-	auto default_background = to_wx(OPT_GET("Colour/Subtitle/Background")->GetColor());
+	SetMargins(FromDIP(4), FromDIP(4));
+	SetExtraAscent(FromDIP(6));
+	SetExtraDescent(FromDIP(6));
+
+	auto default_background = ThemedSubtitleEditColor("Colour/Subtitle/Background");
 
 	namespace ss = agi::ass::SyntaxStyle;
 	SetSyntaxStyle(ss::NORMAL, font, "Normal", default_background);

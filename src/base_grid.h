@@ -43,6 +43,7 @@ namespace agi {
 class AssDialogue;
 class GridColumn;
 class WidthHelper;
+class wxSysColourChangedEvent;
 
 class BaseGrid final : public wxWindow {
 	std::vector<agi::signal::Connection> connections;
@@ -95,6 +96,7 @@ class BaseGrid final : public wxWindow {
 	std::unique_ptr<wxMenu> context_menu;
 
 	void OnDPIChanged(wxDPIChangedEvent &e);
+	void OnSystemColourChanged(wxSysColourChangedEvent &e);
 	void OnContextMenu(wxContextMenuEvent &evt);
 	void OnHighlightVisibleChange(agi::OptionValue const& opt);
 	void OnKeyDown(wxKeyEvent &event);
