@@ -21,9 +21,8 @@
 #include "compat.h"
 #include "include/aegisub/context.h"
 #include "options.h"
+#include "subtitle_character_count.h"
 #include "video_controller.h"
-
-#include <libaegisub/character_count.h>
 
 #include <wx/dc.h>
 
@@ -309,13 +308,10 @@ public:
 		if (duration <= 100 || text.size() > static_cast<size_t>(duration))
 			return -1;
 
-		int ignore = agi::IGNORE_BLOCKS;
-		if (ignore_whitespace->GetBool())
-			ignore |= agi::IGNORE_WHITESPACE;
-		if (ignore_punctuation->GetBool())
-			ignore |= agi::IGNORE_PUNCTUATION;
-
-		return agi::CharacterCount(text, ignore) * 1000 / duration;
+		return subtitle_character_count::TotalCharacters(
+			text,
+			ignore_whitespace->GetBool(),
+			ignore_punctuation->GetBool()) * 1000 / duration;
 	}
 
 	int Width(const agi::Context *, WidthHelper &helper) const override {
@@ -343,6 +339,35 @@ public:
 		x += (width + 2 - ext.GetWidth()) / 2;
 		dc.DrawText(str, x, y + 2);
 		dc.SetTextForeground(tc);
+	}
+};
+
+class GridColumnChars final : public GridColumn {
+	const agi::OptionValue *ignore_whitespace = OPT_GET("Subtitle/Character Counter/Ignore Whitespace");
+	const agi::OptionValue *ignore_punctuation = OPT_GET("Subtitle/Character Counter/Ignore Punctuation");
+
+	size_t CharacterCount(const AssDialogue *d) const {
+		return subtitle_character_count::LineLength(
+			d->Text.get(),
+			ignore_whitespace->GetBool(),
+			ignore_punctuation->GetBool());
+	}
+
+public:
+	COLUMN_HEADER(_("Chars"))
+	COLUMN_DESCRIPTION(_("Maximum characters per line"))
+	bool Centered() const override { return true; }
+	bool RefreshOnTextChange() const override { return true; }
+
+	wxString Value(const AssDialogue *d, const agi::Context *) const override {
+		return std::to_wstring(CharacterCount(d));
+	}
+
+	int Width(const agi::Context *c, WidthHelper &helper) const override {
+		size_t max_chars = 0;
+		for (AssDialogue const& line : c->ass->Events)
+			max_chars = std::max(max_chars, CharacterCount(&line));
+		return helper(std::to_wstring(max_chars));
 	}
 };
 
@@ -415,6 +440,7 @@ std::vector<std::unique_ptr<GridColumn>> GetGridColumns() {
 	ret.push_back(make<GridColumnStartTime>());
 	ret.push_back(make<GridColumnEndTime>());
 	ret.push_back(make<GridColumnCPS>());
+	ret.push_back(make<GridColumnChars>());
 	ret.push_back(make<GridColumnStyle>());
 	ret.push_back(make<GridColumnActor>());
 	ret.push_back(make<GridColumnEffect>());

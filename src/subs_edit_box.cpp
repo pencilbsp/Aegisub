@@ -48,12 +48,12 @@
 #include "placeholder_ctrl.h"
 #include "project.h"
 #include "selection_controller.h"
+#include "subtitle_character_count.h"
 #include "subs_edit_ctrl.h"
 #include "text_selection_controller.h"
 #include "timeedit_ctrl.h"
 #include "validators.h"
 
-#include <libaegisub/character_count.h>
 #include <libaegisub/util.h>
 
 #include <functional>
@@ -630,12 +630,10 @@ void SubsEditBox::CallCommand(const char *cmd_name) {
 }
 
 void SubsEditBox::UpdateCharacterCount(std::string const& text) {
-	int ignore = agi::IGNORE_BLOCKS;
-	if (OPT_GET("Subtitle/Character Counter/Ignore Whitespace")->GetBool())
-		ignore |= agi::IGNORE_WHITESPACE;
-	if (OPT_GET("Subtitle/Character Counter/Ignore Punctuation")->GetBool())
-		ignore |= agi::IGNORE_PUNCTUATION;
-	size_t length = agi::MaxLineLength(text, ignore);
+	size_t length = subtitle_character_count::LineLength(
+		text,
+		OPT_GET("Subtitle/Character Counter/Ignore Whitespace")->GetBool(),
+		OPT_GET("Subtitle/Character Counter/Ignore Punctuation")->GetBool());
 	char_count->SetValue(std::to_wstring(length));
 	size_t limit = (size_t)OPT_GET("Subtitle/Character Limit")->GetInt();
 	if (limit && length > limit)
