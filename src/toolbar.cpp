@@ -170,12 +170,8 @@ namespace {
 		, name(std::move(name))
 		, context(c)
 		, ht_context(std::move(ht_context))
-#ifndef __WXMAC__
 		, icon_size(OPT_GET("App/Toolbar Icon Size")->GetInt())
 		, icon_size_slot(OPT_SUB("App/Toolbar Icon Size", &Toolbar::OnIconSizeChange, this))
-#else
-		, icon_size(32)
-#endif
 		, hotkeys_changed_slot(hotkey::inst->AddHotkeyChangeListener(&Toolbar::RegenerateToolbar, this))
 		{
 			parent->SetToolBar(this);

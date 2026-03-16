@@ -638,8 +638,8 @@ struct edit_line_copy final : public validate_sel_nonempty {
 
 struct edit_line_copy_plain final : public validate_sel_multiple {
 	CMD_NAME("edit/line/copy/plain")
-	STR_MENU("Copy Selected Lines Plain Text")
-	STR_DISP("Copy Selected Lines Plain Text")
+	STR_MENU("Copy selected Lines plain text")
+	STR_DISP("Copy selected Lines plain text")
 	STR_HELP("Copy plain text from selected subtitles to the clipboard")
 
 	void operator()(agi::Context *c) override {

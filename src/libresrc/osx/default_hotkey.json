@@ -25,6 +25,9 @@
             "Ctrl-:",
             "Ctrl-;"
         ],
+        "video/ocr/selected_lines" : [
+            "Ctrl-Shift-R"
+        ],
         "video/jump" : [
             "Ctrl-J"
         ]

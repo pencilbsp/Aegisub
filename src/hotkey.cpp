@@ -58,9 +58,19 @@ namespace {
 		{nullptr}
 	};
 
+	const char *added_hotkeys_copy_plain[][3] = {
+		{"edit/line/copy/plain", "Default", "Ctrl-Shift-T"},
+		{nullptr}
+	};
+
 #ifdef __WXMAC__
 	const char *added_hotkeys_minimize[][3] = {
 		{"app/minimize", "Default", "Ctrl-M"},
+		{nullptr}
+	};
+
+	const char *added_hotkeys_ocr_selected_lines[][3] = {
+		{"video/ocr/selected_lines", "Default", "Ctrl-Shift-R"},
 		{nullptr}
 	};
 #endif
@@ -119,6 +129,11 @@ void init() {
 		migrations.emplace_back("video/open/hotkey");
 	}
 
+	if (boost::find(migrations, "edit/line/copy/plain/hotkey") == end(migrations)) {
+		migrate_hotkeys(added_hotkeys_copy_plain);
+		migrations.emplace_back("edit/line/copy/plain/hotkey");
+	}
+
 	if (boost::find(migrations, "duplicate -> split") == end(migrations)) {
 		auto hk_map = hotkey::inst->GetHotkeyMap();
 		for (auto const& hotkey : boost::make_iterator_range(hk_map.equal_range("edit/line/duplicate/shift"))) {
@@ -141,6 +156,11 @@ void init() {
 	if (boost::find(migrations, "app/minimize") == end(migrations)) {
 		migrate_hotkeys(added_hotkeys_minimize);
 		migrations.emplace_back("app/minimize");
+	}
+
+	if (boost::find(migrations, "video/ocr/selected_lines/hotkey") == end(migrations)) {
+		migrate_hotkeys(added_hotkeys_ocr_selected_lines);
+		migrations.emplace_back("video/ocr/selected_lines/hotkey");
 	}
 #endif
 

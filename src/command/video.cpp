@@ -505,7 +505,7 @@ struct video_frame_ocr final : public validator_video_loaded {
 
 struct video_ocr_selected_lines final : public validator_video_loaded {
 	CMD_NAME("video/ocr/selected_lines")
-	STR_MENU("OCR selected Lines...")
+	STR_MENU("OCR selected Lines")
 	STR_DISP("OCR selected Lines")
 	STR_HELP("Recognize text for each selected subtitle line using configurable OCR options")
 	CMD_TYPE(COMMAND_VALIDATE)

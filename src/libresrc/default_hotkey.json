@@ -119,6 +119,9 @@
 		"edit/line/copy" : [
 			"Ctrl-C"
 		],
+		"edit/line/copy/plain" : [
+			"Ctrl-Shift-T"
+		],
 		"edit/line/cut" : [
 			"Ctrl-X"
 		],
