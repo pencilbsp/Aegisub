@@ -27,6 +27,10 @@
 #include "../visual_tool_rotatez.h"
 #include "../visual_tool_scale.h"
 #include "../visual_tool_vector_clip.h"
+#ifdef __APPLE__
+#include "../visual_tool_ocr.h"
+#endif
+#include "../video_controller.h"
 
 
 namespace {
@@ -123,6 +127,20 @@ namespace {
 		STR_HELP("Clip subtitles to a vectorial area")
 	};
 
+#ifdef __APPLE__
+	struct visual_mode_ocr final : public visual_tool_command<VisualToolOCR> {
+		CMD_NAME("video/tool/ocr")
+		CMD_ICON(ocr_button)
+		STR_MENU("OCR Regions")
+		STR_DISP("OCR Regions")
+		STR_HELP("Select and copy text regions detected in the current frame")
+
+		bool Validate(const agi::Context *c) override {
+			return visual_tool_command<VisualToolOCR>::Validate(c) && !c->videoController->IsPlaying();
+		}
+	};
+#endif
+
 	// Vector clip tools
 
 	struct visual_mode_vclip_drag final : public visual_tool_vclip_command<VCLIP_DRAG> {
@@ -193,6 +211,9 @@ namespace cmd {
 		reg(std::make_unique<visual_mode_scale>());
 		reg(std::make_unique<visual_mode_clip>());
 		reg(std::make_unique<visual_mode_vector_clip>());
+#ifdef __APPLE__
+		reg(std::make_unique<visual_mode_ocr>());
+#endif
 
 		reg(std::make_unique<visual_mode_vclip_drag>());
 		reg(std::make_unique<visual_mode_vclip_line>());

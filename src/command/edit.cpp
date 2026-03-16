@@ -556,6 +556,19 @@ static void copy_lines(agi::Context *c) {
 		"\r\n"));
 }
 
+static std::string plain_text_line(AssDialogue *line) {
+	std::string text = line->GetStrippedText();
+	boost::replace_all(text, "\\h", " ");
+	boost::ireplace_all(text, "\\n", "\n");
+	return text;
+}
+
+static void copy_lines_plain_text(agi::Context *c) {
+	SetClipboard(join(c->selectionController->GetSortedSelection()
+		| transformed(static_cast<std::string(*)(AssDialogue*)>(plain_text_line)),
+		"\r\n"));
+}
+
 static void delete_lines(agi::Context *c, wxString const& commit_message) {
 	auto const& sel = c->selectionController->GetSelectedSet();
 
@@ -620,6 +633,17 @@ struct edit_line_copy final : public validate_sel_nonempty {
 		else {
 			copy_lines(c);
 		}
+	}
+};
+
+struct edit_line_copy_plain final : public validate_sel_multiple {
+	CMD_NAME("edit/line/copy/plain")
+	STR_MENU("Copy Selected Lines Plain Text")
+	STR_DISP("Copy Selected Lines Plain Text")
+	STR_HELP("Copy plain text from selected subtitles to the clipboard")
+
+	void operator()(agi::Context *c) override {
+		copy_lines_plain_text(c);
 	}
 };
 
@@ -1277,6 +1301,7 @@ namespace cmd {
 		reg(std::make_unique<edit_font>());
 		reg(std::make_unique<edit_find_replace>());
 		reg(std::make_unique<edit_line_copy>());
+		reg(std::make_unique<edit_line_copy_plain>());
 		reg(std::make_unique<edit_line_cut>());
 		reg(std::make_unique<edit_line_delete>());
 		reg(std::make_unique<edit_line_duplicate>());

@@ -23,18 +23,21 @@ resrc = [
 conf_platform = ''
 hotkey_platform = ''
 menu_platform = 'default_menu_platform.json'
+toolbar_platform = ''
 if host_machine.system() == 'windows'
     conf_platform = 'win/default_config.json'
 elif host_machine.system() == 'darwin'
     conf_platform = 'osx/default_config.json'
     hotkey_platform = 'osx/default_hotkey.json'
     menu_platform = 'osx/default_menu.json'
+    toolbar_platform = 'osx/default_toolbar.json'
 endif
 
 config_resources = [
     ['default_config.json', conf_platform],
     ['default_hotkey.json', hotkey_platform],
     ['default_menu.json', menu_platform],
+    ['default_toolbar.json', toolbar_platform],
 ]
 
 merged_resources = {}
@@ -91,6 +94,7 @@ resmanifest = configure_file(input: resmanifest_base,
                                  'DEFAULT_CONFIG_PATH': merged_resources['default_config'][1],
                                  'DEFAULT_HOTKEY_PATH': merged_resources['default_hotkey'][1],
                                  'DEFAULT_MENU_PATH': merged_resources['default_menu'][1],
+                                 'DEFAULT_TOOLBAR_PATH': merged_resources['default_toolbar'][1],
                              })
 
 resrc += custom_target('default_config.{cpp,h}',

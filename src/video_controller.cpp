@@ -147,6 +147,7 @@ void VideoController::Play() {
 
 	playback_start_time = std::chrono::steady_clock::now();
 	playback.Start(10);
+	PlaybackStateChange(true);
 }
 
 void VideoController::PlayLine() {
@@ -166,12 +167,14 @@ void VideoController::PlayLine() {
 
 	playback_start_time = std::chrono::steady_clock::now();
 	playback.Start(10);
+	PlaybackStateChange(true);
 }
 
 void VideoController::Stop() {
 	if (IsPlaying()) {
 		playback.Stop();
 		context->audioController->Stop();
+		PlaybackStateChange(false);
 	}
 }
 

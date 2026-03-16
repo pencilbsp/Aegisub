@@ -31,6 +31,7 @@
 
 #include "command.h"
 
+#include "../ass_file.h"
 #include "../ass_dialogue.h"
 #include "../async_video_provider.h"
 #include "../compat.h"
@@ -49,15 +50,28 @@
 #include "../video_controller.h"
 #include "../video_display.h"
 #include "../video_frame.h"
+#ifdef __APPLE__
+#include "../osx/video_ocr.h"
+#endif
 
 #include <libaegisub/ass/time.h>
 #include <libaegisub/fs.h>
 #include <libaegisub/path.h>
 #include <libaegisub/util.h>
 
+#include <algorithm>
+#include <chrono>
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/split.hpp>
+#include <future>
+#include <thread>
+#include <wx/app.h>
+#include <wx/choice.h>
+#include <wx/dialog.h>
 #include <wx/msgdlg.h>
+#include <wx/progdlg.h>
+#include <wx/sizer.h>
+#include <wx/stattext.h>
 #include <wx/textdlg.h>
 
 namespace {
@@ -294,6 +308,130 @@ wxImage get_image(agi::Context *c, bool raw, bool subsonly = false) {
 	}
 }
 
+#ifdef __APPLE__
+enum class OcrLineFrameMode {
+	First,
+	Middle,
+	Last
+};
+
+enum class OcrLineInsertMode {
+	InsertBefore,
+	InsertAfter,
+	Replace
+};
+
+class OcrSelectedLinesDialog final : public wxDialog {
+	wxChoice *frame_mode;
+	wxChoice *insert_mode;
+	wxChoice *language_mode;
+	std::vector<std::string> supported_languages;
+
+public:
+	OcrSelectedLinesDialog(wxWindow *parent, std::vector<std::string> languages)
+	: wxDialog(parent, wxID_ANY, _("OCR selected Lines"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER)
+	, supported_languages(std::move(languages))
+	{
+		auto *main_sizer = new wxBoxSizer(wxVERTICAL);
+		auto *grid = new wxFlexGridSizer(2, 6, 8);
+		grid->AddGrowableCol(1, 1);
+
+		grid->Add(new wxStaticText(this, wxID_ANY, _("OCR frame:")), 0, wxALIGN_CENTER_VERTICAL);
+		frame_mode = new wxChoice(this, wxID_ANY);
+		frame_mode->Append(_("First frame of each line"));
+		frame_mode->Append(_("Middle frame of each line"));
+		frame_mode->Append(_("Last frame of each line"));
+		frame_mode->SetSelection(1);
+		grid->Add(frame_mode, 1, wxEXPAND);
+
+		grid->Add(new wxStaticText(this, wxID_ANY, _("Insert mode:")), 0, wxALIGN_CENTER_VERTICAL);
+		insert_mode = new wxChoice(this, wxID_ANY);
+		insert_mode->Append(_("Insert before"));
+		insert_mode->Append(_("Insert after"));
+		insert_mode->Append(_("Replace line text"));
+		insert_mode->SetSelection(2);
+		grid->Add(insert_mode, 1, wxEXPAND);
+
+		grid->Add(new wxStaticText(this, wxID_ANY, _("Language:")), 0, wxALIGN_CENTER_VERTICAL);
+		language_mode = new wxChoice(this, wxID_ANY);
+		language_mode->Append(_("Auto"));
+		for (auto const& language : supported_languages)
+			language_mode->Append(to_wx(language));
+		language_mode->SetSelection(0);
+		grid->Add(language_mode, 1, wxEXPAND);
+
+		main_sizer->Add(grid, 1, wxEXPAND | wxALL, 10);
+		main_sizer->Add(CreateStdDialogButtonSizer(wxOK | wxCANCEL), 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
+
+		SetSizerAndFit(main_sizer);
+		CentreOnParent();
+	}
+
+	OcrLineFrameMode GetFrameMode() const {
+		switch (frame_mode->GetSelection()) {
+			case 0: return OcrLineFrameMode::First;
+			case 2: return OcrLineFrameMode::Last;
+			default: return OcrLineFrameMode::Middle;
+		}
+	}
+
+	OcrLineInsertMode GetInsertMode() const {
+		switch (insert_mode->GetSelection()) {
+			case 0: return OcrLineInsertMode::InsertBefore;
+			case 1: return OcrLineInsertMode::InsertAfter;
+			default: return OcrLineInsertMode::Replace;
+		}
+	}
+
+	bool IsAutoLanguage() const {
+		return language_mode->GetSelection() <= 0;
+	}
+
+	std::string GetLanguageCode() const {
+		int const selection = language_mode->GetSelection();
+		if (selection <= 0)
+			return {};
+
+		size_t const language_index = static_cast<size_t>(selection - 1);
+		if (language_index >= supported_languages.size())
+			return {};
+
+		return supported_languages[language_index];
+	}
+};
+
+int frame_for_line(agi::Context *c, AssDialogue const* line, OcrLineFrameMode mode) {
+	int start_frame = c->videoController->FrameAtTime(line->Start, agi::vfr::START);
+	int end_frame = c->videoController->FrameAtTime(line->End, agi::vfr::END);
+	if (start_frame > end_frame)
+		std::swap(start_frame, end_frame);
+
+	switch (mode) {
+		case OcrLineFrameMode::First:
+			return start_frame;
+		case OcrLineFrameMode::Last:
+			return end_frame;
+		case OcrLineFrameMode::Middle:
+		default:
+			return start_frame + (end_frame - start_frame) / 2;
+	}
+}
+
+std::string merge_ocr_text(std::string const& existing_text, std::string const& ocr_text, OcrLineInsertMode mode) {
+	bool const has_existing_text = !existing_text.empty();
+
+	switch (mode) {
+		case OcrLineInsertMode::InsertBefore:
+			return has_existing_text ? ocr_text + "\\N" + existing_text : ocr_text;
+		case OcrLineInsertMode::InsertAfter:
+			return has_existing_text ? existing_text + "\\N" + ocr_text : ocr_text;
+		case OcrLineInsertMode::Replace:
+		default:
+			return ocr_text;
+	}
+}
+#endif
+
 struct video_frame_copy final : public validator_video_loaded {
 	CMD_NAME("video/frame/copy")
 	STR_MENU("Copy image to Clipboard")
@@ -326,6 +464,180 @@ struct video_frame_copy_subs final : public validator_video_loaded {
 		SetClipboard(wxBitmap(get_image(c, false, true), 32));
 	}
 };
+
+#ifdef __APPLE__
+struct video_frame_ocr final : public validator_video_loaded {
+	CMD_NAME("video/frame/ocr")
+	CMD_ICON(ocr_button)
+	STR_MENU("OCR Current Frame")
+	STR_DISP("OCR Current Frame")
+	STR_HELP("Recognize text from the current frame and put it in the active subtitle line")
+	CMD_TYPE(COMMAND_VALIDATE)
+
+	bool Validate(const agi::Context *c) override {
+		return validator_video_loaded::Validate(c) && !c->videoController->IsPlaying();
+	}
+
+	void operator()(agi::Context *c) override {
+		auto result = osx::ocr::RecognizeText(get_image(c, true));
+		if (!result.error.empty()) {
+			wxLogError(fmt_tl("OCR failed: %s", result.error));
+			return;
+		}
+
+		if (result.text.empty()) {
+			c->frame->StatusTimeout(_("No text detected in the current frame."), 5000);
+			return;
+		}
+
+		SetClipboard(result.text);
+
+		if (auto *line = c->selectionController->GetActiveLine()) {
+			line->Text = result.text;
+			c->ass->Commit(_("ocr frame"), AssFile::COMMIT_DIAG_TEXT, -1, line);
+			c->frame->StatusTimeout(_("OCR inserted into the active line and copied to clipboard."), 5000);
+		}
+		else {
+			c->frame->StatusTimeout(_("OCR result copied to clipboard."), 5000);
+		}
+	}
+};
+
+struct video_ocr_selected_lines final : public validator_video_loaded {
+	CMD_NAME("video/ocr/selected_lines")
+	STR_MENU("OCR selected Lines...")
+	STR_DISP("OCR selected Lines")
+	STR_HELP("Recognize text for each selected subtitle line using configurable OCR options")
+	CMD_TYPE(COMMAND_VALIDATE)
+
+	bool Validate(const agi::Context *c) override {
+		return validator_video_loaded::Validate(c)
+		    && c->selectionController->GetSelectedSet().size() > 1
+		    && !c->videoController->IsPlaying();
+	}
+
+	void operator()(agi::Context *c) override {
+		auto *provider = c->project->VideoProvider();
+		if (!provider)
+			return;
+
+		auto selected_lines = c->selectionController->GetSortedSelection();
+		if (selected_lines.size() <= 1)
+			return;
+
+		OcrSelectedLinesDialog dialog(c->parent, osx::ocr::SupportedRecognitionLanguages());
+		if (dialog.ShowModal() != wxID_OK)
+			return;
+
+		osx::ocr::Options ocr_options;
+		ocr_options.auto_detect_language = dialog.IsAutoLanguage();
+		if (!ocr_options.auto_detect_language) {
+			auto language_code = dialog.GetLanguageCode();
+			if (!language_code.empty())
+				ocr_options.recognition_languages.push_back(std::move(language_code));
+		}
+
+		int const frame_count = provider->GetFrameCount();
+		if (frame_count <= 0)
+			return;
+
+		int changed = 0;
+		int empty = 0;
+		int failed = 0;
+		int commit_id = -1;
+		size_t line_index = 0;
+		bool cancelled = false;
+		int const total_lines = static_cast<int>(selected_lines.size());
+		wxProgressDialog progress_dialog(
+			_("OCR selected Lines"),
+			fmt_tl("OCR 0/%d...", total_lines),
+			total_lines,
+			c->parent,
+			wxPD_APP_MODAL | wxPD_CAN_ABORT | wxPD_AUTO_HIDE);
+
+		for (auto *line : selected_lines) {
+			++line_index;
+			if (!line)
+				continue;
+
+			int const progress_step = static_cast<int>(line_index - 1);
+			wxString const progress_label = fmt_tl("Processing line %d/%d...", static_cast<int>(line_index), total_lines);
+			if (!progress_dialog.Update(progress_step, progress_label)) {
+				cancelled = true;
+				break;
+			}
+
+			int frame = frame_for_line(c, line, dialog.GetFrameMode());
+			frame = std::clamp(frame, 0, frame_count - 1);
+			if (c->videoController->GetFrameN() != frame) {
+				c->videoController->JumpToFrame(frame);
+				if (wxTheApp)
+					wxTheApp->ProcessPendingEvents();
+			}
+
+			int const frame_time = c->project->Timecodes().TimeAtFrame(frame, agi::vfr::START);
+			wxImage image = GetImage(*provider->GetFrame(frame, frame_time, true));
+
+			auto task = std::async(std::launch::async, [image = std::move(image), ocr_options]() mutable {
+				return osx::ocr::RecognizeText(image, ocr_options);
+			});
+			bool cancel_after_current_line = false;
+			while (task.wait_for(std::chrono::milliseconds(1)) != std::future_status::ready) {
+				if (!progress_dialog.Update(progress_step, progress_label))
+					cancel_after_current_line = true;
+				if (wxTheApp)
+					wxTheApp->ProcessPendingEvents();
+				std::this_thread::sleep_for(std::chrono::milliseconds(1));
+			}
+			auto result = task.get();
+			if (!result.error.empty()) {
+				++failed;
+				if (cancel_after_current_line) {
+					cancelled = true;
+					break;
+				}
+				continue;
+			}
+
+			if (result.text.empty()) {
+				++empty;
+				if (cancel_after_current_line) {
+					cancelled = true;
+					break;
+				}
+				continue;
+			}
+
+			line->Text = merge_ocr_text(line->Text.get(), result.text, dialog.GetInsertMode());
+			++changed;
+			commit_id = c->ass->Commit(_("ocr selected lines"), AssFile::COMMIT_DIAG_TEXT, commit_id, line);
+			if (wxTheApp)
+				wxTheApp->ProcessPendingEvents();
+
+			c->frame->StatusTimeout(fmt_tl("OCR %d/%d...", static_cast<int>(line_index), static_cast<int>(selected_lines.size())), 1000);
+			if (!progress_dialog.Update(static_cast<int>(line_index), progress_label))
+				cancel_after_current_line = true;
+			if (cancel_after_current_line) {
+				cancelled = true;
+				break;
+			}
+		}
+
+		if (cancelled) {
+			c->frame->StatusTimeout(fmt_tl("OCR cancelled. Updated %d lines (%d empty, %d failed).", changed, empty, failed), 7000);
+		}
+		else if (changed == 0 && empty == 0 && failed == 0) {
+			c->frame->StatusTimeout(_("No lines were processed."), 4000);
+		}
+		else if (changed == 0 && empty > 0 && failed == 0) {
+			c->frame->StatusTimeout(_("No text detected for selected lines."), 5000);
+		}
+		else {
+			c->frame->StatusTimeout(fmt_tl("OCR updated %d lines (%d empty, %d failed).", changed, empty, failed), 7000);
+		}
+	}
+};
+#endif
 
 struct video_frame_next final : public validator_video_loaded {
 	CMD_NAME("video/frame/next")
@@ -819,6 +1131,10 @@ namespace cmd {
 		reg(std::make_unique<video_frame_copy>());
 		reg(std::make_unique<video_frame_copy_raw>());
 		reg(std::make_unique<video_frame_copy_subs>());
+#ifdef __APPLE__
+		reg(std::make_unique<video_frame_ocr>());
+		reg(std::make_unique<video_ocr_selected_lines>());
+#endif
 		reg(std::make_unique<video_frame_next>());
 		reg(std::make_unique<video_frame_next_boundary>());
 		reg(std::make_unique<video_frame_next_keyframe>());

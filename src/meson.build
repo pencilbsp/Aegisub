@@ -165,6 +165,8 @@ if host_machine.system() == 'darwin'
     aegisub_src += files(
         'font_file_lister_coretext.mm',
         'osx/osx_utils.mm',
+        'osx/video_ocr.mm',
+        'visual_tool_ocr.cpp',
     )
 elif host_machine.system() == 'windows'
     aegisub_src += files(

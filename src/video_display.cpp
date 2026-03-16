@@ -496,13 +496,21 @@ void VideoDisplay::Pan(Vector2D delta) {
 	PositionVideo();
 }
 
-void VideoDisplay::OnContextMenu(wxContextMenuEvent&) {
+void VideoDisplay::OnContextMenu(wxContextMenuEvent& event) {
+	if (tool) {
+		if (tool->OnContextMenu(event))
+			return;
+	}
+
 	if (!context_menu) context_menu = menu::GetMenu("video_context", (wxID_HIGHEST + 1) + 9000, con);
 	SetCursor(wxNullCursor);
 	menu::OpenPopupMenu(context_menu.get(), this);
 }
 
 void VideoDisplay::OnKeyDown(wxKeyEvent &event) {
+	if (tool && tool->OnKeyDown(event))
+		return;
+
 	hotkey::check("Video", con, event);
 }
 

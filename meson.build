@@ -301,7 +301,7 @@ if host_machine.system() == 'windows' and cc.has_header('dwrite_3.h')
 endif
 
 if host_machine.system() == 'darwin'
-    frameworks_dep = dependency('appleframeworks', modules : ['CoreText', 'CoreFoundation', 'AppKit', 'Carbon', 'IOKit', 'QuartzCore'])
+    frameworks_dep = dependency('appleframeworks', modules : ['CoreText', 'CoreFoundation', 'CoreGraphics', 'AppKit', 'Carbon', 'IOKit', 'QuartzCore', 'Vision'])
     deps += frameworks_dep
 endif
 
