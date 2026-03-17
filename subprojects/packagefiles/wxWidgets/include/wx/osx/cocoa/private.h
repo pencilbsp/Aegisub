@@ -216,6 +216,7 @@ public :
     virtual void                keyEvent(WX_NSEvent event, WXWidget slf, void* _cmd);
     virtual void                insertText(NSString* text, WXWidget slf, void* _cmd);
 #ifdef __OBJC__
+    virtual void                insertTextFromIME(id aString, NSRange replacementRange, WXWidget slf);
     virtual void                setMarkedText(id aString, NSRange selectedRange, NSRange replacementRange, WXWidget slf);
     virtual void                unmarkText(WXWidget slf);
     virtual bool                hasMarkedText() const;
@@ -287,8 +288,6 @@ protected:
     NSRange m_markedRange;          // range of marked text in the document
     NSRange m_selectedRange;        // selection range within the document
 #endif // __OBJC__
-    int m_markedTextInsertionPos;   // byte position where marked text was inserted
-    int m_markedTextByteLen;        // byte length of currently inserted marked text
 
     friend class wxWidgetCocoaNativeKeyDownSuspender;
     

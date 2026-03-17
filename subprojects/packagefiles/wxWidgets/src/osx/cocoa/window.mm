@@ -45,6 +45,7 @@
 #include "wx/stc/stc.h"
 #endif
 
+#include <algorithm>
 #include <objc/objc-runtime.h>
 
 #define TRACE_FOCUS "focus"
@@ -960,11 +961,10 @@ static void SetDrawingEnabledIfFrozenRecursive(wxWidgetCocoaImpl *impl, bool ena
 
 @end // wxNSView
 
-// We need to adopt NSTextInputClient protocol in order to interpretKeyEvents: to work.
-// Currently, only insertText:(replacementRange:) is
-// implemented here, and the rest of the methods are stubs.
-// It is hoped that someday IME-related functionality is implemented in
-// wxWidgets and the methods of this protocol are fully working.
+// We adopt NSTextInputClient to support IME composition/commit flow driven by
+// interpretKeyEvents:. The behavior here follows Cocoa's native expectations:
+// setMarkedText updates composition state, insertText commits text, and
+// selectedRange/markedRange report stable ranges back to the IME.
 
 @implementation wxNSView(TextInput)
 
@@ -973,15 +973,11 @@ void wxOSX_insertText(NSView* self, SEL _cmd, NSString* text);
 - (void)insertText:(id)aString replacementRange:(NSRange)replacementRange
 {
     wxLogDebug("insertText: called");
-    wxUnusedVar(replacementRange);
     wxWidgetCocoaImpl* impl = (wxWidgetCocoaImpl* ) wxWidgetImpl::FindFromWXWidget( self );
-    if (impl && impl->hasMarkedText())
-    {
-        // Actually delete the composition text before inserting committed text
-        impl->ClearMarkedTextInEditor();
-        impl->unmarkText(self);
-    }
-    wxOSX_insertText(self, @selector(insertText:), aString);
+    if (impl)
+        impl->insertTextFromIME(aString, replacementRange, self);
+    else
+        wxOSX_insertText(self, @selector(insertText:), aString);
 }
 
 - (void)doCommandBySelector:(SEL)aSelector
@@ -2263,163 +2259,396 @@ void wxWidgetCocoaImpl::insertText(NSString* text, WXWidget slf, void *_cmd)
 // NSTextInputClient implementation methods
 // ---------------------------------------------------------------------------
 
-void wxWidgetCocoaImpl::setMarkedText(id aString, NSRange selectedRange, NSRange replacementRange, WXWidget slf)
+namespace
 {
-    wxUnusedVar(replacementRange);
-    wxUnusedVar(slf);
 
-    // Get the plain string from either NSString or NSAttributedString
-    NSString* str;
-    if ([aString isKindOfClass:[NSAttributedString class]])
-        str = [(NSAttributedString*)aString string];
-    else
-        str = (NSString*)aString;
+bool wxIsValidIMEIndexRange(const NSRange& range)
+{
+    return range.location != NSNotFound;
+}
+
+long wxClampToDocument(wxTextEntryBase* entry, long pos)
+{
+    if ( !entry )
+        return 0;
+
+    const long length = entry->GetLastPosition();
+    if ( pos < 0 )
+        return 0;
+    if ( pos > length )
+        return length;
+    return pos;
+}
+
+bool wxGetEditorSelectionInEditorUnits(wxWindowMac* peer, long* from, long* to)
+{
+    wxTextEntryBase* entry = dynamic_cast<wxTextEntryBase*>(peer);
+    if ( !entry )
+        return false;
+
+    long selFrom = 0;
+    long selTo = 0;
+    entry->GetSelection(&selFrom, &selTo);
+    selFrom = wxClampToDocument(entry, selFrom);
+    selTo = wxClampToDocument(entry, selTo);
+    if ( selFrom > selTo )
+        std::swap(selFrom, selTo);
+
+    if ( from )
+        *from = selFrom;
+    if ( to )
+        *to = selTo;
+    return true;
+}
+
+void wxSetEditorSelectionInEditorUnits(wxWindowMac* peer, long from, long to)
+{
+    wxTextEntryBase* entry = dynamic_cast<wxTextEntryBase*>(peer);
+    if ( !entry )
+        return;
+
+    from = wxClampToDocument(entry, from);
+    to = wxClampToDocument(entry, to);
+    if ( from > to )
+        std::swap(from, to);
+
+    // Keep a non-empty selection intact so the next typed character replaces it.
+    // Collapsing it here would append at the caret instead of overwriting.
+    entry->SetSelection(from, to);
+    if ( from == to )
+        entry->SetInsertionPoint(to);
+}
+
+void wxReplaceEditorRangeInEditorUnits(wxWindowMac* peer,
+                                       long from,
+                                       long to,
+                                       const wxString& text)
+{
+    wxTextEntryBase* entry = dynamic_cast<wxTextEntryBase*>(peer);
+    if ( !entry )
+        return;
+
+    from = wxClampToDocument(entry, from);
+    to = wxClampToDocument(entry, to);
+    if ( from > to )
+        std::swap(from, to);
+
+    entry->Replace(from, to, text);
+}
+
+long wxEditorUnitFromUTF16Offset(wxWindowMac* peer, NSUInteger utf16Offset)
+{
+    if ( auto stc = wxDynamicCast(peer, wxStyledTextCtrl) )
+    {
+        const int docLen = stc->GetLength();
+        int pos = stc->PositionRelative(0, static_cast<int>(utf16Offset));
+        if ( pos < 0 )
+            pos = 0;
+        if ( pos > docLen )
+            pos = docLen;
+        return pos;
+    }
+
+    wxTextEntryBase* entry = dynamic_cast<wxTextEntryBase*>(peer);
+    return wxClampToDocument(entry, static_cast<long>(utf16Offset));
+}
+
+NSUInteger wxUTF16OffsetFromEditorUnit(wxWindowMac* peer, long editorPos)
+{
+    if ( auto stc = wxDynamicCast(peer, wxStyledTextCtrl) )
+    {
+        int pos = static_cast<int>(editorPos);
+        if ( pos < 0 )
+            pos = 0;
+        if ( pos > stc->GetLength() )
+            pos = stc->GetLength();
+        return static_cast<NSUInteger>(stc->CountCharacters(0, pos));
+    }
+
+    wxTextEntryBase* entry = dynamic_cast<wxTextEntryBase*>(peer);
+    return static_cast<NSUInteger>(wxClampToDocument(entry, editorPos));
+}
+
+bool wxEditorRangeFromUTF16Range(wxWindowMac* peer,
+                                 const NSRange& imeRange,
+                                 long* from,
+                                 long* to)
+{
+    if ( !wxIsValidIMEIndexRange(imeRange) )
+        return false;
+
+    const long start = wxEditorUnitFromUTF16Offset(peer, imeRange.location);
+    const long end = wxEditorUnitFromUTF16Offset(peer, NSMaxRange(imeRange));
+
+    if ( from )
+        *from = start;
+    if ( to )
+        *to = end;
+    return true;
+}
+
+NSRange wxUTF16RangeFromEditorRange(wxWindowMac* peer, long from, long to)
+{
+    if ( from > to )
+        std::swap(from, to);
+
+    const NSUInteger start = wxUTF16OffsetFromEditorUnit(peer, from);
+    const NSUInteger end = wxUTF16OffsetFromEditorUnit(peer, to);
+    return NSMakeRange(start, end >= start ? end - start : 0);
+}
+
+} // namespace
+
+void wxWidgetCocoaImpl::insertTextFromIME(id aString, NSRange replacementRange, WXWidget slf)
+{
+    NSString* str = [aString isKindOfClass:[NSAttributedString class]]
+                        ? [(NSAttributedString*)aString string]
+                        : (NSString*)aString;
 
     wxWindowMac* peer = GetWXPeer();
-    if (!peer)
+    if ( !peer )
         return;
-        
-    wxString currentVal;
-    if (auto stc = wxDynamicCast(peer, wxStyledTextCtrl)) currentVal = stc->GetTextRaw();
-    else if (auto tc = wxDynamicCast(peer, wxTextCtrl)) currentVal = tc->GetValue();
 
-    wxLogDebug("setMarkedText: '%s', len=%d, currentEditorValue='%s'", wxCFStringRef::AsString(str).utf8_str().data(), (int)[str length], currentVal.utf8_str().data());
+    long replaceFrom = 0;
+    long replaceTo = 0;
+    bool hasReplaceRange = false;
+    long currentSelFrom = 0;
+    long currentSelTo = 0;
+    const bool hasCurrentSelection =
+        wxGetEditorSelectionInEditorUnits(peer, &currentSelFrom, &currentSelTo);
+    const bool hasCurrentNonEmptySelection =
+        hasCurrentSelection && currentSelFrom != currentSelTo;
 
-    // If we already have marked text, remove it first
-    ClearMarkedTextInEditor();
-
-    // Store the new marked text
-    [m_markedText release];
-    if ([str length] > 0)
+    // Chromium's renderer-side behavior replaces current selection by default.
+    // Prefer live editor selection when starting from non-composition state.
+    if ( !hasMarkedText() && hasCurrentNonEmptySelection )
     {
-        m_markedText = [str copy];
+        replaceFrom = currentSelFrom;
+        replaceTo = currentSelTo;
+        hasReplaceRange = true;
+    }
+    else if ( wxIsValidIMEIndexRange(replacementRange) )
+    {
+        hasReplaceRange = wxEditorRangeFromUTF16Range(peer, replacementRange,
+                                                      &replaceFrom, &replaceTo);
+    }
+    else if ( hasMarkedText() && wxIsValidIMEIndexRange(m_markedRange) )
+    {
+        hasReplaceRange = wxEditorRangeFromUTF16Range(peer, m_markedRange,
+                                                      &replaceFrom, &replaceTo);
+    }
 
-        // To handle NFD/NFC differences between macOS strings and Scintilla's
-        // internal buffer, we must measure exactly how many bytes the editor
-        // actually inserted, rather than relying on the NSString byte length.
-        long posBefore = -1;
-        wxStyledTextCtrl* stc = peer ? wxDynamicCast(peer, wxStyledTextCtrl) : nullptr;
-        wxTextCtrl* tc = peer ? wxDynamicCast(peer, wxTextCtrl) : nullptr;
-        
-        if (stc) posBefore = stc->GetCurrentPos();
-        else if (tc) posBefore = tc->GetInsertionPoint();
-
-        // Insert the new marked text using DoHandleCharEvent
-        // which is the same path used by insertText for IME-composed characters
-        NSString* textToInsert = str;
-        DoHandleCharEvent(NULL, textToInsert);
-
-        if (posBefore != -1)
+    if ( !hasReplaceRange )
+    {
+        if ( hasCurrentSelection )
         {
-            long posAfter = -1;
-            if (stc) posAfter = stc->GetCurrentPos();
-            else if (tc) posAfter = tc->GetInsertionPoint();
-            
-            m_markedTextByteLen = posAfter - posBefore;
-            if (m_markedTextByteLen < 0) m_markedTextByteLen = 0;
-            
-            wxLogDebug("setMarkedText measured insertion len = %d (before: %ld, after: %ld)", m_markedTextByteLen, posBefore, posAfter);
-            printf("setMarkedText measured insertion len = %d (before: %ld, after: %ld)\\n", m_markedTextByteLen, posBefore, posAfter);
+            replaceFrom = currentSelFrom;
+            replaceTo = currentSelTo;
+            hasReplaceRange = true;
+        }
+    }
+
+    if ( hasReplaceRange )
+        wxSetEditorSelectionInEditorUnits(peer, replaceFrom, replaceTo);
+
+    insertText(str, slf, @selector(insertText:));
+
+    [m_markedText release];
+    m_markedText = nil;
+    m_markedRange = NSMakeRange(NSNotFound, 0);
+
+    long selectionFrom = 0;
+    long selectionTo = 0;
+    if ( wxGetEditorSelectionInEditorUnits(peer, &selectionFrom, &selectionTo) )
+        m_selectedRange = wxUTF16RangeFromEditorRange(peer, selectionFrom, selectionTo);
+    else
+        m_selectedRange = NSMakeRange(NSNotFound, 0);
+}
+
+void wxWidgetCocoaImpl::setMarkedText(id aString,
+                                      NSRange selectedRange,
+                                      NSRange replacementRange,
+                                      WXWidget slf)
+{
+    wxUnusedVar(slf);
+
+    NSString* str = [aString isKindOfClass:[NSAttributedString class]]
+                        ? [(NSAttributedString*)aString string]
+                        : (NSString*)aString;
+
+    wxWindowMac* peer = GetWXPeer();
+    if ( !peer )
+        return;
+
+    long replaceFrom = 0;
+    long replaceTo = 0;
+    bool hasReplaceRange = false;
+    long currentSelFrom = 0;
+    long currentSelTo = 0;
+    const bool hasCurrentSelection =
+        wxGetEditorSelectionInEditorUnits(peer, &currentSelFrom, &currentSelTo);
+    const bool hasCurrentNonEmptySelection =
+        hasCurrentSelection && currentSelFrom != currentSelTo;
+
+    // Keep overwrite behavior stable when user types over a selected range.
+    if ( !hasMarkedText() && hasCurrentNonEmptySelection )
+    {
+        replaceFrom = currentSelFrom;
+        replaceTo = currentSelTo;
+        hasReplaceRange = true;
+    }
+    else if ( wxIsValidIMEIndexRange(replacementRange) )
+    {
+        hasReplaceRange = wxEditorRangeFromUTF16Range(peer, replacementRange,
+                                                      &replaceFrom, &replaceTo);
+    }
+    else if ( hasMarkedText() && wxIsValidIMEIndexRange(m_markedRange) )
+    {
+        hasReplaceRange = wxEditorRangeFromUTF16Range(peer, m_markedRange,
+                                                      &replaceFrom, &replaceTo);
+    }
+
+    if ( !hasReplaceRange )
+    {
+        if ( hasCurrentSelection )
+        {
+            replaceFrom = currentSelFrom;
+            replaceTo = currentSelTo;
+            hasReplaceRange = true;
+        }
+    }
+
+    if ( !hasReplaceRange )
+        return;
+
+    const NSUInteger markedLenUtf16 = [str length];
+
+    if ( markedLenUtf16 > 0 )
+    {
+        wxReplaceEditorRangeInEditorUnits(peer, replaceFrom, replaceTo,
+                                          wxCFStringRef::AsString(str));
+
+        long markedEnd = replaceFrom;
+        long selectionFrom = replaceFrom;
+        long selectionTo = replaceFrom;
+
+        if ( auto stc = wxDynamicCast(peer, wxStyledTextCtrl) )
+        {
+            markedEnd = stc->PositionRelative(static_cast<int>(replaceFrom),
+                                              static_cast<int>(markedLenUtf16));
+
+            NSUInteger localSelFrom = selectedRange.location == NSNotFound
+                                          ? 0
+                                          : selectedRange.location;
+            NSUInteger localSelTo = selectedRange.location == NSNotFound
+                                        ? localSelFrom
+                                        : NSMaxRange(selectedRange);
+            if ( localSelFrom > markedLenUtf16 )
+                localSelFrom = markedLenUtf16;
+            if ( localSelTo > markedLenUtf16 )
+                localSelTo = markedLenUtf16;
+            if ( localSelTo < localSelFrom )
+                localSelTo = localSelFrom;
+
+            selectionFrom = stc->PositionRelative(static_cast<int>(replaceFrom),
+                                                  static_cast<int>(localSelFrom));
+            selectionTo = stc->PositionRelative(static_cast<int>(replaceFrom),
+                                                static_cast<int>(localSelTo));
         }
         else
         {
-            wxString wxStr = wxCFStringRef::AsString(str);
-            m_markedTextByteLen = strlen(wxStr.utf8_str().data());
+            markedEnd = replaceFrom + static_cast<long>(markedLenUtf16);
+
+            NSUInteger localSelFrom = selectedRange.location == NSNotFound
+                                          ? 0
+                                          : selectedRange.location;
+            NSUInteger localSelTo = selectedRange.location == NSNotFound
+                                        ? localSelFrom
+                                        : NSMaxRange(selectedRange);
+            if ( localSelFrom > markedLenUtf16 )
+                localSelFrom = markedLenUtf16;
+            if ( localSelTo > markedLenUtf16 )
+                localSelTo = markedLenUtf16;
+            if ( localSelTo < localSelFrom )
+                localSelTo = localSelFrom;
+
+            selectionFrom = replaceFrom + static_cast<long>(localSelFrom);
+            selectionTo = replaceFrom + static_cast<long>(localSelTo);
         }
 
-        // Update ranges
-        m_markedRange = NSMakeRange(0, [str length]);
-        m_selectedRange = selectedRange;
+        wxSetEditorSelectionInEditorUnits(peer, selectionFrom, selectionTo);
+
+        [m_markedText release];
+        m_markedText = [str copy];
+        m_markedRange = wxUTF16RangeFromEditorRange(peer, replaceFrom, markedEnd);
+        m_selectedRange = wxUTF16RangeFromEditorRange(peer, selectionFrom, selectionTo);
     }
     else
     {
+        if ( hasMarkedText() && wxIsValidIMEIndexRange(m_markedRange) )
+        {
+            long oldMarkedFrom = 0;
+            long oldMarkedTo = 0;
+            if ( wxEditorRangeFromUTF16Range(peer, m_markedRange,
+                                             &oldMarkedFrom, &oldMarkedTo) )
+            {
+                wxReplaceEditorRangeInEditorUnits(peer, oldMarkedFrom, oldMarkedTo,
+                                                  wxString());
+                wxSetEditorSelectionInEditorUnits(peer, oldMarkedFrom, oldMarkedFrom);
+                m_selectedRange = wxUTF16RangeFromEditorRange(peer,
+                                                              oldMarkedFrom,
+                                                              oldMarkedFrom);
+            }
+        }
+        else
+        {
+            long selectionFrom = 0;
+            long selectionTo = 0;
+            if ( wxGetEditorSelectionInEditorUnits(peer, &selectionFrom, &selectionTo) )
+                m_selectedRange = wxUTF16RangeFromEditorRange(peer, selectionFrom, selectionTo);
+            else
+                m_selectedRange = NSMakeRange(NSNotFound, 0);
+        }
+
+        [m_markedText release];
         m_markedText = nil;
         m_markedRange = NSMakeRange(NSNotFound, 0);
-        m_selectedRange = NSMakeRange(0, 0);
-        m_markedTextInsertionPos = 0;
-        m_markedTextByteLen = 0;
     }
+
+    [[slf inputContext] invalidateCharacterCoordinates];
+    [slf setNeedsDisplay:YES];
 }
 
 void wxWidgetCocoaImpl::ClearMarkedTextInEditor()
 {
-    if (m_markedText && m_markedTextByteLen > 0)
-    {
-        wxWindowMac* peer = GetWXPeer();
-        if (peer)
-        {
-            wxStyledTextCtrl* stc = wxDynamicCast(peer, wxStyledTextCtrl);
-            wxTextCtrl* tc = wxDynamicCast(peer, wxTextCtrl);
+    wxWindowMac* peer = GetWXPeer();
+    if ( !peer || !hasMarkedText() || !wxIsValidIMEIndexRange(m_markedRange) )
+        return;
 
-            if (stc)
-            {
-                // Scintilla uses UTF-8 byte offsets natively
-                long pos = stc->GetCurrentPos();
-                long startPos = pos - m_markedTextByteLen;
-                if (startPos < 0) startPos = 0;
-                stc->Remove(startPos, pos);
-                wxLogDebug("ClearMarkedTextInEditor(STC): removed %d bytes from %ld to %ld", m_markedTextByteLen, startPos, pos);
-            }
-            else if (tc)
-            {
-                // wxTextCtrl uses character offsets generally
-                // We shouldn't use byte length here, but rather character length.
-                wxString existingMarked = wxCFStringRef::AsString(m_markedText);
-                long charLen = existingMarked.length();
-                long pos = tc->GetInsertionPoint();
-                long startPos = pos - charLen;
-                if (startPos < 0) startPos = 0;
-                tc->Remove(startPos, pos);
-                wxLogDebug("ClearMarkedTextInEditor(TC): removed %ld chars from %ld to %ld", charLen, startPos, pos);
-            }
-            else
-            {
-                // Fallback for custom controls
-                wxString existingMarked = wxCFStringRef::AsString(m_markedText);
+    long markedFrom = 0;
+    long markedTo = 0;
+    if ( !wxEditorRangeFromUTF16Range(peer, m_markedRange, &markedFrom, &markedTo) )
+        return;
 
-                for (int i = 0; i < (int)existingMarked.Length(); i++)
-                {
-                    wxKeyEvent delEvent(wxEVT_KEY_DOWN);
-                    delEvent.m_keyCode = WXK_BACK;
-                    delEvent.SetEventObject(peer);
-                    delEvent.SetId(peer->GetId());
-                    peer->HandleWindowEvent(delEvent);
-                }
-                wxLogDebug("ClearMarkedTextInEditor(Fallback): sent %d backspaces", (int)existingMarked.Length());
-            }
-            
-            // Dummy event to reset Scintilla's m_lastKeyDownConsumed flag so the
-            // next DoHandleCharEvent text isn't ignored.
-            wxKeyEvent dummyEvent(wxEVT_KEY_DOWN);
-            dummyEvent.m_keyCode = WXK_NONE;
-            dummyEvent.SetEventObject(peer);
-            dummyEvent.SetId(peer->GetId());
-            peer->HandleWindowEvent(dummyEvent);
-        }
-
-        m_markedTextByteLen = 0;
-    }
+    wxReplaceEditorRangeInEditorUnits(peer, markedFrom, markedTo, wxString());
+    wxSetEditorSelectionInEditorUnits(peer, markedFrom, markedFrom);
+    m_selectedRange = wxUTF16RangeFromEditorRange(peer, markedFrom, markedFrom);
 }
 
 void wxWidgetCocoaImpl::unmarkText(WXWidget slf)
 {
-    wxString currentVal;
-    if (GetWXPeer()) {
-        if (auto stc = wxDynamicCast(GetWXPeer(), wxStyledTextCtrl)) currentVal = stc->GetTextRaw();
-        else if (auto tc = wxDynamicCast(GetWXPeer(), wxTextCtrl)) currentVal = tc->GetValue();
-    }
-
-    wxLogDebug("unmarkText called, currentEditorValue='%s'", currentVal.utf8_str().data());
     wxUnusedVar(slf);
 
     [m_markedText release];
     m_markedText = nil;
     m_markedRange = NSMakeRange(NSNotFound, 0);
-    m_selectedRange = NSMakeRange(0, 0);
-    m_markedTextInsertionPos = 0;
-    m_markedTextByteLen = 0;
 
-    [[NSTextInputContext currentInputContext] discardMarkedText];
+    long selectionFrom = 0;
+    long selectionTo = 0;
+    if ( wxGetEditorSelectionInEditorUnits(GetWXPeer(), &selectionFrom, &selectionTo) )
+        m_selectedRange = wxUTF16RangeFromEditorRange(GetWXPeer(), selectionFrom, selectionTo);
+    else
+        m_selectedRange = NSMakeRange(NSNotFound, 0);
 }
 
 bool wxWidgetCocoaImpl::hasMarkedText() const
@@ -2429,28 +2658,26 @@ bool wxWidgetCocoaImpl::hasMarkedText() const
 
 NSRange wxWidgetCocoaImpl::markedRange() const
 {
-    if (m_markedText && [m_markedText length] > 0)
+    if ( hasMarkedText() )
         return m_markedRange;
     return NSMakeRange(NSNotFound, 0);
 }
 
 NSRange wxWidgetCocoaImpl::selectedRange() const
 {
+    if ( hasMarkedText() && wxIsValidIMEIndexRange(m_selectedRange) )
+        return m_selectedRange;
+
     wxWindowMac* peer = GetWXPeer();
-    if (!peer)
-        return NSMakeRange(0, 0);
+    if ( !peer )
+        return NSMakeRange(NSNotFound, 0);
 
-    wxTextEntry* textEntry = dynamic_cast<wxTextEntry*>(peer);
-    if (textEntry)
-    {
-        long from, to;
-        textEntry->GetSelection(&from, &to);
-        if (from == to)
-            return NSMakeRange(textEntry->GetInsertionPoint(), 0);
-        return NSMakeRange(from, to - from);
-    }
+    long selectionFrom = 0;
+    long selectionTo = 0;
+    if ( !wxGetEditorSelectionInEditorUnits(peer, &selectionFrom, &selectionTo) )
+        return NSMakeRange(NSNotFound, 0);
 
-    return NSMakeRange(0, 0);
+    return wxUTF16RangeFromEditorRange(peer, selectionFrom, selectionTo);
 }
 
 NSRect wxWidgetCocoaImpl::firstRectForCharacterRange(NSRange aRange, NSRangePointer actualRange)
@@ -2536,20 +2763,24 @@ bool wxWidgetCocoaImpl::doCommandBySelector(void* sel, WXWidget slf, void* WXUNU
     // execute and move back in history, since this results in two commands, Ctrl-O was sent twice as a wx key down event.
     // we now track the sending of the events to avoid duplicates.
 
-    // Intercept delete/newline/tab if we have marked text (in the middle of composition)
-    if (hasMarkedText() && (sel == @selector(deleteBackward:) ||
-                            sel == @selector(deleteForward:) ||
-                            sel == @selector(insertNewline:) ||
-                            sel == @selector(insertTab:)))
-    {
-        wxLogDebug("Intercepted %s during marked text to prevent double-action.", wxDumpSelector((SEL)sel));
-        if (IsInNativeKeyDown()) SetKeyDownSent();
-        return true;
-    }
+    const bool isDeleteSelector =
+        sel == @selector(deleteBackward:) || sel == @selector(deleteForward:);
 
-    // No need to intercept deleteBackward: here anymore.
-    // The previous bug where too many characters were deleted was fixed
-    // in ClearMarkedTextInEditor by removing text using exact byte offsets.
+    bool hasDeleteSelection = false;
+    if (isDeleteSelector)
+    {
+        if (auto stc = wxDynamicCast(GetWXPeer(), wxStyledTextCtrl))
+        {
+            hasDeleteSelection = stc->GetSelectionStart() != stc->GetSelectionEnd();
+        }
+        else if (auto entry = dynamic_cast<wxTextEntry*>(GetWXPeer()))
+        {
+            long from = 0;
+            long to = 0;
+            entry->GetSelection(&from, &to);
+            hasDeleteSelection = from != to;
+        }
+    }
 
     bool handled = false;
 
@@ -2561,7 +2792,7 @@ bool wxWidgetCocoaImpl::doCommandBySelector(void* sel, WXWidget slf, void* WXUNU
         SetupKeyEvent( wxevent, GetLastNativeKeyDownEvent() );
         handled = GetWXPeer()->OSXHandleKeyEvent(wxevent);
 
-        if (!handled)
+        if (!handled && !(isDeleteSelector && hasDeleteSelection))
         {
             // Generate wxEVT_CHAR if wxEVT_KEY_DOWN is not handled.
 
@@ -2945,8 +3176,6 @@ void wxWidgetCocoaImpl::Init()
     m_markedText = nil;
     m_markedRange = NSMakeRange(NSNotFound, 0);
     m_selectedRange = NSMakeRange(0, 0);
-    m_markedTextInsertionPos = 0;
-    m_markedTextByteLen = 0;
 
 }
 
