@@ -105,6 +105,28 @@ CGImageRef wx_image_to_cg_image(wxImage const& image) {
 	CFRelease(data);
 	return cg_image;
 }
+
+std::string normalize_line_breaks_for_ass(std::string const& input) {
+	std::string output;
+	output.reserve(input.size());
+
+	for (size_t i = 0; i < input.size(); ++i) {
+		char const ch = input[i];
+		if (ch == '\r') {
+			if (i + 1 < input.size() && input[i + 1] == '\n')
+				++i;
+			output += "\\N";
+		}
+		else if (ch == '\n') {
+			output += "\\N";
+		}
+		else {
+			output += ch;
+		}
+	}
+
+	return output;
+}
 }
 
 namespace osx::ocr {
@@ -257,10 +279,11 @@ Result RecognizeText(wxImage const& image, Options const& options) {
 			});
 
 			for (size_t i = 0; i < lines.size(); ++i) {
+				std::string const line_text = normalize_line_breaks_for_ass(lines[i].text);
 				if (i)
-					result.text += '\n';
-				result.text += lines[i].text;
-				result.regions.push_back({lines[i].text, lines[i].x, lines[i].y_top, lines[i].width, lines[i].height});
+					result.text += "\\N";
+				result.text += line_text;
+				result.regions.push_back({line_text, lines[i].x, lines[i].y_top, lines[i].width, lines[i].height});
 				for (auto const& character : lines[i].characters) {
 					result.characters.push_back({
 						character.text,

@@ -60,15 +60,20 @@
 #include <libaegisub/util.h>
 
 #include <algorithm>
+#include <cmath>
 #include <chrono>
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/split.hpp>
 #include <future>
 #include <thread>
 #include <wx/app.h>
+#include <wx/button.h>
+#include <wx/checkbox.h>
 #include <wx/choice.h>
+#include <wx/dcbuffer.h>
 #include <wx/dialog.h>
 #include <wx/msgdlg.h>
+#include <wx/panel.h>
 #include <wx/progdlg.h>
 #include <wx/sizer.h>
 #include <wx/stattext.h>
@@ -308,6 +313,20 @@ wxImage get_image(agi::Context *c, bool raw, bool subsonly = false) {
 	}
 }
 
+wxImage get_image_at_frame(agi::Context *c, int frame, bool raw) {
+	auto *provider = c->project->VideoProvider();
+	if (!provider)
+		return {};
+
+	int const frame_count = provider->GetFrameCount();
+	if (frame_count <= 0)
+		return {};
+
+	frame = std::clamp(frame, 0, frame_count - 1);
+	int const frame_time = c->project->Timecodes().TimeAtFrame(frame, agi::vfr::START);
+	return GetImage(*provider->GetFrame(frame, frame_time, raw));
+}
+
 #ifdef __APPLE__
 enum class OcrLineFrameMode {
 	First,
@@ -321,15 +340,490 @@ enum class OcrLineInsertMode {
 	Replace
 };
 
+struct OcrNormalizedRect {
+	double x = 0.0;
+	double y = 0.0;
+	double width = 1.0;
+	double height = 1.0;
+
+	bool IsValid() const {
+		return width > 0.0 && height > 0.0;
+	}
+};
+
+class OcrRoiPickerDialog final : public wxDialog {
+	enum class DragMode {
+		None,
+		NewSelection,
+		LeftEdge,
+		RightEdge,
+		TopEdge,
+		BottomEdge
+	};
+
+	agi::Context *context = nullptr;
+	wxImage image;
+	wxPanel *canvas = nullptr;
+	wxStaticText *frame_label = nullptr;
+	int frame = 0;
+	int frame_count = 0;
+	bool has_selection = false;
+	bool dragging = false;
+	DragMode drag_mode = DragMode::None;
+	wxPoint drag_anchor_image;
+	wxRect selection_image;
+
+	OcrNormalizedRect GetSelectionNormalizedInternal() const {
+		if (!has_selection || selection_image.IsEmpty() || !image.IsOk())
+			return {};
+
+		return {
+			static_cast<double>(selection_image.x) / image.GetWidth(),
+			static_cast<double>(selection_image.y) / image.GetHeight(),
+			static_cast<double>(selection_image.width) / image.GetWidth(),
+			static_cast<double>(selection_image.height) / image.GetHeight()
+		};
+	}
+
+	void SetSelectionFromNormalized(OcrNormalizedRect const& normalized) {
+		if (!image.IsOk() || !normalized.IsValid()) {
+			has_selection = false;
+			selection_image = {};
+			return;
+		}
+
+		int const width = image.GetWidth();
+		int const height = image.GetHeight();
+		int x = std::clamp(static_cast<int>(std::lround(normalized.x * width)), 0, width - 1);
+		int y = std::clamp(static_cast<int>(std::lround(normalized.y * height)), 0, height - 1);
+		int w = std::clamp(static_cast<int>(std::lround(normalized.width * width)), 1, width - x);
+		int h = std::clamp(static_cast<int>(std::lround(normalized.height * height)), 1, height - y);
+		selection_image = wxRect(x, y, w, h);
+		has_selection = true;
+	}
+
+	void SetSelectionFullFrame() {
+		if (!image.IsOk() || image.GetWidth() <= 0 || image.GetHeight() <= 0) {
+			has_selection = false;
+			selection_image = {};
+			return;
+		}
+
+		selection_image = wxRect(0, 0, image.GetWidth(), image.GetHeight());
+		has_selection = true;
+	}
+
+	void UpdateFrameLabel() {
+		if (!frame_label)
+			return;
+
+		if (frame_count > 0)
+			frame_label->SetLabel(fmt_tl("Frame %d/%d", frame + 1, frame_count));
+		else
+			frame_label->SetLabel(_("Frame N/A"));
+	}
+
+	bool LoadFrame(int new_frame) {
+		if (!context)
+			return false;
+
+		auto *provider = context->project->VideoProvider();
+		if (!provider)
+			return false;
+
+		int const count = provider->GetFrameCount();
+		if (count <= 0)
+			return false;
+
+		frame_count = count;
+		new_frame = std::clamp(new_frame, 0, frame_count - 1);
+
+		OcrNormalizedRect previous_selection = GetSelectionNormalizedInternal();
+		wxImage next_image = get_image_at_frame(context, new_frame, true);
+		if (!next_image.IsOk())
+			return false;
+
+		image = std::move(next_image);
+		frame = new_frame;
+		if (previous_selection.IsValid())
+			SetSelectionFromNormalized(previous_selection);
+		else
+			SetSelectionFullFrame();
+		UpdateFrameLabel();
+
+		if (canvas)
+			canvas->Refresh(false);
+		return true;
+	}
+
+	wxRect GetImageDrawRect() const {
+		if (!canvas || !image.IsOk())
+			return {};
+
+		wxSize client = canvas->GetClientSize();
+		if (client.GetWidth() <= 0 || client.GetHeight() <= 0)
+			return {};
+
+		int const margin = 8;
+		int const available_width = std::max(1, client.GetWidth() - margin * 2);
+		int const available_height = std::max(1, client.GetHeight() - margin * 2);
+		double const scale = std::min(
+			static_cast<double>(available_width) / image.GetWidth(),
+			static_cast<double>(available_height) / image.GetHeight());
+
+		int draw_width = std::max(1, static_cast<int>(std::lround(image.GetWidth() * scale)));
+		int draw_height = std::max(1, static_cast<int>(std::lround(image.GetHeight() * scale)));
+		int draw_x = (client.GetWidth() - draw_width) / 2;
+		int draw_y = (client.GetHeight() - draw_height) / 2;
+		return wxRect(draw_x, draw_y, draw_width, draw_height);
+	}
+
+	bool IsInsideImage(wxPoint point) const {
+		return GetImageDrawRect().Contains(point);
+	}
+
+	wxPoint ClientToImage(wxPoint point) const {
+		wxRect draw_rect = GetImageDrawRect();
+		if (!draw_rect.IsEmpty()) {
+			int x = (point.x - draw_rect.x) * image.GetWidth() / draw_rect.width;
+			int y = (point.y - draw_rect.y) * image.GetHeight() / draw_rect.height;
+			x = std::clamp(x, 0, image.GetWidth() - 1);
+			y = std::clamp(y, 0, image.GetHeight() - 1);
+			return wxPoint(x, y);
+		}
+		return {};
+	}
+
+	wxRect ImageToClient(wxRect image_rect) const {
+		wxRect draw_rect = GetImageDrawRect();
+		if (draw_rect.IsEmpty() || image_rect.IsEmpty())
+			return {};
+
+		int x = draw_rect.x + image_rect.x * draw_rect.width / image.GetWidth();
+		int y = draw_rect.y + image_rect.y * draw_rect.height / image.GetHeight();
+		int width = std::max(1, image_rect.width * draw_rect.width / image.GetWidth());
+		int height = std::max(1, image_rect.height * draw_rect.height / image.GetHeight());
+		return wxRect(x, y, width, height);
+	}
+
+	DragMode HitTestDragMode(wxPoint point) const {
+		if (!has_selection || selection_image.IsEmpty() || !IsInsideImage(point))
+			return DragMode::None;
+
+		wxRect selection_client = ImageToClient(selection_image);
+		if (selection_client.IsEmpty())
+			return DragMode::None;
+
+		int const threshold = 8;
+		DragMode mode = DragMode::None;
+		int best_distance = threshold + 1;
+
+		auto try_candidate = [&](int distance, DragMode candidate) {
+			if (distance <= threshold && distance < best_distance) {
+				best_distance = distance;
+				mode = candidate;
+			}
+		};
+
+		try_candidate(std::abs(point.x - selection_client.GetLeft()), DragMode::LeftEdge);
+		try_candidate(std::abs(point.x - selection_client.GetRight()), DragMode::RightEdge);
+		try_candidate(std::abs(point.y - selection_client.GetTop()), DragMode::TopEdge);
+		try_candidate(std::abs(point.y - selection_client.GetBottom()), DragMode::BottomEdge);
+		return mode;
+	}
+
+	void UpdateSelection(wxPoint image_point) {
+		int x1 = std::min(drag_anchor_image.x, image_point.x);
+		int y1 = std::min(drag_anchor_image.y, image_point.y);
+		int x2 = std::max(drag_anchor_image.x, image_point.x);
+		int y2 = std::max(drag_anchor_image.y, image_point.y);
+		selection_image = wxRect(x1, y1, x2 - x1 + 1, y2 - y1 + 1);
+		has_selection = true;
+		if (canvas)
+			canvas->Refresh(false);
+	}
+
+	void AdjustSelectionEdge(DragMode mode, wxPoint image_point) {
+		if (!has_selection || selection_image.IsEmpty() || !image.IsOk())
+			return;
+
+		int const min_size = 8;
+		int left = selection_image.x;
+		int top = selection_image.y;
+		int right = selection_image.x + selection_image.width - 1;
+		int bottom = selection_image.y + selection_image.height - 1;
+
+		switch (mode) {
+			case DragMode::LeftEdge: {
+				int const new_left = std::clamp(image_point.x, 0, right - min_size);
+				left = new_left;
+				break;
+			}
+			case DragMode::RightEdge: {
+				int const new_right = std::clamp(image_point.x, left + min_size, image.GetWidth() - 1);
+				right = new_right;
+				break;
+			}
+			case DragMode::TopEdge: {
+				int const new_top = std::clamp(image_point.y, 0, bottom - min_size);
+				top = new_top;
+				break;
+			}
+			case DragMode::BottomEdge: {
+				int const new_bottom = std::clamp(image_point.y, top + min_size, image.GetHeight() - 1);
+				bottom = new_bottom;
+				break;
+			}
+			default:
+				return;
+		}
+
+		selection_image = wxRect(left, top, right - left + 1, bottom - top + 1);
+		has_selection = true;
+		if (canvas)
+			canvas->Refresh(false);
+	}
+
+	void ClearSelection() {
+		SetSelectionFullFrame();
+		if (canvas)
+			canvas->Refresh(false);
+	}
+
+	void OnPaint(wxPaintEvent&) {
+		wxAutoBufferedPaintDC dc(canvas);
+		dc.Clear();
+
+		if (!image.IsOk())
+			return;
+
+		wxRect draw_rect = GetImageDrawRect();
+		if (draw_rect.IsEmpty())
+			return;
+
+		wxImage scaled = image.Scale(draw_rect.width, draw_rect.height, wxIMAGE_QUALITY_HIGH);
+		dc.DrawBitmap(wxBitmap(scaled), draw_rect.x, draw_rect.y, false);
+
+		if (has_selection && !selection_image.IsEmpty()) {
+			wxRect selection_client = ImageToClient(selection_image);
+			wxPen const guide_pen(wxColour(0, 160, 255), 2);
+			dc.SetPen(guide_pen);
+			dc.SetBrush(*wxTRANSPARENT_BRUSH);
+			dc.DrawRectangle(selection_client);
+			dc.DrawLine(selection_client.GetLeft(), draw_rect.GetTop(), selection_client.GetLeft(), draw_rect.GetBottom());
+			dc.DrawLine(selection_client.GetRight(), draw_rect.GetTop(), selection_client.GetRight(), draw_rect.GetBottom());
+			dc.DrawLine(draw_rect.GetLeft(), selection_client.GetTop(), draw_rect.GetRight(), selection_client.GetTop());
+			dc.DrawLine(draw_rect.GetLeft(), selection_client.GetBottom(), draw_rect.GetRight(), selection_client.GetBottom());
+		}
+	}
+
+	void OnLeftDown(wxMouseEvent &event) {
+		if (!IsInsideImage(event.GetPosition()))
+			return;
+
+		canvas->SetFocus();
+		drag_mode = HitTestDragMode(event.GetPosition());
+		if (drag_mode == DragMode::None)
+			drag_mode = DragMode::NewSelection;
+		dragging = true;
+		drag_anchor_image = ClientToImage(event.GetPosition());
+		if (drag_mode == DragMode::NewSelection)
+			UpdateSelection(drag_anchor_image);
+		canvas->CaptureMouse();
+	}
+
+	void OnLeftUp(wxMouseEvent &event) {
+		if (!dragging)
+			return;
+
+		dragging = false;
+		if (canvas->HasCapture())
+			canvas->ReleaseMouse();
+		if (IsInsideImage(event.GetPosition())) {
+			wxPoint image_point = ClientToImage(event.GetPosition());
+			if (drag_mode == DragMode::NewSelection)
+				UpdateSelection(image_point);
+			else
+				AdjustSelectionEdge(drag_mode, image_point);
+		}
+		drag_mode = DragMode::None;
+	}
+
+	void OnMotion(wxMouseEvent &event) {
+		if (!dragging || !event.LeftIsDown())
+			return;
+
+		wxPoint point = event.GetPosition();
+		wxRect draw_rect = GetImageDrawRect();
+		point.x = std::clamp(point.x, draw_rect.x, draw_rect.x + draw_rect.width - 1);
+		point.y = std::clamp(point.y, draw_rect.y, draw_rect.y + draw_rect.height - 1);
+		wxPoint image_point = ClientToImage(point);
+		if (drag_mode == DragMode::NewSelection)
+			UpdateSelection(image_point);
+		else
+			AdjustSelectionEdge(drag_mode, image_point);
+	}
+
+	void OnKeyDown(wxKeyEvent &event) {
+		int delta = 0;
+		switch (event.GetKeyCode()) {
+			case WXK_LEFT: delta = -1; break;
+			case WXK_RIGHT: delta = 1; break;
+			case WXK_UP: delta = -10; break;
+			case WXK_DOWN: delta = 10; break;
+			default:
+				break;
+		}
+
+		if (delta == 0) {
+			event.Skip();
+			return;
+		}
+
+		if (!LoadFrame(frame + delta))
+			wxBell();
+	}
+
+	void OnClear(wxCommandEvent&) {
+		ClearSelection();
+	}
+
+	void OnOk(wxCommandEvent &event) {
+		if (!has_selection) {
+			wxMessageBox(_("Please select an OCR region first."), _("OCR Region"), wxOK | wxICON_INFORMATION | wxCENTER, this);
+			return;
+		}
+		event.Skip();
+	}
+
+public:
+	OcrRoiPickerDialog(wxWindow *parent, agi::Context *context, int initial_frame, bool has_initial_selection, OcrNormalizedRect const& initial_selection)
+	: wxDialog(parent, wxID_ANY, _("Select OCR Region"), wxDefaultPosition, wxSize(960, 620), wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER)
+	, context(context)
+	, frame(initial_frame)
+	{
+		if (context && context->project->VideoProvider())
+			frame_count = context->project->VideoProvider()->GetFrameCount();
+		if (frame_count > 0)
+			frame = std::clamp(frame, 0, frame_count - 1);
+		else
+			frame = 0;
+
+		auto *main_sizer = new wxBoxSizer(wxVERTICAL);
+		main_sizer->Add(new wxStaticText(this, wxID_ANY, _("Drag ROI border lines (2 vertical + 2 horizontal) to set OCR region.")),
+			0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 10);
+		main_sizer->Add(new wxStaticText(this, wxID_ANY, _("Use arrow keys: Left/Right = +/-1 frame, Up/Down = +/-10 frames.")),
+			0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
+		frame_label = new wxStaticText(this, wxID_ANY, _("Frame N/A"));
+		main_sizer->Add(frame_label, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 8);
+
+		canvas = new wxPanel(this, wxID_ANY);
+		canvas->SetBackgroundStyle(wxBG_STYLE_PAINT);
+		canvas->SetMinSize(wxSize(860, 460));
+		main_sizer->Add(canvas, 1, wxEXPAND | wxLEFT | wxRIGHT, 10);
+
+		auto *button_row = new wxBoxSizer(wxHORIZONTAL);
+		button_row->Add(new wxButton(this, wxID_CLEAR, _("Clear")), 0, wxRIGHT, 8);
+		button_row->AddStretchSpacer();
+		button_row->Add(CreateStdDialogButtonSizer(wxOK | wxCANCEL), 0, wxALIGN_CENTER_VERTICAL);
+		main_sizer->Add(button_row, 0, wxEXPAND | wxALL, 10);
+
+		SetSizerAndFit(main_sizer);
+		CentreOnParent();
+
+		canvas->Bind(wxEVT_PAINT, &OcrRoiPickerDialog::OnPaint, this);
+		canvas->Bind(wxEVT_LEFT_DOWN, &OcrRoiPickerDialog::OnLeftDown, this);
+		canvas->Bind(wxEVT_LEFT_UP, &OcrRoiPickerDialog::OnLeftUp, this);
+		canvas->Bind(wxEVT_MOTION, &OcrRoiPickerDialog::OnMotion, this);
+		Bind(wxEVT_CHAR_HOOK, &OcrRoiPickerDialog::OnKeyDown, this);
+		Bind(wxEVT_BUTTON, &OcrRoiPickerDialog::OnClear, this, wxID_CLEAR);
+		Bind(wxEVT_BUTTON, &OcrRoiPickerDialog::OnOk, this, wxID_OK);
+
+		LoadFrame(frame);
+		if (has_initial_selection && initial_selection.IsValid())
+			SetSelectionFromNormalized(initial_selection);
+		else
+			SetSelectionFullFrame();
+		UpdateFrameLabel();
+		canvas->SetFocus();
+	}
+
+	bool HasSelection() const {
+		return has_selection && !selection_image.IsEmpty();
+	}
+
+	int GetFrame() const {
+		return frame;
+	}
+
+	OcrNormalizedRect GetSelection() const {
+		return GetSelectionNormalizedInternal();
+	}
+};
+
 class OcrSelectedLinesDialog final : public wxDialog {
 	wxChoice *frame_mode;
 	wxChoice *insert_mode;
 	wxChoice *language_mode;
+	wxCheckBox *use_roi = nullptr;
+	wxStaticText *roi_summary = nullptr;
+	agi::Context *context = nullptr;
+	int roi_preview_frame = 0;
 	std::vector<std::string> supported_languages;
+	bool has_roi_selection = false;
+	OcrNormalizedRect roi_selection;
+
+	void UpdateRoiSummary() {
+		if (!roi_summary)
+			return;
+
+		if (!has_roi_selection || !roi_selection.IsValid()) {
+			roi_summary->SetLabel(_("Full frame"));
+			return;
+		}
+
+		roi_summary->SetLabel(fmt_tl("x=%.1f%% y=%.1f%% w=%.1f%% h=%.1f%%",
+			roi_selection.x * 100.0,
+			roi_selection.y * 100.0,
+			roi_selection.width * 100.0,
+			roi_selection.height * 100.0));
+	}
+
+	void OnPickRegion(wxCommandEvent&) {
+		if (!context || !context->project->VideoProvider()) {
+			wxMessageBox(_("Could not load video frame for ROI selection."), _("OCR Region"), wxOK | wxICON_ERROR | wxCENTER, this);
+			return;
+		}
+
+		OcrRoiPickerDialog picker(this, context, roi_preview_frame, has_roi_selection, roi_selection);
+		if (picker.ShowModal() != wxID_OK)
+			return;
+
+		if (!picker.HasSelection())
+			return;
+
+		roi_selection = picker.GetSelection();
+		roi_preview_frame = picker.GetFrame();
+		has_roi_selection = roi_selection.IsValid();
+		use_roi->SetValue(has_roi_selection);
+		UpdateRoiSummary();
+		Layout();
+		Fit();
+	}
+
+	void OnOk(wxCommandEvent &event) {
+		if (use_roi->GetValue() && !has_roi_selection) {
+			wxMessageBox(_("Please pick an OCR region or disable \"Use OCR region\"."), _("OCR Region"), wxOK | wxICON_INFORMATION | wxCENTER, this);
+			return;
+		}
+		event.Skip();
+	}
 
 public:
-	OcrSelectedLinesDialog(wxWindow *parent, std::vector<std::string> languages)
+	OcrSelectedLinesDialog(wxWindow *parent, agi::Context *context, std::vector<std::string> languages)
 	: wxDialog(parent, wxID_ANY, _("OCR selected Lines"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER)
+	, context(context)
+	, roi_preview_frame(context ? context->videoController->GetFrameN() : 0)
 	, supported_languages(std::move(languages))
 	{
 		auto *main_sizer = new wxBoxSizer(wxVERTICAL);
@@ -360,11 +854,25 @@ public:
 		language_mode->SetSelection(0);
 		grid->Add(language_mode, 1, wxEXPAND);
 
+		grid->Add(new wxStaticText(this, wxID_ANY, _("OCR region:")), 0, wxALIGN_CENTER_VERTICAL);
+		auto *roi_box = new wxBoxSizer(wxHORIZONTAL);
+		use_roi = new wxCheckBox(this, wxID_ANY, _("Use OCR region"));
+		roi_box->Add(use_roi, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 8);
+		auto *pick_roi = new wxButton(this, wxID_ANY, _("Pick region..."));
+		roi_box->Add(pick_roi, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 8);
+		roi_summary = new wxStaticText(this, wxID_ANY, _("Full frame"));
+		roi_box->Add(roi_summary, 1, wxALIGN_CENTER_VERTICAL);
+		grid->Add(roi_box, 1, wxEXPAND);
+
 		main_sizer->Add(grid, 1, wxEXPAND | wxALL, 10);
 		main_sizer->Add(CreateStdDialogButtonSizer(wxOK | wxCANCEL), 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
 
 		SetSizerAndFit(main_sizer);
 		CentreOnParent();
+		UpdateRoiSummary();
+
+		pick_roi->Bind(wxEVT_BUTTON, &OcrSelectedLinesDialog::OnPickRegion, this);
+		Bind(wxEVT_BUTTON, &OcrSelectedLinesDialog::OnOk, this, wxID_OK);
 	}
 
 	OcrLineFrameMode GetFrameMode() const {
@@ -398,6 +906,14 @@ public:
 
 		return supported_languages[language_index];
 	}
+
+	bool UseRoi() const {
+		return use_roi && use_roi->GetValue() && has_roi_selection && roi_selection.IsValid();
+	}
+
+	OcrNormalizedRect GetRoi() const {
+		return roi_selection;
+	}
 };
 
 int frame_for_line(agi::Context *c, AssDialogue const* line, OcrLineFrameMode mode) {
@@ -429,6 +945,22 @@ std::string merge_ocr_text(std::string const& existing_text, std::string const& 
 		default:
 			return ocr_text;
 	}
+}
+
+wxImage crop_image_to_roi(wxImage const& image, OcrNormalizedRect const& roi) {
+	if (!image.IsOk() || !roi.IsValid())
+		return image;
+
+	int const width = image.GetWidth();
+	int const height = image.GetHeight();
+	if (width <= 1 || height <= 1)
+		return image;
+
+	int x = std::clamp(static_cast<int>(std::lround(roi.x * width)), 0, width - 1);
+	int y = std::clamp(static_cast<int>(std::lround(roi.y * height)), 0, height - 1);
+	int w = std::clamp(static_cast<int>(std::lround(roi.width * width)), 1, width - x);
+	int h = std::clamp(static_cast<int>(std::lround(roi.height * height)), 1, height - y);
+	return image.GetSubImage(wxRect(x, y, w, h));
 }
 #endif
 
@@ -525,7 +1057,7 @@ struct video_ocr_selected_lines final : public validator_video_loaded {
 		if (selected_lines.size() <= 1)
 			return;
 
-		OcrSelectedLinesDialog dialog(c->parent, osx::ocr::SupportedRecognitionLanguages());
+		OcrSelectedLinesDialog dialog(c->parent, c, osx::ocr::SupportedRecognitionLanguages());
 		if (dialog.ShowModal() != wxID_OK)
 			return;
 
@@ -577,6 +1109,8 @@ struct video_ocr_selected_lines final : public validator_video_loaded {
 
 			int const frame_time = c->project->Timecodes().TimeAtFrame(frame, agi::vfr::START);
 			wxImage image = GetImage(*provider->GetFrame(frame, frame_time, true));
+			if (dialog.UseRoi())
+				image = crop_image_to_roi(image, dialog.GetRoi());
 
 			auto task = std::async(std::launch::async, [image = std::move(image), ocr_options]() mutable {
 				return osx::ocr::RecognizeText(image, ocr_options);
