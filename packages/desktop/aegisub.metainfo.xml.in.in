@@ -74,11 +74,8 @@
     <mediatype>text/x-ssa</mediatype>
   </provides>
   <releases>
-    <!-- TODO: automatic replace at config time -->
-    <release version="3.4.4" date="2026-03-16">
-      <url>https://aegisub.org/changelog/3.4.4/</url>
-    </release>
-    <release version="3.4.3" date="2026-03-16">
+    <!-- TODO: automatic replace at config time -->`
+    <release version="3.4.3" date="2026-03-24">
       <url>https://aegisub.org/changelog/3.4.3/</url>
     </release>
     <release version="3.4.2" date="2025-01-12">
