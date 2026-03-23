@@ -229,3 +229,16 @@ jobs:
           name: Source Tarball
           path: build/meson-dist/*.tar.xz
           if-no-files-found: error
+
+      # GitHub Releases
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/v') && matrix.config.buildtype == 'release'
+        with:
+          files: |
+            build/Aegisub-*.exe
+            build/aegisub-portable-*.zip
+            build/Aegisub-*.dmg
+            build/meson-dist/*.tar.xz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
