@@ -74,7 +74,7 @@ jobs:
             name: macOS arm64 Release,
             os: macos-15,
             buildtype: release,
-            args: -Ddefault_library=static -Dbuild_osx_bundle=true -Dlocal_boost=true --force-fallback-for=ffms2
+            args: -Ddefault_library=static -Dbuild_osx_bundle=true -Dlocal_boost=true --force-fallback-for=ffms2,wxWidgets
           }
 
     steps:
