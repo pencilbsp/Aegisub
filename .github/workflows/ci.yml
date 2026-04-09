@@ -2,10 +2,10 @@ name: Meson CI
 
 on:
   push:
-    branches: [ master ]
-    tags: [ 'v*' ]
+    branches: [master]
+    tags: ["v*"]
   pull_request:
-    branches: [ master ]
+    branches: [master]
   workflow_dispatch:
 
 jobs:
@@ -36,25 +36,6 @@ jobs:
               -Dfribidi:tests=false
               -Dfribidi:docs=false
               -Dlibass:fontconfig=disabled
-          - name: Windows MSVC Release ARM64
-            os: windows-latest
-            msvc: true
-            arch: amd64_arm64
-            buildtype: release
-            args: >-
-              -Ddefault_library=static
-              --force-fallback-for=zlib,harfbuzz,freetype2,fribidi,libpng
-              -Dfreetype2:harfbuzz=disabled
-              -Dharfbuzz:freetype=disabled
-              -Dharfbuzz:cairo=disabled
-              -Dharfbuzz:glib=disabled
-              -Dharfbuzz:gobject=disabled
-              -Dharfbuzz:tests=disabled
-              -Dharfbuzz:docs=disabled
-              -Dfribidi:docs=false
-              -Dlibass:fontconfig=disabled
-              -Dffmpeg:ff_cuda_llvm=disabled
-              -Dffmpeg:cuda=disabled
           #- {
           #  name: Windows MinGW,
           #  os: windows-latest,
@@ -78,12 +59,12 @@ jobs:
           #   buildtype: debugoptimized,
           #   args: -Ddefault_library=static -Dbuild_osx_bundle=true -Dlocal_boost=true --force-fallback-for=ffms2
           # }
-          # - {
-          #   name: macOS x86_64 Release,
-          #   os: macos-15-intel,
-          #   buildtype: release,
-          #   args: -Ddefault_library=static -Dbuild_osx_bundle=true -Dlocal_boost=true --force-fallback-for=ffms2
-          # }
+          - {
+              name: macOS x86_64 Release,
+              os: macos-15-intel,
+              buildtype: release,
+              args: -Ddefault_library=static -Dbuild_osx_bundle=true -Dlocal_boost=true --force-fallback-for=ffms2,
+            }
           # - {
           #   name: macOS arm64 Debug,
           #   os: macos-15,
@@ -91,20 +72,20 @@ jobs:
           #   args: -Ddefault_library=static -Dbuild_osx_bundle=true -Dlocal_boost=true --force-fallback-for=ffms2
           # }
           - {
-            name: macOS arm64 Release,
-            os: macos-15,
-            buildtype: release,
-            args: -Ddefault_library=static -Dbuild_osx_bundle=true -Dlocal_boost=true --force-fallback-for=ffms2
-          }
+              name: macOS arm64 Release,
+              os: macos-15,
+              buildtype: release,
+              args: -Ddefault_library=static -Dbuild_osx_bundle=true -Dlocal_boost=true --force-fallback-for=ffms2,
+            }
 
     steps:
       - uses: actions/checkout@v6
         with:
-          fetch-depth: '0'
+          fetch-depth: "0"
 
       - uses: actions/setup-python@v6
         with:
-          python-version: '3.x'
+          python-version: "3.x"
 
       - name: Setup Meson
         run: |
@@ -156,14 +137,14 @@ jobs:
           export HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1
           # Skip brew update for now, see https://github.com/actions/setup-python/issues/577
           # brew update
-          
+
           # Uninstall system wxWidgets to force building the subproject with our patched files
           for pkg in wxmac wxwidgets; do
             if brew ls --versions $pkg > /dev/null; then
               brew uninstall --ignore-dependencies $pkg
             fi
           done
-          
+
           brew install ninja
           brew install libass zlib ffms2 fftw hunspell
           brew install pulseaudio  # NO OpenAL in github CI
@@ -188,8 +169,7 @@ jobs:
         if: matrix.config.os == 'windows-latest'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run:
-          meson compile win-installer -C build
+        run: meson compile win-installer -C build
 
       - name: Generate Windows portable installer
         if: matrix.config.os == 'windows-latest'
