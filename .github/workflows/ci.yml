@@ -39,7 +39,7 @@ jobs:
           - name: Windows MSVC Release ARM64
             os: windows-latest
             msvc: true
-            arch: arm64
+            arch: amd64_arm64
             buildtype: release
             args: >-
               -Ddefault_library=static
@@ -122,6 +122,12 @@ jobs:
         run: |
           $cleanPath = $env:PATH -replace '[^;]*Strawberry[^;]*;?', ''
           echo "PATH=$cleanPath" >> $env:GITHUB_ENV
+
+      - name: Select MSVC compiler
+        if: matrix.config.os == 'windows-latest' && matrix.config.msvc == true
+        run: |
+          echo "CC=cl" >> $env:GITHUB_ENV
+          echo "CXX=cl" >> $env:GITHUB_ENV
 
       - name: Install dependencies (Windows)
         if: matrix.config.os == 'windows-latest'
