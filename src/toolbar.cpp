@@ -98,7 +98,7 @@ namespace {
 		}
 
 		/// Populate the toolbar with buttons
-		void Populate() {
+		void Populate(bool realize = true) {
 			json::Object const& root = get_root();
 			auto root_it = root.find(name);
 			if (root_it == root.end()) {
@@ -147,7 +147,8 @@ namespace {
 				Bind(wxEVT_IDLE, &Toolbar::OnIdle, this);
 			}
 
-			Realize();
+			if (realize)
+				Realize();
 		}
 
 	public:
@@ -174,8 +175,12 @@ namespace {
 		, icon_size_slot(OPT_SUB("App/Toolbar Icon Size", &Toolbar::OnIconSizeChange, this))
 		, hotkeys_changed_slot(hotkey::inst->AddHotkeyChangeListener(&Toolbar::RegenerateToolbar, this))
 		{
+			// Create the native toolbar items before installation so AppKit can
+			// resolve them safely when the toolbar is attached to the frame, then
+			// realize after attachment so the visible native toolbar is populated.
+			Populate(false);
 			parent->SetToolBar(this);
-			Populate();
+			Realize();
 			Bind(wxEVT_TOOL, &Toolbar::OnClick, this);
 			Bind(wxEVT_DPI_CHANGED, [this] (wxDPIChangedEvent &e) { RegenerateToolbar(); e.Skip(); });
 		}

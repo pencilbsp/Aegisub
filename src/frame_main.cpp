@@ -173,7 +173,6 @@ void FrameMain::EnableToolBar(agi::OptionValue const& opt) {
 	if (opt.GetBool()) {
 		if (!GetToolBar()) {
 			toolbar::AttachToolbar(this, "main", context.get(), "Default");
-			GetToolBar()->Realize();
 		}
 	}
 	else if (wxToolBar *old_tb = GetToolBar()) {
