@@ -117,6 +117,12 @@ jobs:
         with:
           arch: ${{ matrix.config.arch || 'x64' }}
 
+      - name: Remove Strawberry Perl from PATH
+        if: matrix.config.os == 'windows-latest' && matrix.config.msvc == true
+        run: |
+          $cleanPath = $env:PATH -replace '[^;]*Strawberry[^;]*;?', ''
+          echo "PATH=$cleanPath" >> $env:GITHUB_ENV
+
       - name: Install dependencies (Windows)
         if: matrix.config.os == 'windows-latest'
         run: |
@@ -146,7 +152,11 @@ jobs:
           # brew update
           
           # Uninstall system wxWidgets to force building the subproject with our patched files
-          brew uninstall --ignore-dependencies wxmac wxwidgets || true
+          for pkg in wxmac wxwidgets; do
+            if brew ls --versions $pkg > /dev/null; then
+              brew uninstall --ignore-dependencies $pkg
+            fi
+          done
           
           brew install ninja
           brew install libass zlib ffms2 fftw hunspell
