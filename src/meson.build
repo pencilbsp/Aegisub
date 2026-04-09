@@ -169,9 +169,6 @@ if host_machine.system() == 'darwin'
         'visual_tool_ocr.cpp',
     )
 
-    if conf.get('WITH_INTERNAL_WXWIDGETS', 0) != 0
-        aegisub_src += files('osx/scintilla_ime.mm')
-    endif
 
 elif host_machine.system() == 'windows'
     aegisub_src += files(

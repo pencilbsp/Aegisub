@@ -972,7 +972,6 @@ void wxOSX_insertText(NSView* self, SEL _cmd, NSString* text);
 
 - (void)insertText:(id)aString replacementRange:(NSRange)replacementRange
 {
-    wxLogDebug("insertText: called");
     wxWidgetCocoaImpl* impl = (wxWidgetCocoaImpl* ) wxWidgetImpl::FindFromWXWidget( self );
     if (impl)
         impl->insertTextFromIME(aString, replacementRange, self);
@@ -1005,7 +1004,10 @@ void wxOSX_insertText(NSView* self, SEL _cmd, NSString* text);
 {
     wxWidgetCocoaImpl* impl = (wxWidgetCocoaImpl* ) wxWidgetImpl::FindFromWXWidget( self );
     if (impl)
-        return impl->selectedRange();
+    {
+        NSRange r = impl->selectedRange();
+        return r;
+    }
     return NSMakeRange(NSNotFound, 0);
 }
 
@@ -1021,7 +1023,10 @@ void wxOSX_insertText(NSView* self, SEL _cmd, NSString* text);
 {
     wxWidgetCocoaImpl* impl = (wxWidgetCocoaImpl* ) wxWidgetImpl::FindFromWXWidget( self );
     if (impl)
-        return impl->hasMarkedText() ? YES : NO;
+    {
+        BOOL result = impl->hasMarkedText() ? YES : NO;
+        return result;
+    }
     return NO;
 }
 
@@ -1108,6 +1113,16 @@ void wxOSX_mouseEvent(NSView* self, SEL _cmd, NSEvent *event)
     wxWidgetCocoaImpl* impl = (wxWidgetCocoaImpl* ) wxWidgetImpl::FindFromWXWidget( self );
     if (impl == NULL)
         return;
+
+    NSEventType type = [event type];
+    if (type == NSEventTypeLeftMouseDown || type == NSEventTypeRightMouseDown || type == NSEventTypeOtherMouseDown)
+    {
+        if (impl->hasMarkedText())
+        {
+            [[NSTextInputContext currentInputContext] discardMarkedText];
+            impl->unmarkText(self);
+        }
+    }
 
     // We shouldn't let disabled windows get mouse events.
     if (impl->GetWXPeer()->IsEnabled())
@@ -2220,7 +2235,6 @@ void wxWidgetCocoaImpl::insertText(NSString* text, WXWidget slf, void *_cmd)
         else if (auto tc = wxDynamicCast(GetWXPeer(), wxTextCtrl)) currentVal = tc->GetValue();
     }
         
-    wxLogDebug("insertText: called with text='%s', currentEditorValue='%s'", wxText.utf8_str().data(), currentVal.utf8_str().data());
     wxLogTrace(TRACE_KEYS, "Insert text \"%s\" for %s",
                wxText, wxDumpNSView(slf));
 
@@ -2282,15 +2296,29 @@ long wxClampToDocument(wxTextEntryBase* entry, long pos)
 
 bool wxGetEditorSelectionInEditorUnits(wxWindowMac* peer, long* from, long* to)
 {
-    wxTextEntryBase* entry = dynamic_cast<wxTextEntryBase*>(peer);
-    if ( !entry )
-        return false;
-
     long selFrom = 0;
     long selTo = 0;
-    entry->GetSelection(&selFrom, &selTo);
-    selFrom = wxClampToDocument(entry, selFrom);
-    selTo = wxClampToDocument(entry, selTo);
+
+    if ( auto stc = wxDynamicCast(peer, wxStyledTextCtrl) )
+    {
+        stc->GetSelection(&selFrom, &selTo);
+        const int docLen = stc->GetLength();
+        if (selFrom < 0) selFrom = 0;
+        if (selTo < 0) selTo = 0;
+        if (selFrom > docLen) selFrom = docLen;
+        if (selTo > docLen) selTo = docLen;
+    }
+    else if ( wxTextEntryBase* entry = dynamic_cast<wxTextEntryBase*>(peer) )
+    {
+        entry->GetSelection(&selFrom, &selTo);
+        selFrom = wxClampToDocument(entry, selFrom);
+        selTo = wxClampToDocument(entry, selTo);
+    }
+    else
+    {
+        return false;
+    }
+
     if ( selFrom > selTo )
         std::swap(selFrom, selTo);
 
@@ -2303,6 +2331,20 @@ bool wxGetEditorSelectionInEditorUnits(wxWindowMac* peer, long* from, long* to)
 
 void wxSetEditorSelectionInEditorUnits(wxWindowMac* peer, long from, long to)
 {
+    if ( auto stc = wxDynamicCast(peer, wxStyledTextCtrl) )
+    {
+        const int docLen = stc->GetLength();
+        if (from < 0) from = 0;
+        if (to < 0) to = 0;
+        if (from > docLen) from = docLen;
+        if (to > docLen) to = docLen;
+        
+        stc->SetSelection(static_cast<int>(from), static_cast<int>(to));
+        if (from == to)
+            stc->SetCurrentPos(static_cast<int>(to));
+        return;
+    }
+
     wxTextEntryBase* entry = dynamic_cast<wxTextEntryBase*>(peer);
     if ( !entry )
         return;
@@ -2324,6 +2366,21 @@ void wxReplaceEditorRangeInEditorUnits(wxWindowMac* peer,
                                        long to,
                                        const wxString& text)
 {
+    if ( auto stc = wxDynamicCast(peer, wxStyledTextCtrl) )
+    {
+        const int docLen = stc->GetLength();
+        if (from < 0) from = 0;
+        if (to < 0) to = 0;
+        if (from > docLen) from = docLen;
+        if (to > docLen) to = docLen;
+        if (from > to) std::swap(from, to);
+        
+        stc->SetTargetStart(static_cast<int>(from));
+        stc->SetTargetEnd(static_cast<int>(to));
+        stc->ReplaceTarget(text);
+        return;
+    }
+
     wxTextEntryBase* entry = dynamic_cast<wxTextEntryBase*>(peer);
     if ( !entry )
         return;
@@ -2419,9 +2476,23 @@ void wxWidgetCocoaImpl::insertTextFromIME(id aString, NSRange replacementRange, 
     const bool hasCurrentNonEmptySelection =
         hasCurrentSelection && currentSelFrom != currentSelTo;
 
+    bool isMarkedTextValid = hasMarkedText();
+    // Capture initial composition state for undo grouping below.
+    const bool wasInComposition = isMarkedTextValid;
+    long markedFrom = 0, markedTo = 0;
+    if ( isMarkedTextValid && wxIsValidIMEIndexRange(m_markedRange) )
+    {
+        wxEditorRangeFromUTF16Range(peer, m_markedRange, &markedFrom, &markedTo);
+        if ( hasCurrentSelection && (currentSelTo < markedFrom || currentSelFrom > markedTo) )
+        {
+            // Cursor was moved outside the composition by the user. Abandon the old composition.
+            isMarkedTextValid = false;
+        }
+    }
+
     // Chromium's renderer-side behavior replaces current selection by default.
     // Prefer live editor selection when starting from non-composition state.
-    if ( !hasMarkedText() && hasCurrentNonEmptySelection )
+    if ( hasCurrentNonEmptySelection )
     {
         replaceFrom = currentSelFrom;
         replaceTo = currentSelTo;
@@ -2432,7 +2503,7 @@ void wxWidgetCocoaImpl::insertTextFromIME(id aString, NSRange replacementRange, 
         hasReplaceRange = wxEditorRangeFromUTF16Range(peer, replacementRange,
                                                       &replaceFrom, &replaceTo);
     }
-    else if ( hasMarkedText() && wxIsValidIMEIndexRange(m_markedRange) )
+    else if ( isMarkedTextValid && wxIsValidIMEIndexRange(m_markedRange) )
     {
         hasReplaceRange = wxEditorRangeFromUTF16Range(peer, m_markedRange,
                                                       &replaceFrom, &replaceTo);
@@ -2451,11 +2522,44 @@ void wxWidgetCocoaImpl::insertTextFromIME(id aString, NSRange replacementRange, 
     if ( hasReplaceRange )
         wxSetEditorSelectionInEditorUnits(peer, replaceFrom, replaceTo);
 
-    insertText(str, slf, @selector(insertText:));
+    if (hasReplaceRange)
+    {
+        wxReplaceEditorRangeInEditorUnits(peer, replaceFrom, replaceTo,
+                                          wxCFStringRef::AsString(str));
+        
+        // Calculate cursor position in editor units (bytes for STC, chars for wxTextEntry)
+        long newCursorPos;
+        if ( auto stc = wxDynamicCast(peer, wxStyledTextCtrl) )
+            newCursorPos = stc->PositionRelative(static_cast<int>(replaceFrom),
+                                                  static_cast<int>([str length]));
+        else
+            newCursorPos = replaceFrom + static_cast<long>([str length]);
+        wxSetEditorSelectionInEditorUnits(peer, newCursorPos, newCursorPos);
+    }
+    else
+    {
+        wxReplaceEditorRangeInEditorUnits(peer, currentSelFrom, currentSelTo,
+                                          wxCFStringRef::AsString(str));
+        long newCursorPos;
+        if ( auto stc = wxDynamicCast(peer, wxStyledTextCtrl) )
+            newCursorPos = stc->PositionRelative(static_cast<int>(currentSelFrom),
+                                                  static_cast<int>([str length]));
+        else
+            newCursorPos = currentSelFrom + static_cast<long>([str length]);
+        wxSetEditorSelectionInEditorUnits(peer, newCursorPos, newCursorPos);
+    }
 
     [m_markedText release];
     m_markedText = nil;
     m_markedRange = NSMakeRange(NSNotFound, 0);
+
+    // Undo grouping: composition committed. Close the undo group opened in setMarkedText
+    // so that the entire composed word is undone as a single step.
+    if ( wasInComposition )
+    {
+        if ( auto stc = wxDynamicCast(peer, wxStyledTextCtrl) )
+            stc->EndUndoAction();
+    }
 
     long selectionFrom = 0;
     long selectionTo = 0;
@@ -2471,6 +2575,14 @@ void wxWidgetCocoaImpl::setMarkedText(id aString,
                                       WXWidget slf)
 {
     wxUnusedVar(slf);
+
+    // The IME is consuming this key event for composition. Mark it as handled
+    // so that DoHandleKeyEvent does not re-dispatch wxEVT_KEY_DOWN to Scintilla
+    // after interpretKeyEvents: returns. Without this, Backspace during
+    // composition would both update the composition AND delete an extra
+    // character via Scintilla's key handler.
+    if ( IsInNativeKeyDown() )
+        SetKeyDownSent();
 
     NSString* str = [aString isKindOfClass:[NSAttributedString class]]
                         ? [(NSAttributedString*)aString string]
@@ -2490,8 +2602,22 @@ void wxWidgetCocoaImpl::setMarkedText(id aString,
     const bool hasCurrentNonEmptySelection =
         hasCurrentSelection && currentSelFrom != currentSelTo;
 
+    bool isMarkedTextValid = hasMarkedText();
+    // Capture initial composition state before isMarkedTextValid may be cleared below.
+    const bool wasInComposition = isMarkedTextValid;
+    long markedFrom = 0, markedTo = 0;
+    if ( isMarkedTextValid && wxIsValidIMEIndexRange(m_markedRange) )
+    {
+        wxEditorRangeFromUTF16Range(peer, m_markedRange, &markedFrom, &markedTo);
+        if ( hasCurrentSelection && (currentSelTo < markedFrom || currentSelFrom > markedTo) )
+        {
+            // Cursor was moved outside the composition by the user. Abandon the old composition.
+            isMarkedTextValid = false;
+        }
+    }
+
     // Keep overwrite behavior stable when user types over a selected range.
-    if ( !hasMarkedText() && hasCurrentNonEmptySelection )
+    if ( hasCurrentNonEmptySelection )
     {
         replaceFrom = currentSelFrom;
         replaceTo = currentSelTo;
@@ -2502,7 +2628,7 @@ void wxWidgetCocoaImpl::setMarkedText(id aString,
         hasReplaceRange = wxEditorRangeFromUTF16Range(peer, replacementRange,
                                                       &replaceFrom, &replaceTo);
     }
-    else if ( hasMarkedText() && wxIsValidIMEIndexRange(m_markedRange) )
+    else if ( isMarkedTextValid && wxIsValidIMEIndexRange(m_markedRange) )
     {
         hasReplaceRange = wxEditorRangeFromUTF16Range(peer, m_markedRange,
                                                       &replaceFrom, &replaceTo);
@@ -2525,6 +2651,16 @@ void wxWidgetCocoaImpl::setMarkedText(id aString,
 
     if ( markedLenUtf16 > 0 )
     {
+        // Undo grouping: wrap the entire composition into a single undo step.
+        // If the cursor was moved outside composition, close the old group first.
+        if ( auto stc = wxDynamicCast(peer, wxStyledTextCtrl) )
+        {
+            if ( wasInComposition && !isMarkedTextValid )
+                stc->EndUndoAction();   // close abandoned composition group
+            if ( !wasInComposition || !isMarkedTextValid )
+                stc->BeginUndoAction(); // open group for new composition
+        }
+
         wxReplaceEditorRangeInEditorUnits(peer, replaceFrom, replaceTo,
                                           wxCFStringRef::AsString(str));
 
@@ -2610,6 +2746,14 @@ void wxWidgetCocoaImpl::setMarkedText(id aString,
                 m_selectedRange = NSMakeRange(NSNotFound, 0);
         }
 
+        // Undo grouping: composition was cancelled (empty marked text). Close the group
+        // so that Ctrl+Z undoes the entire cancelled composition as one step.
+        if ( wasInComposition )
+        {
+            if ( auto stc = wxDynamicCast(peer, wxStyledTextCtrl) )
+                stc->EndUndoAction();
+        }
+
         [m_markedText release];
         m_markedText = nil;
         m_markedRange = NSMakeRange(NSNotFound, 0);
@@ -2639,9 +2783,19 @@ void wxWidgetCocoaImpl::unmarkText(WXWidget slf)
 {
     wxUnusedVar(slf);
 
+    const bool wasInComposition = hasMarkedText();
+
     [m_markedText release];
     m_markedText = nil;
     m_markedRange = NSMakeRange(NSNotFound, 0);
+
+    // Undo grouping: if we were composing, close the group.
+    if ( wasInComposition )
+    {
+        wxWindowMac* peer = GetWXPeer();
+        if ( auto stc = wxDynamicCast(peer, wxStyledTextCtrl) )
+            stc->EndUndoAction();
+    }
 
     long selectionFrom = 0;
     long selectionTo = 0;
@@ -2690,59 +2844,78 @@ NSRect wxWidgetCocoaImpl::firstRectForCharacterRange(NSRange aRange, NSRangePoin
     if (!peer)
         return NSMakeRect(0, 0, 0, 0);
 
-    // Get the caret/cursor position in screen coordinates
-    // This is used by IME to position the candidate window
-    wxPoint screenPos = peer->GetScreenPosition();
-    wxSize clientSize = peer->GetClientSize();
-    
     // Try to get a more precise position from the text control
     wxStyledTextCtrl* stc = dynamic_cast<wxStyledTextCtrl*>(peer);
-    wxTextEntry* textEntry = dynamic_cast<wxTextEntry*>(peer);
     
     if (stc)
     {
         long pos = stc->GetCurrentPos();
         wxPoint pt = stc->PointFromPosition(pos);
-        wxPoint caretPos(screenPos.x + pt.x, screenPos.y + pt.y);
         
         int lineHeight = stc->TextHeight(stc->LineFromPosition(pos));
         if (lineHeight <= 0) lineHeight = 16;
         
-        NSRect screenFrame = [[NSScreen mainScreen] frame];
-        CGFloat cocoaY = screenFrame.size.height - (caretPos.y + lineHeight);
-        
-        return NSMakeRect(caretPos.x, cocoaY, 0, lineHeight);
+        NSRect rect = NSMakeRect(pt.x, pt.y, 0, lineHeight);
+        rect = [m_osxView convertRect:rect toView:nil];
+        return [m_osxView.window convertRectToScreen:rect];
     }
-    else if (textEntry)
-    {
-        // Use the position of the text insertion point
-        wxPoint caretPos = peer->GetScreenPosition();
-        wxFont font = peer->GetFont();
-        int lineHeight = font.IsOk() ? font.GetPixelSize().GetHeight() : 16;
-        if (lineHeight <= 0) lineHeight = 16;
-        
-        // Convert to Cocoa screen coordinates (origin at bottom-left)
-        NSRect screenFrame = [[NSScreen mainScreen] frame];
-        CGFloat cocoaY = screenFrame.size.height - (caretPos.y + lineHeight);
-        
-        return NSMakeRect(caretPos.x, cocoaY, 0, lineHeight);
-    }
-
-    // Fallback: position at the bottom of the control
-    NSRect screenFrame = [[NSScreen mainScreen] frame];
-    CGFloat cocoaY = screenFrame.size.height - (screenPos.y + clientSize.GetHeight());
     
-    return NSMakeRect(screenPos.x, cocoaY, clientSize.GetWidth(), clientSize.GetHeight());
+    // Fallback: use the bounding box of the entire control
+    // if we can't determine the precise caret position
+    NSRect rect = [m_osxView bounds];
+    rect = [m_osxView convertRect:rect toView:nil];
+    return [m_osxView.window convertRectToScreen:rect];
 }
 
 NSAttributedString* wxWidgetCocoaImpl::attributedSubstringForProposedRange(NSRange aRange, NSRangePointer actualRange)
 {
-    wxUnusedVar(aRange);
-    if (actualRange)
+    wxWindowMac* peer = GetWXPeer();
+    if ( !peer )
+        return nil;
+
+    if ( !wxIsValidIMEIndexRange(aRange) )
+        return nil;
+
+    // Convert UTF-16 range to editor units
+    long from = 0;
+    long to = 0;
+    if ( !wxEditorRangeFromUTF16Range(peer, aRange, &from, &to) )
+        return nil;
+
+    // Get the text from the editor
+    wxString text;
+    if ( auto stc = wxDynamicCast(peer, wxStyledTextCtrl) )
+    {
+        int stcFrom = static_cast<int>(from);
+        int stcTo = static_cast<int>(to);
+        if ( stcFrom < 0 ) stcFrom = 0;
+        if ( stcTo > stc->GetLength() ) stcTo = stc->GetLength();
+        if ( stcFrom >= stcTo )
+            return nil;
+        text = stc->GetTextRange(stcFrom, stcTo);
+    }
+    else if ( auto entry = dynamic_cast<wxTextEntryBase*>(peer) )
+    {
+        text = entry->GetValue().Mid(from, to - from);
+    }
+    else
+    {
+        return nil;
+    }
+
+    if ( text.empty() )
+        return nil;
+
+    // Keep cfText alive until initWithString: completes — AsNSString() returns
+    // the internal CFStringRef pointer (not a retained copy), so a temporary
+    // wxCFStringRef would be destroyed before initWithString: is called,
+    // leaving nsText as a dangling pointer and causing a crash.
+    wxCFStringRef cfText(text);
+    NSString* nsText = cfText.AsNSString();
+    if ( actualRange )
         *actualRange = aRange;
-    
-    // For now, return nil. A full implementation would extract text from the document.
-    return nil;
+
+    return [[[NSAttributedString alloc] initWithString:nsText] autorelease];
 }
 
 NSUInteger wxWidgetCocoaImpl::characterIndexForPoint(NSPoint aPoint)
@@ -2753,7 +2926,6 @@ NSUInteger wxWidgetCocoaImpl::characterIndexForPoint(NSPoint aPoint)
 
 bool wxWidgetCocoaImpl::doCommandBySelector(void* sel, WXWidget slf, void* WXUNUSED(_cmd))
 {
-    wxLogDebug("doCommandBySelector: %s", wxDumpSelector((SEL)sel));
     wxLogTrace(TRACE_KEYS, "Selector %s for %s",
                wxDumpSelector((SEL)sel), wxDumpNSView(slf));
 
@@ -2808,7 +2980,6 @@ bool wxWidgetCocoaImpl::doCommandBySelector(void* sel, WXWidget slf, void* WXUNU
         wxLogTrace(TRACE_KEYS, "Doing nothing in doCommandBySelector:");
     }
     
-    wxLogDebug("doCommandBySelector: %s handled=%d", wxDumpSelector((SEL)sel), handled);
     return handled;
 }
 
@@ -3226,7 +3397,6 @@ NSEvent* wxWidgetCocoaImpl::GetLastNativeKeyDownEvent()
 
 void wxWidgetCocoaImpl::SetKeyDownSent()
 {
-    wxASSERT( !m_lastKeyDownWXSent );
     m_lastKeyDownWXSent = true;
 }
 
@@ -4512,9 +4682,14 @@ bool wxWidgetCocoaImpl::DoHandleKeyEvent(NSEvent *event)
         // wxEVT_KEY_DOWN and wxEVT_CHAR there.
 
         if ( [m_osxView isKindOfClass:[NSScrollView class] ] )
-            [[(NSScrollView*)m_osxView documentView] interpretKeyEvents:[NSArray arrayWithObject:event]];
+        {
+            NSView* docView = [(NSScrollView*)m_osxView documentView];
+            [docView interpretKeyEvents:[NSArray arrayWithObject:event]];
+        }
         else
+        {
             [m_osxView interpretKeyEvents:[NSArray arrayWithObject:event]];
+        }
 
         if ( IsInNativeKeyDown() && !WasKeyDownSent())
         {
