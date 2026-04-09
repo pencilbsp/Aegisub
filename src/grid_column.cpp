@@ -25,6 +25,7 @@
 #include "video_controller.h"
 
 #include <wx/dc.h>
+#include <wx/settings.h>
 
 void WidthHelper::Age() {
 	for (auto it = begin(widths), e = end(widths); it != e; ) {
@@ -284,6 +285,32 @@ wxColor blend(wxColor fg, wxColor bg, double alpha) {
 		wxColor::AlphaBlend(fg.Blue(), bg.Blue(), alpha));
 }
 
+bool SupportsSystemAppearanceTheming() {
+#ifdef __WXMAC__
+	return true;
+#else
+	return false;
+#endif
+}
+
+bool IsDarkAppearanceActive() {
+	return SupportsSystemAppearanceTheming() && wxSystemSettings::GetAppearance().IsDark();
+}
+
+wxColour ThemedGridErrorBackgroundColor(const agi::OptionValue *option) {
+	wxColour color = to_wx(option->GetColor());
+	if (!IsDarkAppearanceActive() || !option->IsDefault())
+		return color;
+	return blend(color, wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW), 0.62);
+}
+
+wxColour ThemedGridStandardTextColor(const agi::OptionValue *option) {
+	wxColour color = to_wx(option->GetColor());
+	if (!IsDarkAppearanceActive() || !option->IsDefault())
+		return color;
+	return wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT);
+}
+
 class GridColumnCPS final : public GridColumn {
 	const agi::OptionValue *ignore_whitespace = OPT_GET("Subtitle/Character Counter/Ignore Whitespace");
 	const agi::OptionValue *ignore_punctuation = OPT_GET("Subtitle/Character Counter/Ignore Punctuation");
@@ -330,10 +357,9 @@ public:
 		int cps_max = std::max<int>(cps_min, cps_error->GetInt());
 		if (cps > cps_min) {
 			double alpha = std::min((double)(cps - cps_min + 1) / (cps_max - cps_min + 1), 1.0);
-			dc.SetBrush(wxBrush(blend(to_wx(bg_color->GetColor()), dc.GetBrush().GetColour(), alpha)));
+			dc.SetBrush(wxBrush(blend(ThemedGridErrorBackgroundColor(bg_color), dc.GetBrush().GetColour(), alpha)));
 			dc.SetPen(*wxTRANSPARENT_PEN);
 			dc.DrawRectangle(x, y + 1, width, ext.GetHeight() + 3);
-			dc.SetTextForeground(blend(*wxBLACK, tc, alpha));
 		}
 
 		x += (width + 2 - ext.GetWidth()) / 2;
@@ -345,6 +371,9 @@ public:
 class GridColumnChars final : public GridColumn {
 	const agi::OptionValue *ignore_whitespace = OPT_GET("Subtitle/Character Counter/Ignore Whitespace");
 	const agi::OptionValue *ignore_punctuation = OPT_GET("Subtitle/Character Counter/Ignore Punctuation");
+	const agi::OptionValue *character_limit = OPT_GET("Subtitle/Character Limit");
+	const agi::OptionValue *warning_bg_color = OPT_GET("Colour/Subtitle Grid/CPS Error");
+	const agi::OptionValue *standard_text_color = OPT_GET("Colour/Subtitle Grid/Standard");
 
 	size_t CharacterCount(const AssDialogue *d) const {
 		return subtitle_character_count::LineLength(
@@ -361,6 +390,25 @@ public:
 
 	wxString Value(const AssDialogue *d, const agi::Context *) const override {
 		return std::to_wstring(CharacterCount(d));
+	}
+
+	void Paint(wxDC &dc, int x, int y, const AssDialogue *d, const agi::Context *) const override {
+		size_t chars = CharacterCount(d);
+		wxString str = std::to_wstring(chars);
+		wxSize ext = dc.GetTextExtent(str);
+		auto tc = dc.GetTextForeground();
+
+		int limit = character_limit->GetInt();
+		if (limit && chars > static_cast<size_t>(limit)) {
+			dc.SetBrush(wxBrush(ThemedGridErrorBackgroundColor(warning_bg_color)));
+			dc.SetPen(*wxTRANSPARENT_PEN);
+			dc.DrawRectangle(x, y + 1, width, ext.GetHeight() + 3);
+			dc.SetTextForeground(ThemedGridStandardTextColor(standard_text_color));
+		}
+
+		x += (width + 2 - ext.GetWidth()) / 2;
+		dc.DrawText(str, x, y + 2);
+		dc.SetTextForeground(tc);
 	}
 
 	int Width(const agi::Context *c, WidthHelper &helper) const override {

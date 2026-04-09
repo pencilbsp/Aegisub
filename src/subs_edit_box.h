@@ -50,6 +50,7 @@ class SubsTextEditCtrl;
 class TimeEdit;
 class wxButton;
 class wxCheckBox;
+class wxMouseEvent;
 class wxRadioButton;
 class wxSizer;
 class wxSpinCtrl;
@@ -154,6 +155,8 @@ class SubsEditBox final : public wxPanel {
 	void OnLayerEnter(wxCommandEvent &event);
 	void OnCommentChange(wxCommandEvent &);
 	void OnEffectChange(wxCommandEvent &);
+	void OnCharacterCountClick(wxMouseEvent &event);
+	void ShowCharacterLimitDialog();
 	void OnSize(wxSizeEvent &event);
 	void OnSplit(wxCommandEvent&);
 	void DoOnSplit(bool show_original);

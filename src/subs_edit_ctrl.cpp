@@ -48,8 +48,9 @@
 
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string/replace.hpp>
-#include <array>
+#include <algorithm>
 #include <functional>
+#include <string_view>
 
 #include <wx/clipbrd.h>
 #include <wx/intl.h>
@@ -83,50 +84,49 @@ enum {
 };
 
 namespace {
-struct ThemeColorOverride {
-	const char *option_name;
-	agi::Color light;
-	agi::Color dark;
-};
+bool SupportsSystemAppearanceTheming() {
+#ifdef __WXMAC__
+	return true;
+#else
+	return false;
+#endif
+}
 
 bool IsDarkAppearanceActive() {
-	return wxSystemSettings::GetAppearance().IsDark();
+	return SupportsSystemAppearanceTheming() && wxSystemSettings::GetAppearance().IsDark();
+}
+
+wxColour Blend(wxColour fg, wxColour bg, double alpha) {
+	alpha = std::clamp(alpha, 0.0, 1.0);
+	return wxColour(
+		wxColour::AlphaBlend(fg.Red(), bg.Red(), alpha),
+		wxColour::AlphaBlend(fg.Green(), bg.Green(), alpha),
+		wxColour::AlphaBlend(fg.Blue(), bg.Blue(), alpha));
+}
+
+wxColour DefaultDarkSubtitleEditColor(std::string_view option_name, wxColour color) {
+	wxColour window = wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW);
+	wxColour window_text = wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT);
+
+	if (option_name == "Colour/Subtitle/Background")
+		return window;
+	if (option_name == "Colour/Subtitle/Syntax/Normal")
+		return window_text;
+	if (option_name.starts_with("Colour/Subtitle/Syntax/Background/"))
+		return Blend(color, window, 0.30);
+	if (option_name.starts_with("Colour/Subtitle/Syntax/"))
+		return Blend(color, window_text, 0.45);
+
+	return color;
 }
 
 wxColour ThemedSubtitleEditColor(std::string const& option_name) {
-	agi::Color color = OPT_GET(option_name)->GetColor();
-	if (!IsDarkAppearanceActive())
-		return to_wx(color);
+	auto const* option = OPT_GET(option_name);
+	wxColour color = to_wx(option->GetColor());
+	if (!IsDarkAppearanceActive() || !option->IsDefault())
+		return color;
 
-	// Keep the edit box background aligned with native text controls in dark mode.
-	if (option_name == "Colour/Subtitle/Background" && color == agi::Color{255, 255, 255})
-		return wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW);
-
-	static const std::array<ThemeColorOverride, 14> overrides = {{
-		{"Colour/Subtitle/Syntax/Brackets", {20, 50, 255}, {125, 165, 255}},
-		{"Colour/Subtitle/Syntax/Comment", {0, 0, 0}, {188, 194, 202}},
-		{"Colour/Subtitle/Syntax/Drawing Command", {0, 0, 0}, {188, 194, 202}},
-		{"Colour/Subtitle/Syntax/Drawing X", {90, 40, 40}, {227, 141, 141}},
-		{"Colour/Subtitle/Syntax/Drawing Y", {40, 90, 40}, {132, 201, 132}},
-		{"Colour/Subtitle/Syntax/Error", {200, 0, 0}, {255, 120, 120}},
-		{"Colour/Subtitle/Syntax/Karaoke Template", {128, 0, 192}, {211, 158, 255}},
-		{"Colour/Subtitle/Syntax/Karaoke Variable", {128, 0, 192}, {211, 158, 255}},
-		{"Colour/Subtitle/Syntax/Line Break", {160, 160, 160}, {139, 147, 155}},
-		{"Colour/Subtitle/Syntax/Normal", {0, 0, 0}, {224, 228, 233}},
-		{"Colour/Subtitle/Syntax/Parameters", {40, 90, 40}, {132, 201, 132}},
-		{"Colour/Subtitle/Syntax/Slashes", {255, 0, 200}, {255, 132, 227}},
-		{"Colour/Subtitle/Syntax/Tags", {90, 90, 90}, {181, 186, 192}},
-		{"Colour/Subtitle/Syntax/Background/Error", {255, 200, 200}, {96, 42, 42}},
-	}};
-
-	for (auto const& override : overrides) {
-		if (option_name == override.option_name && color == override.light) {
-			color = override.dark;
-			break;
-		}
-	}
-
-	return to_wx(color);
+	return DefaultDarkSubtitleEditColor(option_name, color);
 }
 }
 
@@ -205,11 +205,13 @@ SubsTextEditCtrl::SubsTextEditCtrl(wxWindow* parent, wxSize wsize, long style, a
 	BindConnection(OPT_SUB("Colour/Subtitle/Background", &SubsTextEditCtrl::SetStyles, this));
 	BindConnection(OPT_SUB("Subtitle/Highlight/Syntax", &SubsTextEditCtrl::UpdateStyle, this));
 	BindConnection(OPT_SUB("App/Call Tips", &SubsTextEditCtrl::UpdateCallTip, this));
-	Bind(wxEVT_SYS_COLOUR_CHANGED, [this](wxSysColourChangedEvent &event) {
-		SetStyles();
-		UpdateStyle();
-		event.Skip();
-	});
+	if (SupportsSystemAppearanceTheming()) {
+		Bind(wxEVT_SYS_COLOUR_CHANGED, [this](wxSysColourChangedEvent &event) {
+			SetStyles();
+			UpdateStyle();
+			event.Skip();
+		});
+	}
 
 	Bind(wxEVT_MENU, [this](wxCommandEvent&) {
 		if (spellchecker) spellchecker->AddWord(currentWord);
@@ -296,9 +298,11 @@ void SubsTextEditCtrl::SetStyles() {
 	if (!fontname.empty()) font.SetFaceName(fontname);
 	font.SetPointSize(OPT_GET("Subtitle/Edit Box/Font Size")->GetInt());
 
-	SetMargins(FromDIP(4), FromDIP(4));
-	SetExtraAscent(FromDIP(6));
-	SetExtraDescent(FromDIP(6));
+	if (SupportsSystemAppearanceTheming()) {
+		SetMargins(FromDIP(4), FromDIP(4));
+		SetExtraAscent(FromDIP(6));
+		SetExtraDescent(FromDIP(6));
+	}
 
 	auto default_background = ThemedSubtitleEditColor("Colour/Subtitle/Background");
 

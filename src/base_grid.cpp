@@ -48,9 +48,7 @@
 #include <libaegisub/util.h>
 
 #include <algorithm>
-#include <cmath>
-#include <cstring>
-
+#include <string_view>
 #include <wx/dcbuffer.h>
 #include <wx/menu.h>
 #include <wx/scrolbar.h>
@@ -64,61 +62,69 @@ enum {
 };
 
 namespace {
+bool SupportsSystemAppearanceTheming() {
+#ifdef __WXMAC__
+	return true;
+#else
+	return false;
+#endif
+}
+
 bool IsDarkAppearanceActive() {
-	return wxSystemSettings::GetAppearance().IsDark();
+	return SupportsSystemAppearanceTheming() && wxSystemSettings::GetAppearance().IsDark();
 }
 
 wxColour Blend(wxColour fg, wxColour bg, double alpha) {
 	alpha = std::clamp(alpha, 0.0, 1.0);
-	auto blend_channel = [alpha](unsigned char foreground, unsigned char background) -> unsigned char {
-		double mixed = foreground * alpha + background * (1.0 - alpha);
-		return static_cast<unsigned char>(std::lround(mixed));
-	};
-
 	return wxColour(
-		blend_channel(fg.Red(), bg.Red()),
-		blend_channel(fg.Green(), bg.Green()),
-		blend_channel(fg.Blue(), bg.Blue()));
+		wxColour::AlphaBlend(fg.Red(), bg.Red(), alpha),
+		wxColour::AlphaBlend(fg.Green(), bg.Green(), alpha),
+		wxColour::AlphaBlend(fg.Blue(), bg.Blue(), alpha));
+}
+
+wxColour DarkGridCanvas() {
+	return Blend(wxColour(104, 138, 194), wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW), 0.08);
+}
+
+wxColour DefaultDarkGridColor(std::string_view option_name, wxColour color) {
+	wxColour window = DarkGridCanvas();
+	wxColour window_text = wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT);
+
+	if (option_name == "Colour/Subtitle Grid/Background/Background")
+		return window;
+	if (option_name == "Colour/Subtitle Grid/Standard")
+		return window_text;
+	if (option_name == "Colour/Subtitle Grid/Selection")
+		return window_text;
+	if (option_name == "Colour/Subtitle Grid/Background/Selection")
+		return Blend(wxColour(150, 184, 232), window, 0.42);
+	if (option_name == "Colour/Subtitle Grid/Header")
+		return Blend(wxColour(176, 202, 230), window, 0.48);
+	if (option_name == "Colour/Subtitle Grid/Left Column")
+		return Blend(wxColour(138, 170, 218), window, 0.28);
+	if (option_name == "Colour/Subtitle Grid/Lines")
+		return Blend(wxColour(128, 147, 176), window, 0.42);
+	if (option_name == "Colour/Subtitle Grid/Background/Comment")
+		return Blend(wxColour(132, 164, 148), window, 0.28);
+	if (option_name == "Colour/Subtitle Grid/Background/Selected Comment")
+		return Blend(wxColour(150, 190, 170), window, 0.40);
+	if (option_name == "Colour/Subtitle Grid/Background/Inframe")
+		return Blend(wxColour(248, 230, 168), window, 0.28);
+	if (option_name == "Colour/Subtitle Grid/Active Border")
+		return Blend(wxColour(156, 196, 244), window, 0.72);
+	if (option_name == "Colour/Subtitle Grid/Collision")
+		return Blend(color, window_text, 0.82);
+
+	return color;
 }
 
 wxColour ThemedGridColor(char const* option_name) {
-	agi::Color color = OPT_GET(option_name)->GetColor();
-	if (!IsDarkAppearanceActive())
-		return to_wx(color);
+	auto const* option = OPT_GET(option_name);
+	wxColour color = to_wx(option->GetColor());
+	if (!IsDarkAppearanceActive() || !option->IsDefault())
+		return color;
 
-	wxColour window = wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW);
-	wxColour window_text = wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT);
-	wxColour btn_face = wxSystemSettings::GetColour(wxSYS_COLOUR_BTNFACE);
-	wxColour highlight = wxSystemSettings::GetColour(wxSYS_COLOUR_HIGHLIGHT);
-	wxColour highlight_text = wxSystemSettings::GetColour(wxSYS_COLOUR_HIGHLIGHTTEXT);
-
-	if (strcmp(option_name, "Colour/Subtitle Grid/Background/Background") == 0 && color == agi::Color{255, 255, 255})
-		return window;
-	if (strcmp(option_name, "Colour/Subtitle Grid/Header") == 0 && color == agi::Color{165, 207, 231})
-		return btn_face;
-	if (strcmp(option_name, "Colour/Subtitle Grid/Left Column") == 0 && color == agi::Color{196, 236, 201})
-		return Blend(highlight, window, 0.28);
-	if (strcmp(option_name, "Colour/Subtitle Grid/Lines") == 0 && color == agi::Color{190, 190, 190})
-		return Blend(window_text, window, 0.22);
-	if (strcmp(option_name, "Colour/Subtitle Grid/Standard") == 0 && color == agi::Color{0, 0, 0})
-		return window_text;
-	if (strcmp(option_name, "Colour/Subtitle Grid/Selection") == 0 && color == agi::Color{0, 0, 0})
-		return highlight_text;
-	if (strcmp(option_name, "Colour/Subtitle Grid/Background/Selection") == 0 && color == agi::Color{206, 255, 231})
-		return highlight;
-	if (strcmp(option_name, "Colour/Subtitle Grid/Background/Comment") == 0 && color == agi::Color{216, 222, 245})
-		return Blend(window_text, window, 0.08);
-	if (strcmp(option_name, "Colour/Subtitle Grid/Background/Inframe") == 0)
-		// Use a muted amber tone for dark mode: less bright, still clearly yellow.
-		return Blend(wxColour(235, 194, 74), window, 0.20);
-	if (strcmp(option_name, "Colour/Subtitle Grid/Background/Selected Comment") == 0 && color == agi::Color{211, 238, 238})
-		return Blend(highlight, window, 0.30);
-	if (strcmp(option_name, "Colour/Subtitle Grid/Active Border") == 0 && color == agi::Color{255, 91, 239})
-		return Blend(highlight, highlight_text, 0.25);
-	if (strcmp(option_name, "Colour/Subtitle Grid/Collision") == 0 && color == agi::Color{255, 0, 0})
-		return wxColour(255, 110, 110);
-
-	return to_wx(color);
+	return DefaultDarkGridColor(option_name, color);
 }
 }
 
@@ -171,6 +177,9 @@ BaseGrid::BaseGrid(wxWindow* parent, agi::Context *context)
 
 		OPT_SUB("Subtitle/Grid/Highlight Subtitles in Frame", &BaseGrid::OnHighlightVisibleChange, this),
 		OPT_SUB("Subtitle/Grid/Hide Overrides", [&](agi::OptionValue const&) { Refresh(false); }),
+		OPT_SUB("Subtitle/Character Limit", [&](agi::OptionValue const&) { Refresh(false); }),
+		OPT_SUB("Subtitle/Character Counter/Ignore Whitespace", [&](agi::OptionValue const&) { SetColumnWidths(); Refresh(false); }),
+		OPT_SUB("Subtitle/Character Counter/Ignore Punctuation", [&](agi::OptionValue const&) { SetColumnWidths(); Refresh(false); }),
 	});
 
 	Bind(wxEVT_CONTEXT_MENU, &BaseGrid::OnContextMenu, this);
@@ -196,7 +205,8 @@ void BaseGrid::OnDPIChanged(wxDPIChangedEvent &e) {
 }
 
 void BaseGrid::OnSystemColourChanged(wxSysColourChangedEvent &e) {
-	UpdateStyle();
+	if (SupportsSystemAppearanceTheming())
+		UpdateStyle();
 	e.Skip();
 }
 
@@ -366,7 +376,9 @@ void BaseGrid::OnPaint(wxPaintEvent &) {
 
 	wxAutoBufferedPaintDC dc(this);
 	dc.SetFont(font);
-	dc.SetBackgroundMode(wxTRANSPARENT);
+	bool const system_appearance_theming = SupportsSystemAppearanceTheming();
+	if (system_appearance_theming)
+		dc.SetBackgroundMode(wxTRANSPARENT);
 
 	dc.SetBackground(row_colors.Default);
 	dc.Clear();
@@ -444,28 +456,30 @@ void BaseGrid::OnPaint(wxPaintEvent &) {
 		}
 
 		// Keep overlapping lines clearly visible regardless of theme contrast.
-		if (is_default_color && collision_with_active) {
+		if (system_appearance_theming && is_default_color && collision_with_active) {
 			color = row_colors.Visible;
 			is_default_color = false;
 		}
 
 		if (OPT_GET("Subtitle/Grid/Highlight Subtitles in Frame")->GetBool() && IsDisplayed(curDiag)) {
-			if (is_default_color) {
+			if (system_appearance_theming ? is_default_color : color == row_colors.Default) {
 				color = row_colors.Visible;
 				is_default_color = false;
 			}
 			visible_rows.push_back(i + yPos);
 		}
 
-		// Match light-mode behavior: tinted left column, selected/active line uses selection color.
-		bool line_marked = inSel || curDiag == active_line;
-		dc.SetPen(*wxTRANSPARENT_PEN);
-		dc.SetBrush(line_marked ? row_colors.Selection : row_colors.LeftCol);
-		dc.DrawRectangle(0, (i + 1) * lineHeight + 1, grid_x, lineHeight);
+		if (system_appearance_theming) {
+			// Match light-mode behavior: tinted left column, selected/active line uses selection color.
+			bool line_marked = inSel || curDiag == active_line;
+			dc.SetPen(*wxTRANSPARENT_PEN);
+			dc.SetBrush(line_marked ? row_colors.Selection : row_colors.LeftCol);
+			dc.DrawRectangle(0, (i + 1) * lineHeight + 1, grid_x, lineHeight);
+		}
 		dc.SetBrush(color);
 
 		// Draw row background color
-		if (!is_default_color) {
+		if (system_appearance_theming ? !is_default_color : color != row_colors.Default) {
 			dc.SetPen(*wxTRANSPARENT_PEN);
 			dc.DrawRectangle(grid_x, (i + 1) * lineHeight + 1, w, lineHeight);
 		}

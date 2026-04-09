@@ -57,19 +57,50 @@
 
 #include <libaegisub/util.h>
 
+#include <algorithm>
 #include <functional>
 #include <unordered_set>
 
 #include <wx/bmpbuttn.h>
 #include <wx/button.h>
 #include <wx/checkbox.h>
+#include <wx/cursor.h>
 #include <wx/fontenum.h>
+#include <wx/numdlg.h>
 #include <wx/radiobut.h>
 #include <wx/settings.h>
 #include <wx/sizer.h>
 #include <wx/spinctrl.h>
 
 namespace {
+
+bool SupportsSystemAppearanceTheming() {
+#ifdef __WXMAC__
+	return true;
+#else
+	return false;
+#endif
+}
+
+bool IsDarkAppearanceActive() {
+	return SupportsSystemAppearanceTheming() && wxSystemSettings::GetAppearance().IsDark();
+}
+
+wxColour Blend(wxColour fg, wxColour bg, double alpha) {
+	alpha = std::clamp(alpha, 0.0, 1.0);
+	return wxColour(
+		wxColour::AlphaBlend(fg.Red(), bg.Red(), alpha),
+		wxColour::AlphaBlend(fg.Green(), bg.Green(), alpha),
+		wxColour::AlphaBlend(fg.Blue(), bg.Blue(), alpha));
+}
+
+wxColour ThemedSubtitleErrorBackgroundColor() {
+	auto const* option = OPT_GET("Colour/Subtitle/Syntax/Background/Error");
+	wxColour color = to_wx(option->GetColor());
+	if (!IsDarkAppearanceActive() || !option->IsDefault())
+		return color;
+	return Blend(color, wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW), 0.30);
+}
 
 /// Work around wxGTK's fondness for generating events from ChangeValue
 void change_value(wxTextCtrl *ctrl, wxString const& value) {
@@ -144,7 +175,9 @@ SubsEditBox::SubsEditBox(wxWindow *parent, agi::Context *context)
 
 	char_count = new wxTextCtrl(this, -1, "0", wxDefaultPosition, wxDefaultSize, wxTE_READONLY | wxTE_CENTER);
 	char_count->SetInitialSize(char_count->GetSizeFromText(wxS("000")));
-	char_count->SetToolTip(_("Number of characters in the longest line of this subtitle."));
+	char_count->SetToolTip(_("Number of characters in the longest line of this subtitle. Click to set the warning limit."));
+	char_count->SetCursor(wxCursor(wxCURSOR_HAND));
+	char_count->Bind(wxEVT_LEFT_DOWN, &SubsEditBox::OnCharacterCountClick, this);
 	top_sizer->Add(char_count, 0, wxALIGN_CENTER, 5);
 
 	// Middle controls
@@ -223,6 +256,13 @@ SubsEditBox::SubsEditBox(wxWindow *parent, agi::Context *context)
 	Bind(wxEVT_TEXT, &SubsEditBox::OnLayerEnter, this, layer->GetId());
 	Bind(wxEVT_SPINCTRL, &SubsEditBox::OnLayerEnter, this, layer->GetId());
 	Bind(wxEVT_CHECKBOX, &SubsEditBox::OnCommentChange, this, comment_box->GetId());
+	Bind(wxEVT_SYS_COLOUR_CHANGED, [this](wxSysColourChangedEvent &event) {
+		if (AssDialogue *line = c->selectionController->GetActiveLine())
+			UpdateCharacterCount(line->Text);
+		else
+			char_count->SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW));
+		event.Skip();
+	});
 
 	Bind(wxEVT_CHAR_HOOK, &SubsEditBox::OnKeyDown, this);
 	Bind(wxEVT_SIZE, &SubsEditBox::OnSize, this);
@@ -232,11 +272,18 @@ SubsEditBox::SubsEditBox(wxWindow *parent, agi::Context *context)
 	OnSize(evt);
 
 	file_changed_slot = c->ass->AddCommitListener(&SubsEditBox::OnCommit, this);
+	auto update_character_count = [this](agi::OptionValue const&) {
+		if (line)
+			UpdateCharacterCount(line->Text);
+	};
 	connections = agi::signal::make_vector({
 		context->project->AddTimecodesListener(&SubsEditBox::UpdateFrameTiming, this),
 		context->selectionController->AddActiveLineListener(&SubsEditBox::OnActiveLineChanged, this),
 		context->selectionController->AddSelectionListener(&SubsEditBox::OnSelectedSetChanged, this),
 		context->initialLineState->AddChangeListener(&SubsEditBox::OnLineInitialTextChanged, this),
+		OPT_SUB("Subtitle/Character Limit", update_character_count),
+		OPT_SUB("Subtitle/Character Counter/Ignore Whitespace", update_character_count),
+		OPT_SUB("Subtitle/Character Counter/Ignore Punctuation", update_character_count),
 	 });
 
 	context->textSelectionController->SetControl(edit_ctrl);
@@ -626,6 +673,32 @@ void SubsEditBox::OnCommentChange(wxCommandEvent &evt) {
 	SetSelectedRows(&AssDialogue::Comment, !!evt.GetInt(), _("comment change"), AssFile::COMMIT_DIAG_META);
 }
 
+void SubsEditBox::OnCharacterCountClick(wxMouseEvent &) {
+	ShowCharacterLimitDialog();
+}
+
+void SubsEditBox::ShowCharacterLimitDialog() {
+	long current_limit = OPT_GET("Subtitle/Character Limit")->GetInt();
+	wxPoint popup_pos = char_count->ClientToScreen(wxPoint(0, char_count->GetSize().GetHeight()));
+	long new_limit = wxGetNumberFromUser(
+		_("Set to 0 to disable character limit warnings."),
+		_("Maximum characters per line:"),
+		_("Character Limit"),
+		current_limit,
+		0,
+		1000,
+		this,
+		popup_pos);
+
+	if (new_limit != -1 && new_limit != current_limit) {
+		OPT_SET("Subtitle/Character Limit")->SetInt(new_limit);
+		if (line)
+			UpdateCharacterCount(line->Text);
+	}
+
+	edit_ctrl->SetFocus();
+}
+
 void SubsEditBox::CallCommand(const char *cmd_name) {
 	cmd::call(cmd_name, c);
 	edit_ctrl->SetFocus();
@@ -639,7 +712,7 @@ void SubsEditBox::UpdateCharacterCount(std::string const& text) {
 	char_count->SetValue(std::to_wstring(length));
 	size_t limit = (size_t)OPT_GET("Subtitle/Character Limit")->GetInt();
 	if (limit && length > limit)
-		char_count->SetBackgroundColour(to_wx(OPT_GET("Colour/Subtitle/Syntax/Background/Error")->GetColor()));
+		char_count->SetBackgroundColour(ThemedSubtitleErrorBackgroundColor());
 	else
 		char_count->SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW));
 }

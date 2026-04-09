@@ -43,15 +43,57 @@
 #include "video_display.h"
 #include "video_slider.h"
 
+#include <algorithm>
 #include <boost/range/algorithm/binary_search.hpp>
 #include <wx/choice.h>
 #include <wx/combobox.h>
+#include <wx/settings.h>
 #include <wx/sizer.h>
 #include <wx/statline.h>
 #include <wx/textctrl.h>
 #include <wx/toolbar.h>
 
 namespace {
+bool SupportsSystemAppearanceTheming() {
+#ifdef __WXMAC__
+	return true;
+#else
+	return false;
+#endif
+}
+
+bool IsDarkAppearanceActive() {
+	return SupportsSystemAppearanceTheming() && wxSystemSettings::GetAppearance().IsDark();
+}
+
+wxColour Blend(wxColour fg, wxColour bg, double alpha) {
+	alpha = std::clamp(alpha, 0.0, 1.0);
+	return wxColour(
+		wxColour::AlphaBlend(fg.Red(), bg.Red(), alpha),
+		wxColour::AlphaBlend(fg.Green(), bg.Green(), alpha),
+		wxColour::AlphaBlend(fg.Blue(), bg.Blue(), alpha));
+}
+
+wxColour DarkGridCanvas() {
+	return Blend(wxColour(104, 138, 194), wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW), 0.08);
+}
+
+wxColour ThemedGridSelectionBackgroundColor() {
+	auto const* option = OPT_GET("Colour/Subtitle Grid/Background/Selection");
+	wxColour color = to_wx(option->GetColor());
+	if (!IsDarkAppearanceActive() || !option->IsDefault())
+		return color;
+	return Blend(wxColour(150, 184, 232), DarkGridCanvas(), 0.42);
+}
+
+wxColour ThemedGridSelectionForegroundColor() {
+	auto const* option = OPT_GET("Colour/Subtitle Grid/Selection");
+	wxColour color = to_wx(option->GetColor());
+	if (!IsDarkAppearanceActive() || !option->IsDefault())
+		return color;
+	return wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT);
+}
+
 wxString FormatPlaybackSpeed(double speed, bool with_suffix = false) {
 	wxString formatted = wxString::Format("%.3f", speed);
 	while (formatted.EndsWith("0") && !formatted.EndsWith(".0"))
@@ -176,6 +218,10 @@ VideoBox::VideoBox(wxWindow *parent, bool isDetached, agi::Context *context)
 	VideoSizer->Add(videoSlider, 0, wxEXPAND, 0);
 	VideoSizer->Add(videoBottomSizer, 0, wxEXPAND | wxBOTTOM, 5);
 	SetSizer(VideoSizer);
+	Bind(wxEVT_SYS_COLOUR_CHANGED, [this](wxSysColourChangedEvent &event) {
+		UpdateTimeBoxes();
+		event.Skip();
+	});
 
 	UpdateTimeBoxes();
 
@@ -204,8 +250,8 @@ void VideoBox::UpdateTimeBoxes() {
 	VideoPosition->SetValue(fmt_wx("%s - %d", agi::Time(time).GetAssFormatted(true), frame));
 	if (boost::binary_search(context->project->Keyframes(), frame)) {
 		// Set the background color to indicate this is a keyframe
-		VideoPosition->SetBackgroundColour(to_wx(OPT_GET("Colour/Subtitle Grid/Background/Selection")->GetColor()));
-		VideoPosition->SetForegroundColour(to_wx(OPT_GET("Colour/Subtitle Grid/Selection")->GetColor()));
+		VideoPosition->SetBackgroundColour(ThemedGridSelectionBackgroundColor());
+		VideoPosition->SetForegroundColour(ThemedGridSelectionForegroundColor());
 	}
 	else {
 		VideoPosition->SetBackgroundColour(wxNullColour);
