@@ -219,6 +219,8 @@ else
             error('Missing Windows SDK Common Controls Library (commctrl.h / comctl32.lib)')
         endif
     endif
+
+    conf.set('WITH_INTERNAL_WXWIDGETS', 1)
 endif
 
 deps += dependency('icu-uc', version: '>=4.8.1.1')
@@ -303,6 +305,7 @@ endif
 if host_machine.system() == 'darwin'
     frameworks_dep = dependency('appleframeworks', modules : ['CoreText', 'CoreFoundation', 'CoreGraphics', 'AppKit', 'Carbon', 'IOKit', 'QuartzCore', 'Vision'])
     deps += frameworks_dep
+    deps += dependency('appleframeworks', modules : ['ScreenCaptureKit'], required : false)
 endif
 
 # TODO: OSS
