@@ -51,9 +51,10 @@ jobs:
               -Dharfbuzz:gobject=disabled
               -Dharfbuzz:tests=disabled
               -Dharfbuzz:docs=disabled
-              -Dfribidi:tests=false
               -Dfribidi:docs=false
               -Dlibass:fontconfig=disabled
+              -Dffmpeg:ff_cuda_llvm=disabled
+              -Dffmpeg:cuda=disabled
           #- {
           #  name: Windows MinGW,
           #  os: windows-latest,
