@@ -2281,6 +2281,14 @@ bool wxIsValidIMEIndexRange(const NSRange& range)
     return range.location != NSNotFound;
 }
 
+bool wxIsIMEBoundaryCommand(SEL sel)
+{
+    return sel == @selector(insertNewline:) ||
+           sel == @selector(insertLineBreak:) ||
+           sel == @selector(insertParagraphSeparator:) ||
+           sel == @selector(insertNewlineIgnoringFieldEditor:);
+}
+
 long wxClampToDocument(wxTextEntryBase* entry, long pos)
 {
     if ( !entry )
@@ -2937,6 +2945,7 @@ bool wxWidgetCocoaImpl::doCommandBySelector(void* sel, WXWidget slf, void* WXUNU
 
     const bool isDeleteSelector =
         sel == @selector(deleteBackward:) || sel == @selector(deleteForward:);
+    const bool isIMEBoundaryCommand = wxIsIMEBoundaryCommand((SEL)sel);
 
     bool hasDeleteSelection = false;
     if (isDeleteSelector)
@@ -2978,6 +2987,12 @@ bool wxWidgetCocoaImpl::doCommandBySelector(void* sel, WXWidget slf, void* WXUNU
     else
     {
         wxLogTrace(TRACE_KEYS, "Doing nothing in doCommandBySelector:");
+    }
+
+    if ( isIMEBoundaryCommand )
+    {
+        [[slf inputContext] discardMarkedText];
+        unmarkText(slf);
     }
     
     return handled;
