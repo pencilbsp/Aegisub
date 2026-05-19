@@ -34,6 +34,7 @@
 
 #include <wx/button.h>
 #include <wx/checkbox.h>
+#include <wx/control.h>
 #include <wx/combobox.h>
 #include <wx/radiobox.h>
 #include <wx/msgdlg.h>
@@ -90,9 +91,19 @@ DialogSearchReplace<has_replace>::DialogSearchReplace(agi::Context* c)
 	limit_sizer->Add(new wxRadioBox(this, -1, _("In Field"), wxDefaultPosition, wxDefaultSize, std::size(field), field, 0, wxRA_SPECIFY_COLS, MakeEnumBinder(&settings->field)), wxSizerFlags().Border(wxRIGHT));
 	limit_sizer->Add(new wxRadioBox(this, -1, _("Limit to"), wxDefaultPosition, wxDefaultSize, std::size(affect), affect, 0, wxRA_SPECIFY_COLS, MakeEnumBinder(&settings->limit_to)));
 
+#ifdef __WXMAC__
+	// wxOSX turns each button's '&' mnemonic into an NSButton keyEquivalent
+	// with the Cmd modifier (see wxButtonCocoaImpl::SetAcceleratorFromLabel),
+	// which steals Cmd+A / Cmd+N / Cmd+F from the text fields. Strip the
+	// mnemonics before passing the label to wxButton.
+	auto find_next = new wxButton(this, -1, wxControl::RemoveMnemonics(_("&Find next")));
+	auto replace_next = new wxButton(this, -1, wxControl::RemoveMnemonics(_("Replace &next")));
+	auto replace_all = new wxButton(this, -1, wxControl::RemoveMnemonics(_("Replace &all")));
+#else
 	auto find_next = new wxButton(this, -1, _("&Find next"));
 	auto replace_next = new wxButton(this, -1, _("Replace &next"));
 	auto replace_all = new wxButton(this, -1, _("Replace &all"));
+#endif
 	find_next->SetDefault();
 
 	auto button_sizer = new wxBoxSizer(wxVERTICAL);
