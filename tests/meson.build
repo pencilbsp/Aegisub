@@ -20,6 +20,7 @@ tests_src = [
     'tests/cajun.cpp',
     'tests/calltip_provider.cpp',
     'tests/character_count.cpp',
+    'tests/charset.cpp',
     'tests/color.cpp',
     'tests/dialogue_lexer.cpp',
     'tests/format.cpp',
@@ -63,12 +64,9 @@ runner = executable(
     tests_src,
     include_directories: [tests_inc, libaegisub_inc],
     dependencies: [tests_deps, deps],
-    cpp_args: tests_args,
+    cpp_args: tests_args + conf_defines,
     link_with: libaegisub,
 )
-
-test('gtest main', runner)
-test('luajit-52', executable('luajit-52', 'tests/luajit_52.c', dependencies: luajit))
 
 # setup test env
 if host_machine.system() == 'windows'
@@ -77,10 +75,10 @@ else
     setup_sh = find_program('setup.sh')
 endif
 
-tests_data_des = meson.project_build_root()
-custom_target('setup-test-data',
-    input: runner,
+test_setup = custom_target('setup-test-data',
     output: 'applied_test_setup',
-    command: [setup_sh, tests_data_des],
-    build_by_default: true
+    command: setup_sh,
 )
+
+test('gtest main', runner, env: {'AEGISUB_TEST_DATA_DIR': meson.current_source_dir()}, depends: test_setup)
+test('luajit-52', executable('luajit-52', 'tests/luajit_52.c', dependencies: luajit))
