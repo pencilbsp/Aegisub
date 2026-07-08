@@ -136,6 +136,13 @@ public:
 	/// Remove unreferenced extradata entries
 	void CleanExtradata();
 
+	/// Extradata key used to persist the per-line Original (reference) text
+	static constexpr const char *OriginalExtradataKey = "original";
+	/// Populate each line's Original field from its "original" extradata entry
+	void LoadOriginalFromExtradata();
+	/// Store each line's Original field into extradata and update ExtradataIds
+	void StoreOriginalToExtradata();
+
 	/// Type of changes made in a commit
 	enum CommitType {
 		/// Potentially the entire file has been changed; any saved information

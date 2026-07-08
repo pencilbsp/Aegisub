@@ -144,6 +144,8 @@ struct AssDialogueBase {
 	boost::flyweight<std::vector<uint32_t>> ExtradataIds;
 	/// Raw text data
 	boost::flyweight<std::string> Text;
+	/// Original (reference) text, persisted via "original" extradata
+	boost::flyweight<std::string> Original;
 };
 
 class AssDialogue final : public AssEntry, public AssDialogueBase, public AssEntryListHook {

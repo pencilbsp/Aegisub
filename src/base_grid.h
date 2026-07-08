@@ -73,6 +73,14 @@ class BaseGrid final : public wxWindow {
 	std::vector<std::unique_ptr<GridColumn>> columns;
 	std::vector<bool> columns_visible;
 
+	/// Index of the column whose right border is currently being dragged to
+	/// resize it, or -1 if no resize is in progress
+	int resize_column = -1;
+
+	/// Cell the tooltip currently reflects, to avoid recomputing it every motion
+	int tooltip_row = -1;
+	int tooltip_column = -1;
+
 	std::vector<wxRect> text_refresh_rects;
 
 	/// Cached brushes used for row backgrounds
@@ -112,6 +120,17 @@ class BaseGrid final : public wxWindow {
 
 	void AdjustScrollbar();
 	void SetColumnWidths();
+
+	/// Left edge (in pixels) of the given column
+	int ColumnLeftEdge(int col) const;
+	/// Column whose right border is within a few pixels of x, or -1 if none
+	int ColumnBorderHitTest(int x) const;
+	/// Visible column containing the pixel x, or -1 if none
+	int ColumnAt(int x) const;
+	/// Persist the manually-set column widths to the options
+	void SaveColumnWidths();
+	/// Update the window tooltip to the full text of a truncated cell
+	void UpdateToolTip(const wxMouseEvent &event);
 
 	bool IsDisplayed(const AssDialogue *line) const;
 

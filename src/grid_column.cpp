@@ -24,7 +24,9 @@
 #include "subtitle_character_count.h"
 #include "video_controller.h"
 
+#include <wx/control.h>
 #include <wx/dc.h>
+#include <wx/display.h>
 #include <wx/settings.h>
 
 void WidthHelper::Age() {
@@ -78,6 +80,13 @@ int WidthHelper::operator()(const wchar_t *str) {
 void GridColumn::UpdateWidth(const agi::Context *c, WidthHelper &helper) {
 	if (!visible) {
 		width = 0;
+		return;
+	}
+
+	// A width the user set by dragging the column border takes precedence over
+	// automatic content-based sizing.
+	if (manual_width > 0) {
+		width = manual_width;
 		return;
 	}
 
@@ -474,6 +483,76 @@ public:
 	}
 };
 
+struct GridColumnOriginal final : GridColumn {
+	/// Content-based width (longest line + padding); the resize upper bound
+	int natural_width = 0;
+
+	GridColumnOriginal() { visible = false; } // hidden by default; toggle via header menu
+
+	COLUMN_HEADER(_("Original"))
+	COLUMN_DESCRIPTION(_("Original text"))
+	bool Centered() const override { return false; }
+	bool CanResize() const override { return true; }
+
+	int ResizeMinWidth() const override { return wxDisplay(0u).GetGeometry().GetWidth() / 10; }
+	int ResizeMaxWidth() const override { return natural_width; }
+
+	wxString Value(const AssDialogue *d, const agi::Context *) const override {
+		wxString str = to_wx(d->Original);
+		if (str.size() > 512)
+			str = str.Left(512) + "...";
+		return str;
+	}
+
+	void Paint(wxDC &dc, int x, int y, const AssDialogue *d, const agi::Context *c) const override {
+		// Truncate with a trailing ellipsis so long original text doesn't spill
+		// over into the Text column when the column is narrower than its content.
+		wxString str = wxControl::Ellipsize(Value(d, c), dc, wxELLIPSIZE_END, std::max(1, width - 8), wxELLIPSIZE_FLAGS_NONE);
+		dc.DrawText(str, x + 4, y + 2);
+	}
+
+	wxString GetToolTip(const AssDialogue *d, const agi::Context *c, wxDC &dc) const override {
+		// Only show a tooltip when the text is actually cut off by the ellipsis
+		wxString str = Value(d, c);
+		if (dc.GetTextExtent(str).GetWidth() <= std::max(1, width - 8))
+			return wxString();
+		return to_wx(d->Original);
+	}
+
+	int Width(const agi::Context *c, WidthHelper &helper) const override {
+		return max_width(&AssDialogue::Original, c->ass->Events, helper);
+	}
+
+	void UpdateWidth(const agi::Context *c, WidthHelper &helper) override {
+		int content = Width(c, helper);
+		// Natural (content-based) width used as the resize upper bound
+		natural_width = content ? 10 + std::max(content, helper(Header())) : 0;
+
+		if (!visible) {
+			width = 0;
+			return;
+		}
+
+		int min_w = ResizeMinWidth();
+		if (manual_width > 0) {
+			// Honour the user's width, but never wider than the content nor
+			// narrower than the minimum
+			width = std::clamp(manual_width, std::min(min_w, natural_width), natural_width);
+			return;
+		}
+
+		if (!natural_width) {
+			width = 0;
+			return;
+		}
+
+		// Default width: cap to a fraction of the screen so it doesn't crowd out
+		// the Text column. Dragging can still widen it up to the content.
+		int screen = wxDisplay(0u).GetGeometry().GetWidth();
+		width = std::clamp(natural_width, min_w, screen * 3 / 10);
+	}
+};
+
 template<typename T>
 std::unique_ptr<GridColumn> make() {
 	return std::unique_ptr<GridColumn>(new T);
@@ -495,6 +574,9 @@ std::vector<std::unique_ptr<GridColumn>> GetGridColumns() {
 	ret.push_back(make<GridColumnMarginLeft>());
 	ret.push_back(make<GridColumnMarginRight>());
 	ret.push_back(make<GridColumnMarginVert>());
+	// Original must come before Text: the Text column has a fixed 5000px width
+	// that fills the grid, so any column after it is pushed off-screen.
+	ret.push_back(make<GridColumnOriginal>());
 	ret.push_back(make<GridColumnText>());
 	return ret;
 }

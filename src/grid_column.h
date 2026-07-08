@@ -54,6 +54,8 @@ class GridColumn {
 protected:
 	int width = 0;
 	bool visible = true;
+	/// User-chosen width in pixels; 0 means auto-size to the content
+	int manual_width = 0;
 
 	virtual int Width(const agi::Context *c, WidthHelper &helper) const = 0;
 	virtual wxString Value(const AssDialogue *d, const agi::Context *c) const = 0;
@@ -64,10 +66,22 @@ public:
 	virtual bool Centered() const { return false; }
 	virtual bool CanHide() const { return true; }
 	virtual bool RefreshOnTextChange() const { return false; }
+	/// Can the user drag the column's right border to resize it?
+	virtual bool CanResize() const { return false; }
+	/// Smallest width the user may resize the column to
+	virtual int ResizeMinWidth() const { return 0; }
+	/// Largest width the user may resize the column to (typically the width of
+	/// the longest content, cached during UpdateWidth so no DC is needed)
+	virtual int ResizeMaxWidth() const { return width; }
 
 	virtual wxString const& Header() const = 0;
 	virtual wxString const& Description() const = 0;
 	virtual void Paint(wxDC &dc, int x, int y, const AssDialogue *d, const agi::Context *c) const;
+
+	/// Full-text tooltip to show when hovering a cell, or empty for none. dc is
+	/// set up with the grid font so the column can decide whether its text is
+	/// truncated at the current width.
+	virtual wxString GetToolTip(const AssDialogue *, const agi::Context *, wxDC &) const { return wxString(); }
 
 	int Width() const { return width; }
 	bool Visible() const { return visible; }
@@ -75,6 +89,10 @@ public:
 	virtual void UpdateWidth(const agi::Context *c, WidthHelper &helper);
 	virtual void SetByFrame(bool /* by_frame */) { }
 	void SetVisible(bool new_value) { visible = new_value; }
+
+	/// The user-set width, or 0 when the column auto-sizes
+	int ManualWidth() const { return manual_width; }
+	void SetManualWidth(int new_value) { manual_width = new_value; }
 };
 
 std::vector<std::unique_ptr<GridColumn>> GetGridColumns();

@@ -300,7 +300,6 @@ SubsEditBox::SubsEditBox(wxWindow *parent, agi::Context *context)
 		context->project->AddTimecodesListener(&SubsEditBox::UpdateFrameTiming, this),
 		context->selectionController->AddActiveLineListener(&SubsEditBox::OnActiveLineChanged, this),
 		context->selectionController->AddSelectionListener(&SubsEditBox::OnSelectedSetChanged, this),
-		context->initialLineState->AddChangeListener(&SubsEditBox::OnLineInitialTextChanged, this),
 		OPT_SUB("Subtitle/Character Limit", update_character_count),
 		OPT_SUB("Subtitle/Character Counter/Ignore Whitespace", update_character_count),
 		OPT_SUB("Subtitle/Character Counter/Ignore Punctuation", update_character_count),
@@ -309,11 +308,7 @@ SubsEditBox::SubsEditBox(wxWindow *parent, agi::Context *context)
 	context->textSelectionController->SetControl(edit_ctrl);
 	edit_ctrl->SetFocus();
 
-	bool show_original = OPT_GET("Subtitle/Show Original")->GetBool();
-	if (show_original) {
-		split_box->SetValue(true);
-		DoOnSplit(true);
-	}
+	// Show Original always starts unchecked; the user enables it per session.
 }
 
 SubsEditBox::~SubsEditBox() {
@@ -440,6 +435,9 @@ void SubsEditBox::UpdateFields(int type, bool repopulate_lists) {
 		actor_box->ChangeValue(to_wx(line->Actor));
 		actor_box->SetStringSelection(to_wx(line->Actor));
 	}
+
+	if (split_box->IsChecked())
+		secondary_editor->SetValue(to_wx(line->Original));
 }
 
 void SubsEditBox::PopulateList(wxComboBox *combo, boost::flyweight<std::string> AssDialogue::*field) {
@@ -480,11 +478,6 @@ void SubsEditBox::OnActiveLineChanged(AssDialogue *new_line) {
 
 void SubsEditBox::OnSelectedSetChanged() {
 	initial_times.clear();
-}
-
-void SubsEditBox::OnLineInitialTextChanged(std::string const& new_text) {
-	if (split_box->IsChecked())
-		secondary_editor->SetValue(to_wx(new_text));
 }
 
 void SubsEditBox::UpdateFrameTiming(agi::vfr::Framerate const& fps) {
@@ -668,15 +661,13 @@ void SubsEditBox::SetControlsState(bool state) {
 }
 
 void SubsEditBox::OnSplit(wxCommandEvent&) {
-	bool show_original = split_box->IsChecked();
-	DoOnSplit(show_original);
-	OPT_SET("Subtitle/Show Original")->SetBool(show_original);
+	DoOnSplit(split_box->IsChecked());
 }
 
 void SubsEditBox::DoOnSplit(bool show_original) {
 	Freeze();
 	if (show_original)
-		secondary_editor->SetValue(to_wx(c->initialLineState->GetInitialText()));
+		secondary_editor->SetValue(to_wx(line ? line->Original.get() : std::string()));
 
 	GetSizer()->Show(secondary_editor, show_original);
 	GetSizer()->Show(bottom_sizer, show_original);

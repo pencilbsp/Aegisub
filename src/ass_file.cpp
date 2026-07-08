@@ -305,3 +305,33 @@ void AssFile::CleanExtradata() {
 		}), end(Extradata));
 	}
 }
+
+void AssFile::LoadOriginalFromExtradata() {
+	for (auto& line : Events) {
+		if (line.ExtradataIds.get().empty()) continue;
+		enumerate_extradata(Extradata, line.ExtradataIds.get(), [&](ExtradataEntry const& e) {
+			if (e.key == OriginalExtradataKey)
+				line.Original = e.value;
+		});
+	}
+}
+
+void AssFile::StoreOriginalToExtradata() {
+	for (auto& line : Events) {
+		// Collect the current ids, dropping any stale "original" entry
+		std::vector<uint32_t> ids;
+		enumerate_extradata(Extradata, line.ExtradataIds.get(), [&](ExtradataEntry const& e) {
+			if (e.key != OriginalExtradataKey)
+				ids.push_back(e.id);
+		});
+
+		// Add a fresh entry for the current Original text, if any (AddExtradata
+		// dedups by key+value, so repeated saves reuse the same id)
+		if (!line.Original.get().empty())
+			ids.push_back(AddExtradata(OriginalExtradataKey, line.Original.get()));
+
+		std::sort(begin(ids), end(ids));
+		if (ids != line.ExtradataIds.get())
+			line.ExtradataIds = std::move(ids);
+	}
+}

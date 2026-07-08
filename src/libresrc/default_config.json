@@ -389,6 +389,9 @@
 			"Column" : [
 				{"bool" : true}
 			],
+			"Column Width" : [
+				{"int" : 0}
+			],
 			"Focus Allow" : true,
 			"Font Face" : "",
 			"Font Size" : 9,

@@ -73,6 +73,7 @@ DialogPasteOver::DialogPasteOver(wxWindow *parent)
 	choices.Add(_("Margin Vertical"));
 	choices.Add(_("Effect"));
 	choices.Add(_("Text"));
+	choices.Add(_("Original"));
 	ListBox = new wxCheckListBox(ListSizerBox, -1, wxDefaultPosition, wxDefaultSize, choices);
 	ListSizer->Add(ListBox, wxSizerFlags(0).Expand().Border(wxTOP));
 

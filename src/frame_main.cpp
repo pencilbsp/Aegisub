@@ -62,6 +62,8 @@
 #include <libaegisub/dispatch.h>
 #include <libaegisub/log.h>
 
+#include <cctype>
+
 #include <wx/dnd.h>
 #include <wx/msgdlg.h>
 #include <wx/sizer.h>
@@ -88,7 +90,43 @@ public:
 		std::vector<agi::fs::path> files;
 		for (wxString const& fn : filenames)
 			files.push_back(from_wx(fn));
-		agi::dispatch::Main().Async([=, this] { context->project->LoadList(files); });
+		agi::dispatch::Main().Async([=, this] {
+			// If a subtitle file is dropped onto an existing document, offer to
+			// import its text as the Original of the current file instead of
+			// replacing the current file.
+			auto is_subtitle = [](agi::fs::path const& file) {
+				std::string ext = file.extension().string();
+				for (char& c : ext) c = (char)std::tolower((unsigned char)c);
+				return ext == ".ass" || ext == ".srt" || ext == ".ssa" || ext == ".sub" || ext == ".ttxt";
+			};
+
+			agi::fs::path subs_file;
+			for (auto const& file : files) {
+				if (is_subtitle(file)) {
+					subs_file = file;
+					break;
+				}
+			}
+
+			if (!subs_file.empty() && (context->subsController->HasFilename() || context->subsController->IsModified())) {
+				wxMessageDialog dlg(context->parent,
+					_("A subtitle file was dropped onto the current file. Import its text as the Original of the current file, or open it (replacing the current file)?"),
+					_("Subtitle file dropped"),
+					wxYES_NO | wxCANCEL | wxICON_QUESTION);
+				dlg.SetYesNoCancelLabels(_("Import as &Original"), _("&Open"), _("&Cancel"));
+				switch (dlg.ShowModal()) {
+					case wxID_YES:
+						context->subsController->ImportOriginalFromFile(subs_file);
+						return;
+					case wxID_CANCEL:
+						return;
+					default:
+						break; // Open: fall through to the normal load
+				}
+			}
+
+			context->project->LoadList(files);
+		});
 		return true;
 	}
 };

@@ -151,6 +151,14 @@ BaseGrid::BaseGrid(wxWindow* parent, agi::Context *context)
 			columns[i]->SetVisible(false);
 	}
 
+	auto const& column_widths = OPT_GET("Subtitle/Grid/Column Width")->GetListInt();
+	for (size_t i : agi::util::range(std::min(column_widths.size(), columns.size()))) {
+		// Only resizable columns keep a manual width; ignore any stale values
+		// saved for auto-sizing columns so they keep fitting their content.
+		if (column_widths[i] > 0 && columns[i]->CanResize())
+			columns[i]->SetManualWidth(static_cast<int>(column_widths[i]));
+	}
+
 	UpdateStyle();
 	OnHighlightVisibleChange(*OPT_GET("Subtitle/Grid/Highlight Subtitles in Frame"));
 
@@ -229,7 +237,10 @@ void BaseGrid::OnSubtitlesCommit(int type) {
 
 void BaseGrid::OnShowColMenu(wxCommandEvent &event) {
 	int item = event.GetId() - MENU_SHOW_COL;
-	bool new_value = !columns_visible[item];
+	// Toggle from the column's actual visibility rather than columns_visible,
+	// which may be shorter than the column list (e.g. a newly added column) and
+	// would otherwise be indexed out of bounds.
+	bool new_value = !columns[item]->Visible();
 
 	columns_visible.resize(columns.size(), true);
 	columns_visible[item] = new_value;
@@ -546,6 +557,45 @@ void BaseGrid::OnMouseEvent(wxMouseEvent &event) {
 	bool alt = event.AltDown();
 	bool ctrl = event.CmdDown();
 
+	// Column resizing by dragging a column's right border in the header row.
+	if (resize_column != -1) {
+		if (event.LeftIsDown()) {
+			GridColumn &col = *columns[resize_column];
+			int lo = col.ResizeMinWidth();
+			int hi = std::max(lo, col.ResizeMaxWidth());
+			int new_width = std::clamp(event.GetX() - ColumnLeftEdge(resize_column), lo, hi);
+			col.SetManualWidth(new_width);
+			SetColumnWidths();
+			Refresh(false);
+		}
+		else {
+			resize_column = -1;
+			if (HasCapture()) ReleaseMouse();
+			SaveColumnWidths();
+		}
+		return;
+	}
+
+	int border_column = (!holding && event.GetY() < lineHeight) ? ColumnBorderHitTest(event.GetX()) : -1;
+	SetCursor(border_column == -1 ? wxNullCursor : wxCursor(wxCURSOR_SIZEWE));
+	if (border_column != -1) {
+		if (event.LeftDClick()) {
+			// Double-clicking a border resets the column to automatic sizing
+			columns[border_column]->SetManualWidth(0);
+			SetColumnWidths();
+			Refresh(false);
+			SaveColumnWidths();
+		}
+		else if (event.LeftDown()) {
+			resize_column = border_column;
+			CaptureMouse();
+		}
+		return;
+	}
+
+	if (!holding)
+		UpdateToolTip(event);
+
 	// Row that mouse is over
 	bool click = event.LeftDown();
 	bool dclick = event.LeftDClick();
@@ -727,6 +777,71 @@ void BaseGrid::SetColumnWidths() {
 		x += column->Width();
 	}
 	width_helper->Age();
+}
+
+int BaseGrid::ColumnLeftEdge(int col) const {
+	int x = 0;
+	for (int i = 0; i < col && i < (int)columns.size(); ++i)
+		x += columns[i]->Width();
+	return x;
+}
+
+int BaseGrid::ColumnBorderHitTest(int x) const {
+	const int threshold = 4;
+	int edge = 0;
+	for (size_t i = 0; i < columns.size(); ++i) {
+		if (!columns[i]->Visible() || columns[i]->Width() == 0)
+			continue;
+		edge += columns[i]->Width();
+		if (columns[i]->CanResize() && std::abs(x - edge) <= threshold)
+			return static_cast<int>(i);
+	}
+	return -1;
+}
+
+int BaseGrid::ColumnAt(int x) const {
+	int edge = 0;
+	for (size_t i = 0; i < columns.size(); ++i) {
+		if (columns[i]->Width() == 0)
+			continue;
+		edge += columns[i]->Width();
+		if (x < edge)
+			return static_cast<int>(i);
+	}
+	return -1;
+}
+
+void BaseGrid::UpdateToolTip(const wxMouseEvent &event) {
+	int col = ColumnAt(event.GetX());
+	int row = event.GetY() >= lineHeight ? event.GetY() / lineHeight + yPos - 1 : -1;
+	AssDialogue *dlg = GetDialogue(row);
+	if (!dlg) col = -1;
+
+	// Nothing to do while hovering the same cell
+	if (col == tooltip_column && row == tooltip_row)
+		return;
+	tooltip_column = col;
+	tooltip_row = row;
+
+	wxString tip;
+	if (col != -1 && dlg) {
+		wxClientDC dc(this);
+		dc.SetFont(font);
+		tip = columns[col]->GetToolTip(dlg, context, dc);
+	}
+
+	if (tip.empty())
+		UnsetToolTip();
+	else if (tip != GetToolTipText())
+		SetToolTip(tip);
+}
+
+void BaseGrid::SaveColumnWidths() {
+	std::vector<int64_t> widths;
+	widths.reserve(columns.size());
+	for (auto const& column : columns)
+		widths.push_back(column->CanResize() ? column->ManualWidth() : 0);
+	OPT_SET("Subtitle/Grid/Column Width")->SetListInt(std::move(widths));
 }
 
 AssDialogue *BaseGrid::GetDialogue(int n) const {

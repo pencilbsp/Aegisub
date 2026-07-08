@@ -187,6 +187,8 @@ bool paste_over(wxWindow *parent, std::vector<bool>& pasteOverOptions, AssDialog
 	if (pasteOverOptions[8])  old_line.Margin[2] = new_line.Margin[2];
 	if (pasteOverOptions[9])  old_line.Effect    = new_line.Effect;
 	if (pasteOverOptions[10]) old_line.Text      = new_line.Text;
+	if (pasteOverOptions.size() > 11 && pasteOverOptions[11])
+		old_line.Original = new_line.Text;
 
 	return true;
 }

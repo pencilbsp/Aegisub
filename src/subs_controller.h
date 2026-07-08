@@ -106,6 +106,11 @@ public:
 	/// @param encoding Encoding to use, or empty to let the writer decide (which usually means "App/Save Charset")
 	void Save(agi::fs::path const& file, const char *encoding="");
 
+	/// @brief Import the text of another subtitle file into the Original field
+	///        of the current file, matching lines by index
+	/// @param file Path to the subtitle file to import from
+	void ImportOriginalFromFile(agi::fs::path const& file);
+
 	/// Close the currently open file (i.e. open a new blank file)
 	void Close();
 

@@ -40,6 +40,8 @@ void AssSubtitleFormat::ReadFile(AssFile *target, agi::fs::path const& filename,
 	AssParser parser(target, version);
 	while (file.HasMoreLines())
 		parser.AddLine(file.ReadLineFromFile());
+
+	target->LoadOriginalFromExtradata();
 }
 
 #ifdef _WIN32

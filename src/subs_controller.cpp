@@ -21,6 +21,7 @@
 #include "ass_file.h"
 #include "ass_info.h"
 #include "ass_style.h"
+#include "charset_detect.h"
 #include "compat.h"
 #include "command/command.h"
 #include "format.h"
@@ -33,6 +34,7 @@
 #include "text_selection_controller.h"
 
 #include <libaegisub/dispatch.h>
+#include <libaegisub/exception.h>
 #include <libaegisub/format_path.h>
 #include <libaegisub/fs.h>
 #include <libaegisub/path.h>
@@ -197,6 +199,43 @@ ProjectProperties SubsController::Load(agi::fs::path const& filename, const char
 	return props;
 }
 
+void SubsController::ImportOriginalFromFile(agi::fs::path const& filename) {
+	std::string charset;
+	try {
+		charset = CharSetDetect::GetEncoding(filename);
+	}
+	catch (agi::UserCancelException const&) { return; }
+
+	AssFile temp;
+	try {
+		SubtitleFormat::GetReader(filename, charset.c_str())->ReadFile(&temp, filename, context->project->Timecodes(), charset.c_str());
+	}
+	catch (agi::Exception const& e) {
+		wxMessageBox(to_wx(e.GetMessage()), "Aegisub", wxOK | wxICON_ERROR | wxCENTER);
+		return;
+	}
+	catch (std::exception const& e) {
+		wxMessageBox(to_wx(std::string(e.what())), "Aegisub", wxOK | wxICON_ERROR | wxCENTER);
+		return;
+	}
+	catch (...) {
+		wxMessageBox(_("Unknown error"), "Aegisub", wxOK | wxICON_ERROR | wxCENTER);
+		return;
+	}
+
+	// Copy the text of each imported line into the Original field of the
+	// matching line of the current file, pairing them up by row order
+	auto src = temp.Events.begin();
+	auto const src_end = temp.Events.end();
+	for (auto& line : context->ass->Events) {
+		if (src == src_end) break;
+		line.Original = src->Text;
+		++src;
+	}
+
+	context->ass->Commit(_("import original text"), AssFile::COMMIT_DIAG_FULL);
+}
+
 void SubsController::Save(agi::fs::path const& filename, const char *encoding) {
 	const SubtitleFormat *writer = SubtitleFormat::GetWriter(filename);
 	if (!writer)
@@ -211,6 +250,7 @@ void SubsController::Save(agi::fs::path const& filename, const char *encoding) {
 		this->filename = filename;
 		context->path->SetToken("?script", filename.parent_path());
 
+		context->ass->StoreOriginalToExtradata();
 		context->ass->CleanExtradata();
 		writer->WriteFile(context->ass.get(), filename, 0, encoding);
 		FileSave();
