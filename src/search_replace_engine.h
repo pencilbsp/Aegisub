@@ -14,9 +14,13 @@
 //
 // Aegisub Project http://www.aegisub.org/
 
+#pragma once
+
 #include <functional>
 #include <boost/regex/icu.hpp>
+#include <cstddef>
 #include <string>
+#include <vector>
 
 namespace agi { struct Context; }
 class AssDialogue;
@@ -54,6 +58,16 @@ struct SearchReplaceSettings {
 	bool exact_match;
 };
 
+struct SearchReplaceMatch {
+	AssDialogue *line;
+	int line_number;
+	size_t start, end;
+	std::string current_text;
+	std::string replacement_text;
+	std::string matched_text;
+	std::string replacement_match;
+};
+
 class SearchReplaceEngine {
 	agi::Context *context;
 	bool initialized = false;
@@ -61,11 +75,14 @@ class SearchReplaceEngine {
 
 	bool FindReplace(bool replace);
 	void Replace(AssDialogue *line, MatchState &ms);
+	std::string GetReplacementText(AssDialogue *line, MatchState const& ms) const;
 
 public:
 	bool FindNext() { return FindReplace(false); }
 	bool ReplaceNext() { return FindReplace(true); }
 	bool ReplaceAll();
+	bool ReplaceMatch(SearchReplaceMatch const& match);
+	std::vector<SearchReplaceMatch> GetMatches();
 
 	void Configure(SearchReplaceSettings const& new_settings);
 

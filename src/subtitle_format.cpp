@@ -317,3 +317,21 @@ std::string SubtitleFormat::GetWildcards(int mode) {
 
 	return agi::Str(from_wx(_("All Supported Formats")), " (", agi::Join(",", all), ")|", agi::Join(";", all), final);
 }
+
+std::vector<std::vector<std::string>> SubtitleFormat::GetWildcardExtensions(int mode) {
+	LoadFormats();
+
+	std::vector<std::vector<std::string>> by_filter;
+	std::vector<std::string> all;
+
+	for (auto const& format : formats) {
+		auto cur = mode == 0 ? format->GetReadWildcards() : format->GetWriteWildcards();
+		if (cur.empty()) continue;
+
+		all.insert(all.end(), begin(cur), end(cur));
+		by_filter.push_back(std::move(cur));
+	}
+
+	by_filter.insert(by_filter.begin(), std::move(all));
+	return by_filter;
+}

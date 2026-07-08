@@ -34,6 +34,7 @@
 #include "../ass_dialogue.h"
 #include "../ass_file.h"
 #include "../ass_karaoke.h"
+#include "../base_grid.h"
 #include "../ass_style.h"
 #include "../compat.h"
 #include "../dialog_search_replace.h"
@@ -602,6 +603,40 @@ static void copy_lines_plain_text(agi::Context *c) {
 		"\r\n"));
 }
 
+static std::string exact_plain_text_line(AssDialogue *line) {
+	return line->GetStrippedText();
+}
+
+static void copy_lines_exact_plain_text(agi::Context *c) {
+	SetClipboard(join(c->selectionController->GetSortedSelection()
+		| transformed(static_cast<std::string(*)(AssDialogue*)>(exact_plain_text_line)),
+		"\r\n"));
+}
+
+static std::string original_text_line(AssDialogue *line) {
+	return line->Original.get();
+}
+
+static void copy_lines_original_text(agi::Context *c) {
+	SetClipboard(join(c->selectionController->GetSortedSelection()
+		| transformed(static_cast<std::string(*)(AssDialogue*)>(original_text_line)),
+		"\r\n"));
+}
+
+static void copy_grid_context_text(agi::Context *c) {
+	if (c->subsGrid && c->subsGrid->ContextMenuCopiesOriginalText())
+		copy_lines_original_text(c);
+	else
+		copy_lines_plain_text(c);
+}
+
+static void copy_grid_context_exact_plain_text(agi::Context *c) {
+	if (c->subsGrid && c->subsGrid->ContextMenuCopiesOriginalText())
+		copy_lines_original_text(c);
+	else
+		copy_lines_exact_plain_text(c);
+}
+
 static void delete_lines(agi::Context *c, wxString const& commit_message) {
 	auto const& sel = c->selectionController->GetSelectedSet();
 
@@ -669,14 +704,25 @@ struct edit_line_copy final : public validate_sel_nonempty {
 	}
 };
 
-struct edit_line_copy_plain final : public validate_sel_multiple {
+struct edit_line_copy_text final : public validate_sel_nonempty {
+	CMD_NAME("edit/line/copy/text")
+	STR_MENU("Copy")
+	STR_DISP("Copy")
+	STR_HELP("Copy text from selected subtitles to the clipboard")
+
+	void operator()(agi::Context *c) override {
+		copy_grid_context_text(c);
+	}
+};
+
+struct edit_line_copy_plain final : public validate_sel_nonempty {
 	CMD_NAME("edit/line/copy/plain")
-	STR_MENU("Copy selected Lines plain text")
-	STR_DISP("Copy selected Lines plain text")
+	STR_MENU("Copy plain text")
+	STR_DISP("Copy plain text")
 	STR_HELP("Copy plain text from selected subtitles to the clipboard")
 
 	void operator()(agi::Context *c) override {
-		copy_lines_plain_text(c);
+		copy_grid_context_exact_plain_text(c);
 	}
 };
 
@@ -1340,6 +1386,7 @@ namespace cmd {
 		reg(std::make_unique<edit_font>());
 		reg(std::make_unique<edit_find_replace>());
 		reg(std::make_unique<edit_line_copy>());
+		reg(std::make_unique<edit_line_copy_text>());
 		reg(std::make_unique<edit_line_copy_plain>());
 		reg(std::make_unique<edit_line_cut>());
 		reg(std::make_unique<edit_line_delete>());

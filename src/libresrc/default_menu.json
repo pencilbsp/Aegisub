@@ -24,6 +24,7 @@
         {},
         { "command" : "edit/line/cut" },
         { "command" : "edit/line/copy" },
+        { "command" : "edit/line/copy/text" },
         { "command" : "edit/line/copy/plain" },
         { "command" : "edit/line/paste" },
         { "command" : "edit/line/paste/over" },

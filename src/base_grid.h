@@ -102,6 +102,7 @@ class BaseGrid final : public wxWindow {
 
 	/// Cached grid body context menu
 	std::unique_ptr<wxMenu> context_menu;
+	int context_menu_column = -1;
 
 	void OnDPIChanged(wxDPIChangedEvent &e);
 	void OnSystemColourChanged(wxSysColourChangedEvent &e);
@@ -151,6 +152,7 @@ public:
 	BaseGrid(wxWindow* parent, agi::Context *context);
 	~BaseGrid();
 
+	bool ContextMenuCopiesOriginalText() const;
 	void SetByFrame(bool state);
 	void ScrollTo(int y);
 

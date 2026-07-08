@@ -66,6 +66,8 @@ public:
 	virtual bool Centered() const { return false; }
 	virtual bool CanHide() const { return true; }
 	virtual bool RefreshOnTextChange() const { return false; }
+	/// Does grid-context copy use this column's original text instead of the subtitle text?
+	virtual bool CopiesOriginalText() const { return false; }
 	/// Can the user drag the column's right border to resize it?
 	virtual bool CanResize() const { return false; }
 	/// Smallest width the user may resize the column to

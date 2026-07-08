@@ -141,9 +141,11 @@ class SubsEditBox final : public wxPanel {
 	wxButton *MakeBottomButton(const char *cmd_name);
 	wxComboBox *MakeComboBox(wxString const& initial_text, int style, void (SubsEditBox::*handler)(wxCommandEvent&), wxString const& tooltip);
 	wxRadioButton *MakeRadio(wxString const& text, bool start, wxString const& tooltip);
+	void SetSecondaryEditorFont();
 
 	void OnChange(wxStyledTextEvent &event);
 	void OnKeyDown(wxKeyEvent &event);
+	void OnEditorMouseWheel(wxMouseEvent &event);
 
 	void OnActiveLineChanged(AssDialogue *new_line);
 	void OnSelectedSetChanged();

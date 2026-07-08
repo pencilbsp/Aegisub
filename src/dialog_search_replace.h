@@ -19,23 +19,47 @@
 /// @ingroup secondary_ui
 ///
 
+#include <libaegisub/signal.h>
 #include <memory>
+#include <vector>
 
 #include <wx/dialog.h>
+#include <wx/timer.h>
+
+#include "search_replace_engine.h"
 
 namespace agi { struct Context; }
 class SearchReplaceEngine;
 struct SearchReplaceSettings;
+class wxButton;
 class wxComboBox;
+class SearchReplacePreview;
 
 template<bool has_replace>
 class DialogSearchReplace final : public wxDialog {
 	agi::Context *c;
 	std::unique_ptr<SearchReplaceSettings> settings;
 	wxComboBox *replace_edit;
+	SearchReplacePreview *preview_list = nullptr;
+	wxButton *replace_selected = nullptr;
+	std::vector<SearchReplaceMatch> preview_matches;
+	wxTimer preview_timer;
+	std::string last_preview_key;
+	bool preview_dirty = true;
+	agi::signal::Connection file_changed_slot;
 
 	void UpdateDropDowns();
 	void FindReplace(bool (SearchReplaceEngine::*func)());
+	void SchedulePreviewUpdate();
+	void UpdatePreview();
+	void UpdatePreviewIfNeeded();
+	void ReplaceSelected();
+	void ReplacePreviewMatch(size_t index);
+	void GoToPreviewSelection(size_t index);
+	void SaveSettings();
+	void SyncSettingsFromControls();
+	std::string GetPreviewKey() const;
+	void OnCommit(int type);
 
 public:
 	wxComboBox *find_edit;

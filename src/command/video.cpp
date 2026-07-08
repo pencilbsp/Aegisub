@@ -821,7 +821,7 @@ class OcrSelectedLinesDialog final : public wxDialog {
 
 public:
 	OcrSelectedLinesDialog(wxWindow *parent, agi::Context *context, std::vector<std::string> languages)
-	: wxDialog(parent, wxID_ANY, _("OCR selected Lines"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER)
+	: wxDialog(parent, wxID_ANY, _("OCR Lines"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER)
 	, context(context)
 	, roi_preview_frame(context ? context->videoController->GetFrameN() : 0)
 	, supported_languages(std::move(languages))
@@ -1037,8 +1037,8 @@ struct video_frame_ocr final : public validator_video_loaded {
 
 struct video_ocr_selected_lines final : public validator_video_loaded {
 	CMD_NAME("video/ocr/selected_lines")
-	STR_MENU("OCR selected Lines")
-	STR_DISP("OCR selected Lines")
+	STR_MENU("OCR Lines")
+	STR_DISP("OCR Lines")
 	STR_HELP("Recognize text for each selected subtitle line using configurable OCR options")
 	CMD_TYPE(COMMAND_VALIDATE)
 
@@ -1081,7 +1081,7 @@ struct video_ocr_selected_lines final : public validator_video_loaded {
 		bool cancelled = false;
 		int const total_lines = static_cast<int>(selected_lines.size());
 		wxProgressDialog progress_dialog(
-			_("OCR selected Lines"),
+			_("OCR Lines"),
 			fmt_tl("OCR 0/%d...", total_lines),
 			total_lines,
 			c->parent,

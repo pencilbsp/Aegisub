@@ -153,14 +153,22 @@ void SearchReplaceEngine::Replace(AssDialogue *diag, MatchState &ms) {
 	auto& diag_field = diag->*get_dialogue_field(settings.field);
 	auto text = diag_field.get();
 
+	auto replacement = GetReplacementText(diag, ms);
+	diag_field = text.substr(0, ms.start) + replacement + text.substr(ms.end);
+	ms.end = ms.start + replacement.size();
+}
+
+std::string SearchReplaceEngine::GetReplacementText(AssDialogue *diag, MatchState const& ms) const {
+	auto& diag_field = diag->*get_dialogue_field(settings.field);
+	auto const& text = diag_field.get();
+
 	std::string replacement = settings.replace_with;
 	if (ms.re) {
 		auto to_replace = text.substr(ms.start, ms.end - ms.start);
 		replacement = u32regex_replace(to_replace, *ms.re, replacement, boost::format_first_only);
 	}
 
-	diag_field = text.substr(0, ms.start) + replacement + text.substr(ms.end);
-	ms.end = ms.start + replacement.size();
+	return replacement;
 }
 
 bool SearchReplaceEngine::FindReplace(bool replace) {
@@ -277,6 +285,70 @@ bool SearchReplaceEngine::ReplaceAll() {
 		wxMessageBox(_("No matches found."));
 	}
 
+	return true;
+}
+
+std::vector<SearchReplaceMatch> SearchReplaceEngine::GetMatches() {
+	std::vector<SearchReplaceMatch> ret;
+	if (!initialized)
+		return ret;
+
+	auto matches = GetMatcher(settings);
+	auto const& sel = context->selectionController->GetSelectedSet();
+	bool selection_only = settings.limit_to == SearchReplaceSettings::Limit::SELECTED;
+
+	int line_number = 1;
+	for (auto& diag : context->ass->Events) {
+		if (selection_only && !sel.count(&diag)) {
+			++line_number;
+			continue;
+		}
+		if (settings.ignore_comments && diag.Comment) {
+			++line_number;
+			continue;
+		}
+
+		size_t pos = 0;
+		while (MatchState ms = matches(&diag, pos)) {
+			auto& diag_field = diag.*get_dialogue_field(settings.field);
+			auto const& text = diag_field.get();
+			auto replacement = GetReplacementText(&diag, ms);
+			ret.push_back({
+				&diag,
+				line_number,
+				ms.start,
+				ms.end,
+				text,
+				text.substr(0, ms.start) + replacement + text.substr(ms.end),
+				text.substr(ms.start, ms.end - ms.start),
+				replacement
+			});
+
+			pos = ms.end;
+			if (pos == ms.start)
+				++pos;
+		}
+
+		++line_number;
+	}
+
+	return ret;
+}
+
+bool SearchReplaceEngine::ReplaceMatch(SearchReplaceMatch const& match) {
+	if (!initialized || !match.line)
+		return false;
+
+	auto matches = GetMatcher(settings);
+	auto ms = matches(match.line, match.start);
+	if (!ms || ms.start != match.start || ms.end != match.end)
+		return false;
+
+	Replace(match.line, ms);
+	context->selectionController->SetSelectionAndActive({ match.line }, match.line);
+	if (settings.field == SearchReplaceSettings::Field::TEXT)
+		context->textSelectionController->SetSelection(match.start, ms.end);
+	context->ass->Commit(_("replace"), AssFile::COMMIT_DIAG_TEXT, -1, match.line);
 	return true;
 }
 

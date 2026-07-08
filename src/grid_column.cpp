@@ -492,6 +492,7 @@ struct GridColumnOriginal final : GridColumn {
 	COLUMN_HEADER(_("Original"))
 	COLUMN_DESCRIPTION(_("Original text"))
 	bool Centered() const override { return false; }
+	bool CopiesOriginalText() const override { return true; }
 	bool CanResize() const override { return true; }
 
 	int ResizeMinWidth() const override { return wxDisplay(0u).GetGeometry().GetWidth() / 10; }

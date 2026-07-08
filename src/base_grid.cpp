@@ -706,7 +706,9 @@ void BaseGrid::OnMouseEvent(wxMouseEvent &event) {
 
 void BaseGrid::OnContextMenu(wxContextMenuEvent &evt) {
 	wxPoint pos = evt.GetPosition();
-	if (pos == wxDefaultPosition || ScreenToClient(pos).y > lineHeight) {
+	wxPoint client_pos = pos == wxDefaultPosition ? wxDefaultPosition : ScreenToClient(pos);
+	if (pos == wxDefaultPosition || client_pos.y > lineHeight) {
+		context_menu_column = client_pos == wxDefaultPosition ? -1 : ColumnAt(client_pos.x);
 		if (!context_menu) context_menu = menu::GetMenu("grid_context", (wxID_HIGHEST + 1) + 8000, context);
 		menu::OpenPopupMenu(context_menu.get(), this);
 	}
@@ -718,6 +720,12 @@ void BaseGrid::OnContextMenu(wxContextMenuEvent &evt) {
 		}
 		PopupMenu(&menu);
 	}
+}
+
+bool BaseGrid::ContextMenuCopiesOriginalText() const {
+	return context_menu_column >= 0
+		&& context_menu_column < static_cast<int>(columns.size())
+		&& columns[context_menu_column]->CopiesOriginalText();
 }
 
 void BaseGrid::ScrollTo(int y) {

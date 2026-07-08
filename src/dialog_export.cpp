@@ -37,6 +37,7 @@
 #include "utils.h"
 
 #include <libaegisub/charset_conv.h>
+#include <libaegisub/fs.h>
 #include <libaegisub/split.h>
 
 #include <algorithm>
@@ -44,6 +45,7 @@
 #include <wx/dialog.h>
 #include <wx/checklst.h>
 #include <wx/choice.h>
+#include <wx/filedlg.h>
 #include <wx/msgdlg.h>
 #include <wx/sizer.h>
 #include <wx/statbox.h>
@@ -96,6 +98,58 @@ void swap(wxCheckListBox *list, int idx, int sel_dir) {
 	list->Check(idx + 1, tempval);
 	list->SetSelection(idx + sel_dir);
 	list->Thaw();
+}
+
+std::string UnrestrictedSaveWildcard(std::string const& wildcard) {
+	std::string ret;
+	int part = 0;
+
+	for (auto token : agi::Split(wildcard, '|')) {
+		if (!ret.empty())
+			ret += "|";
+		ret += part++ % 2 ? "*.*" : token;
+	}
+
+	return ret;
+}
+
+agi::fs::path ApplySelectedExtension(agi::fs::path filename, std::vector<std::vector<std::string>> const& extensions, int filter_index) {
+	if (filter_index < 0 || filter_index >= static_cast<int>(extensions.size()) || extensions[filter_index].empty())
+		return filename;
+
+	if (filter_index == 0) {
+		for (auto const& ext : extensions[filter_index]) {
+			if (agi::fs::HasExtension(filename, ext))
+				return filename;
+		}
+		if (filename.has_extension())
+			return filename;
+	}
+
+	filename.replace_extension(extensions[filter_index].front());
+	return filename;
+}
+
+agi::fs::path ExportFileSelector(wxWindow *parent) {
+	auto extensions = SubtitleFormat::GetWildcardExtensions(1);
+	auto wildcard = SubtitleFormat::GetWildcards(1);
+#ifdef __WXOSX_COCOA__
+	wildcard = UnrestrictedSaveWildcard(wildcard);
+#endif
+	wxFileDialog dialog(parent, _("Export Subtitles File"), "", "", to_wx(wildcard), wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+	if (dialog.ShowModal() != wxID_OK)
+		return {};
+
+	auto selected = from_wx(dialog.GetPath());
+	auto filename = ApplySelectedExtension(selected, extensions, dialog.GetFilterIndex());
+	if (filename != selected && agi::fs::FileExists(filename)) {
+		int res = wxMessageBox(_("A file with this name already exists. Do you want to replace it?"),
+			_("Confirm overwrite"), wxYES_NO | wxNO_DEFAULT | wxICON_WARNING | wxCENTER, parent);
+		if (res != wxYES)
+			return {};
+	}
+
+	return filename;
 }
 
 DialogExport::DialogExport(agi::Context *c)
@@ -187,7 +241,7 @@ DialogExport::~DialogExport() {
 void DialogExport::OnProcess(wxCommandEvent &) {
 	if (!d.TransferDataFromWindow()) return;
 
-	auto filename = SaveFileSelector(_("Export Subtitles File"), "", "", "", SubtitleFormat::GetWildcards(1), &d);
+	auto filename = ExportFileSelector(&d);
 	if (filename.empty()) return;
 
 	for (size_t i = 0; i < filter_list->GetCount(); ++i) {

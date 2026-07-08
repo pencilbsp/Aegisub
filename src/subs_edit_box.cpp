@@ -253,8 +253,11 @@ SubsEditBox::SubsEditBox(wxWindow *parent, agi::Context *context)
 	// Text editor
 	edit_ctrl = new SubsTextEditCtrl(this, FromDIP(wxSize(300,50)), wxBORDER_SUNKEN, c);
 	edit_ctrl->Bind(wxEVT_CHAR_HOOK, &SubsEditBox::OnKeyDown, this);
+	edit_ctrl->Bind(wxEVT_MOUSEWHEEL, &SubsEditBox::OnEditorMouseWheel, this);
 
 	secondary_editor = new wxTextCtrl(this, -1, "", wxDefaultPosition, FromDIP(wxSize(300,50)), wxBORDER_SUNKEN | wxTE_MULTILINE | wxTE_READONLY);
+	secondary_editor->Bind(wxEVT_MOUSEWHEEL, &SubsEditBox::OnEditorMouseWheel, this);
+	SetSecondaryEditorFont();
 
 	main_sizer->Add(secondary_editor,1,wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM,3);
 	main_sizer->Add(edit_ctrl,1,wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM,3);
@@ -296,6 +299,9 @@ SubsEditBox::SubsEditBox(wxWindow *parent, agi::Context *context)
 		if (line)
 			UpdateCharacterCount(line->Text);
 	};
+	auto update_secondary_editor_font = [this](agi::OptionValue const&) {
+		SetSecondaryEditorFont();
+	};
 	connections = agi::signal::make_vector({
 		context->project->AddTimecodesListener(&SubsEditBox::UpdateFrameTiming, this),
 		context->selectionController->AddActiveLineListener(&SubsEditBox::OnActiveLineChanged, this),
@@ -303,6 +309,8 @@ SubsEditBox::SubsEditBox(wxWindow *parent, agi::Context *context)
 		OPT_SUB("Subtitle/Character Limit", update_character_count),
 		OPT_SUB("Subtitle/Character Counter/Ignore Whitespace", update_character_count),
 		OPT_SUB("Subtitle/Character Counter/Ignore Punctuation", update_character_count),
+		OPT_SUB("Subtitle/Edit Box/Font Face", update_secondary_editor_font),
+		OPT_SUB("Subtitle/Edit Box/Font Size", update_secondary_editor_font),
 	 });
 
 	context->textSelectionController->SetControl(edit_ctrl);
@@ -329,6 +337,32 @@ wxTextCtrl *SubsEditBox::MakeMarginCtrl(wxString const& tooltip, int margin, wxS
 	}, ctrl->GetId());
 
 	return ctrl;
+}
+
+void SubsEditBox::SetSecondaryEditorFont() {
+	if (!secondary_editor)
+		return;
+
+	wxFont font = *wxNORMAL_FONT;
+	font.SetEncoding(wxFONTENCODING_DEFAULT);
+	wxString fontname = FontFace("Subtitle/Edit Box");
+	if (!fontname.empty())
+		font.SetFaceName(fontname);
+	font.SetPointSize(OPT_GET("Subtitle/Edit Box/Font Size")->GetInt());
+
+	secondary_editor->SetFont(font);
+	secondary_editor->Refresh();
+	Layout();
+}
+
+void SubsEditBox::OnEditorMouseWheel(wxMouseEvent &event) {
+	if (!event.CmdDown() || event.AltDown() || event.GetWheelRotation() == 0) {
+		event.Skip();
+		return;
+	}
+
+	auto font_size = OPT_GET("Subtitle/Edit Box/Font Size")->GetInt();
+	OPT_SET("Subtitle/Edit Box/Font Size")->SetInt(std::clamp<int>(font_size + (event.GetWheelRotation() > 0 ? 1 : -1), 3, 42));
 }
 
 TimeEdit *SubsEditBox::MakeTimeCtrl(wxString const& tooltip, TimeField field) {

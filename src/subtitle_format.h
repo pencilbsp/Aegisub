@@ -118,6 +118,8 @@ public:
 	/// Get the wildcards for a save or load dialog
 	/// @param mode 0: load 1: save
 	static std::string GetWildcards(int mode);
+	/// Get the extensions for each wildcard entry in the same order as GetWildcards
+	static std::vector<std::vector<std::string>> GetWildcardExtensions(int mode);
 
 	/// Get a subtitle format that can read the given file or nullptr if none can
 	static const SubtitleFormat *GetReader(agi::fs::path const& filename, const char *encoding);
