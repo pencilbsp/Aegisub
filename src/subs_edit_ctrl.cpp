@@ -264,6 +264,8 @@ void SubsTextEditCtrl::OnKeyDown(wxKeyEvent &event) {
 	if (event.GetKeyCode() == WXK_TAB)
 		Navigate(event.ShiftDown() ? wxNavigationKeyEvent::IsBackward : wxNavigationKeyEvent::IsForward);
 	else if (linebreak || hardspace) {
+		osx::ime::invalidate(this);
+
 		auto sel_start = GetSelectionStart(), sel_end = GetSelectionEnd();
 		wxCharBuffer old = GetTextRaw();
 		std::string data(old.data(), sel_start);
