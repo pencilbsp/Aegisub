@@ -1,2 +1,4 @@
-[wrap-redirect]
-filename = dav1d/subprojects/checkasm.wrap
+[wrap-git]
+url = https://code.videolan.org/videolan/checkasm.git
+revision = v1.1.0
+directory = checkasm
