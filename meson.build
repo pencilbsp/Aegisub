@@ -151,14 +151,21 @@ endif
 
 deps += dependency('zlib')
 
-wx_dep = dependency('wxWidgets', version: '>=' + get_option('wx_version'),
-                    required: false,
-                    modules: ['std', 'stc', 'gl'])
+use_bundled_wx = host_machine.system() == 'darwin' and get_option('build_osx_bundle')
+
+wx_dep = dependency('', required: false)
+if not use_bundled_wx
+    wx_dep = dependency('wxWidgets', version: '>=' + get_option('wx_version'),
+                        required: false,
+                        modules: ['std', 'stc', 'gl'])
+endif
 
 if wx_dep.found()
     deps += wx_dep
     wx_defines_dep = wx_dep
 else
+    message('Using bundled wxWidgets')
+
     build_shared = true
     if get_option('default_library') == 'static'
         build_shared = false
