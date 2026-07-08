@@ -14,6 +14,8 @@ goodlist = []
 badlist = []
 badlist_orig = []
 link_map = {}
+change_map = {}
+target_map = {}
 
 
 def find_missing_lib(lib, targetdir):
@@ -53,7 +55,7 @@ def get_rpath(lib):
 
 
 def collectlibs(lib, masterlist, targetdir):
-    global goodlist, link_map
+    global goodlist, link_map, change_map, target_map
     liblist = otool(['-L', lib])
     locallist = []
 
@@ -64,6 +66,10 @@ def collectlibs(lib, masterlist, targetdir):
 
         l = l.group(1)
         l_orig = l
+        copydir = targetdir
+
+        if os.path.basename(l) == os.path.basename(lib):
+            continue
 
         if l.startswith("@rpath/"):
             rpath = get_rpath(lib)
@@ -72,12 +78,18 @@ def collectlibs(lib, masterlist, targetdir):
                 print(f"{lib} uses @rpath but has no rpath set!")
                 exit(-1)
 
-            # all cases of libs using rpath so far just had a single directory in rpath...
-            # so let's just hope it stays that way and worry about the other cases when we get to them
-            if len(rpath) >= 2:
-                print(f"Warning: {lib} uses @rpath with more than one entry in rpath. Guessing one entry...")
+            rpath_dir = rpath[0]
+            for candidate_dir in rpath:
+                candidate = os.path.join(candidate_dir, l[len("@rpath/"):])
+                if candidate.startswith("@loader_path/"):
+                    candidate = os.path.join(os.path.dirname(lib), candidate[len("@loader_path/"):])
+                if os.path.exists(candidate):
+                    rpath_dir = candidate_dir
+                    break
 
-            l = os.path.join(rpath[0], l[len("@rpath/"):])
+            l = os.path.join(rpath_dir, l[len("@rpath/"):])
+            if rpath_dir == "@loader_path/data":
+                copydir = os.path.join(targetdir, rpath_dir[len("@loader_path/"):])
 
         if l.startswith("@loader_path/"):
             l = os.path.join(os.path.dirname(lib), l[len("@loader_path/"):])
@@ -95,7 +107,8 @@ def collectlibs(lib, masterlist, targetdir):
             link_list = []
             while check:
                 basename = os.path.basename(check)
-                target = os.path.join(targetdir, basename)
+                os.makedirs(copydir, exist_ok=True)
+                target = os.path.join(copydir, basename)
 
                 if os.path.islink(target):
                     # If a library was a symlink to a file with the same name in another directory,
@@ -109,6 +122,9 @@ def collectlibs(lib, masterlist, targetdir):
                         print("    FILE %s ... skipped" % check)
                         break
                     print("    FILE %s ... copied to target" % check)
+                    target_rel = os.path.relpath(target, targetdir)
+                    target_map[check] = target_rel
+                    change_map[l_orig] = target_rel
                     if link_list:
                         for link in link_list:
                             link_map[link] = basename
@@ -122,6 +138,7 @@ def collectlibs(lib, masterlist, targetdir):
                         print("    LINK %s ... existed" % check)
                         break
                     print("    LINK %s ... copied to target" % check)
+                    target_map[check] = os.path.relpath(target, targetdir)
                     link_list.append(basename)
                     check = os.path.join(os.path.dirname(check), link_dst)
                     continue
@@ -129,10 +146,12 @@ def collectlibs(lib, masterlist, targetdir):
                 replacement = find_missing_lib(check, targetdir)
                 if replacement:
                     print("    MISSING %s ... using %s" % (check, replacement))
+                    locallist[-1] = replacement
                     check = replacement
                     continue
 
                 print("    MISSING %s ... skipped" % check)
+                locallist.pop()
                 break
         elif l not in goodlist and l not in masterlist:
             goodlist.append(l)
@@ -158,26 +177,29 @@ if __name__ == '__main__':
     print()
     print("Fixing library install names...")
     in_tool_cmdline = ['install_name_tool']
+    all_changes = dict(change_map)
     for lib in badlist_orig:
-        libbase = os.path.basename(lib)
+        if lib not in all_changes:
+            libbase = os.path.basename(lib)
+            all_changes[lib] = link_map.get(libbase, libbase)
+
+    for lib, target_rel in all_changes.items():
+        libbase = os.path.basename(target_rel)
         if libbase in link_map:
-            print("%s -> @executable_path/%s (REMAPPED)" % (lib, libbase))
-            libbase = link_map[libbase]
+            target_rel = os.path.join(os.path.dirname(target_rel), link_map[libbase])
+            print("%s -> @executable_path/%s (REMAPPED)" % (lib, target_rel))
         else:
-            print("%s -> @executable_path/%s" % (lib, libbase))
+            print("%s -> @executable_path/%s" % (lib, target_rel))
         in_tool_cmdline = in_tool_cmdline + ['-change', lib,
-                                             '@executable_path/' + libbase]
+                                             '@executable_path/' + target_rel]
     for lib in libs:
-        libbase = os.path.basename(lib)
-
-        if libbase in link_map:
-            libbase = link_map[libbase]
-
-        targetlib = targetdir + '/' + libbase
+        target_rel = target_map.get(lib, os.path.basename(lib))
+        libbase = os.path.basename(target_rel)
+        targetlib = os.path.join(targetdir, target_rel)
         orig_permission = os.stat(targetlib).st_mode
         if not(orig_permission & stat.S_IWUSR):
             os.chmod(targetlib, orig_permission | stat.S_IWUSR)
-        subprocess.run(in_tool_cmdline + ['-id', '@executable_path/' + libbase,
+        subprocess.run(in_tool_cmdline + ['-id', '@executable_path/' + target_rel,
                                           targetlib])
         if not(orig_permission & stat.S_IWUSR):
             os.chmod(targetlib, orig_permission)

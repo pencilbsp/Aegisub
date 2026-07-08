@@ -87,24 +87,24 @@ bool handle_focused_text_undo(bool redo, bool execute) {
 	wxWindow *focus = wxWindow::FindFocus();
 
 	if (wxStyledTextCtrl *ctrl = dynamic_cast<wxStyledTextCtrl*>(focus)) {
+		if (redo ? !ctrl->CanRedo() : !ctrl->CanUndo())
+			return false;
 		if (execute) {
-			if (redo) {
-				if (ctrl->CanRedo())
-					ctrl->Redo();
-			}
-			else if (ctrl->CanUndo())
+			if (redo)
+				ctrl->Redo();
+			else
 				ctrl->Undo();
 		}
 		return true;
 	}
 
 	if (wxTextEntryBase *ctrl = dynamic_cast<wxTextEntryBase*>(focus)) {
+		if (redo ? !ctrl->CanRedo() : !ctrl->CanUndo())
+			return false;
 		if (execute) {
-			if (redo) {
-				if (ctrl->CanRedo())
-					ctrl->Redo();
-			}
-			else if (ctrl->CanUndo())
+			if (redo)
+				ctrl->Redo();
+			else
 				ctrl->Undo();
 		}
 		return true;

@@ -110,7 +110,7 @@ echo "---- Signing ----"
 # Even if the binaries were already ad-hoc signed during compilation,
 # they need to be resigned after bundling and rewriting dylib paths.
 if codesign -d "${PKG_DIR}/Contents/MacOS/aegisub"; then
-  for fname in "${PKG_DIR}/Contents/MacOS/"*; do
+  find "${PKG_DIR}/Contents/MacOS" -type f | while read -r fname; do
     codesign -s ${AEGISUB_BUNDLE_SIGNATURE:--} -vf "${fname}"
   done
   codesign -s ${AEGISUB_BUNDLE_SIGNATURE:--} -vf "${PKG_DIR}/"

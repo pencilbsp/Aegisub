@@ -59,7 +59,7 @@ echo "Device name: ${DEV_NAME}"
 
 echo
 echo "---- Setting root icon using SetFile ----"
-SetFile -a C "/Volumes/${PKG_NAME_VOLUME}"
+SetFile -a C "/Volumes/${PKG_NAME_VOLUME}" || echo "WARNING: Failed to set root volume icon"
 
 echo
 if test -n "${SET_STYLE}"; then
@@ -95,7 +95,7 @@ if test -n "${SET_STYLE}"; then
   exit 0
 else
   echo "---- Installing DS_Store ----"
-  cp -v "${SRC_DIR}/packages/osx_dmg/DS_Store" "/Volumes/${PKG_NAME_VOLUME}/.DS_Store"
+  cp -v "${SRC_DIR}/packages/osx_dmg/DS_Store" "/Volumes/${PKG_NAME_VOLUME}/.DS_Store" || echo "WARNING: Failed to install DS_Store"
 fi
 
 echo
