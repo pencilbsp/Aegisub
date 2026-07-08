@@ -851,6 +851,22 @@ msgstr "Sao chép dòng"
 msgid "Copy subtitles to the clipboard"
 msgstr "Sao chép phụ đề vào khay nhớ tạm"
 
+#: ../src/command/edit.cpp:709 ../src/command/edit.cpp:710
+msgid "Copy"
+msgstr "Sao chép"
+
+#: ../src/command/edit.cpp:711
+msgid "Copy text from selected subtitles to the clipboard"
+msgstr "Sao chép văn bản từ phụ đề đang chọn vào khay nhớ tạm"
+
+#: ../src/command/edit.cpp:720 ../src/command/edit.cpp:721
+msgid "Copy plain text"
+msgstr "Sao chép văn bản thuần"
+
+#: ../src/command/edit.cpp:722
+msgid "Copy plain text from selected subtitles to the clipboard"
+msgstr "Sao chép văn bản thuần từ phụ đề đang chọn vào khay nhớ tạm"
+
 #: ../src/command/edit.cpp:629
 msgid "Cu&t Lines"
 msgstr "Cắ&t dòng"
@@ -2586,6 +2602,109 @@ msgstr "Phóng to"
 #: ../src/command/video.cpp:755
 msgid "Zoom video out"
 msgstr "Thu nhỏ video"
+
+#: ../src/command/video.cpp:421
+#, c-format
+msgid "Frame %d/%d"
+msgstr "Khung hình %d/%d"
+
+#: ../src/command/video.cpp:423 ../src/command/video.cpp:717
+msgid "Frame N/A"
+msgstr "Khung hình N/A"
+
+#: ../src/command/video.cpp:693
+msgid "Please select an OCR region first."
+msgstr "Vui lòng chọn vùng OCR trước."
+
+#: ../src/command/video.cpp:693 ../src/command/video.cpp:794
+#: ../src/command/video.cpp:816
+msgid "OCR Region"
+msgstr "Vùng OCR"
+
+#: ../src/command/video.cpp:701
+msgid "Select OCR Region"
+msgstr "Chọn vùng OCR"
+
+#: ../src/command/video.cpp:713
+msgid "Drag ROI border lines (2 vertical + 2 horizontal) to set OCR region."
+msgstr "Kéo các đường viền ROI (2 dọc + 2 ngang) để đặt vùng OCR."
+
+#: ../src/command/video.cpp:715
+msgid "Use arrow keys: Left/Right = +/-1 frame, Up/Down = +/-10 frames."
+msgstr "Dùng phím mũi tên: Trái/Phải = +/-1 khung hình, Lên/Xuống = +/-10 khung hình."
+
+#: ../src/command/video.cpp:781 ../src/command/video.cpp:863
+msgid "Full frame"
+msgstr "Toàn khung hình"
+
+#: ../src/command/video.cpp:794
+msgid "Could not load video frame for ROI selection."
+msgstr "Không thể tải khung hình video để chọn ROI."
+
+#: ../src/command/video.cpp:816
+msgid "Please pick an OCR region or disable \"Use OCR region\"."
+msgstr "Vui lòng chọn vùng OCR hoặc tắt \"Dùng vùng OCR\"."
+
+#: ../src/command/video.cpp:824 ../src/command/video.cpp:1040
+#: ../src/command/video.cpp:1041 ../src/command/video.cpp:1084
+msgid "OCR Lines"
+msgstr "OCR dòng"
+
+#: ../src/command/video.cpp:833
+msgid "OCR frame:"
+msgstr "Khung hình OCR:"
+
+#: ../src/command/video.cpp:835
+msgid "First frame of each line"
+msgstr "Khung hình đầu của mỗi dòng"
+
+#: ../src/command/video.cpp:836
+msgid "Middle frame of each line"
+msgstr "Khung hình giữa của mỗi dòng"
+
+#: ../src/command/video.cpp:837
+msgid "Last frame of each line"
+msgstr "Khung hình cuối của mỗi dòng"
+
+#: ../src/command/video.cpp:841
+msgid "Insert mode:"
+msgstr "Chế độ chèn:"
+
+#: ../src/command/video.cpp:843
+msgid "Insert before"
+msgstr "Chèn trước"
+
+#: ../src/command/video.cpp:844
+msgid "Insert after"
+msgstr "Chèn sau"
+
+#: ../src/command/video.cpp:845
+msgid "Replace line text"
+msgstr "Thay văn bản dòng"
+
+#: ../src/command/video.cpp:846
+msgid "Insert into Original"
+msgstr "Chèn vào Bản gốc"
+
+#: ../src/command/video.cpp:849
+msgid "Language:"
+msgstr "Ngôn ngữ:"
+
+#: ../src/command/video.cpp:851
+msgid "Auto"
+msgstr "Tự động"
+
+#: ../src/command/video.cpp:857
+msgid "OCR region:"
+msgstr "Vùng OCR:"
+
+#: ../src/command/video.cpp:859
+msgid "Use OCR region"
+msgstr "Dùng vùng OCR"
+
+#: ../src/command/video.cpp:861
+msgid "Pick region..."
+msgstr "Chọn vùng..."
 
 #: ../src/command/vis_tool.cpp:73 ../src/command/vis_tool.cpp:74
 msgid "Standard"
@@ -5056,6 +5175,10 @@ msgstr "CPS"
 #: ../src/grid_column.cpp:295
 msgid "Characters Per Second"
 msgstr "Số kí tự một giây"
+
+#: ../src/grid_column.cpp:493
+msgid "Original text"
+msgstr "Văn bản gốc"
 
 #: ../src/hotkey.cpp:261
 msgid "Invalid command name for hotkey"

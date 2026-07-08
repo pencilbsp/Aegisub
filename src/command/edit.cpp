@@ -1370,7 +1370,9 @@ struct edit_insert_original final : public Command {
 		int sel_start = c->textSelectionController->GetSelectionStart();
 		int sel_end = c->textSelectionController->GetSelectionEnd();
 
-		line->Text = line->Text.get().substr(0, sel_start) + c->initialLineState->GetInitialText() + line->Text.get().substr(sel_end);
+		auto const& original = line->Original.get();
+		auto const& text_to_insert = original.empty() ? c->initialLineState->GetInitialText() : original;
+		line->Text = line->Text.get().substr(0, sel_start) + text_to_insert + line->Text.get().substr(sel_end);
 		c->ass->Commit(_("insert original"), AssFile::COMMIT_DIAG_TEXT, -1, line);
 	}
 };

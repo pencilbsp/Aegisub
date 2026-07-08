@@ -984,6 +984,22 @@ msgstr ""
 msgid "Copy subtitles to the clipboard"
 msgstr ""
 
+#: ../src/command/edit.cpp:709 ../src/command/edit.cpp:710
+msgid "Copy"
+msgstr ""
+
+#: ../src/command/edit.cpp:711
+msgid "Copy text from selected subtitles to the clipboard"
+msgstr ""
+
+#: ../src/command/edit.cpp:720 ../src/command/edit.cpp:721
+msgid "Copy plain text"
+msgstr ""
+
+#: ../src/command/edit.cpp:722
+msgid "Copy plain text from selected subtitles to the clipboard"
+msgstr ""
+
 #: ../src/command/edit.cpp:629
 msgid "Cu&t Lines"
 msgstr ""
@@ -2715,6 +2731,109 @@ msgstr ""
 
 #: ../src/command/video.cpp:766
 msgid "Zoom video out"
+msgstr ""
+
+#: ../src/command/video.cpp:421
+#, c-format
+msgid "Frame %d/%d"
+msgstr ""
+
+#: ../src/command/video.cpp:423 ../src/command/video.cpp:717
+msgid "Frame N/A"
+msgstr ""
+
+#: ../src/command/video.cpp:693
+msgid "Please select an OCR region first."
+msgstr ""
+
+#: ../src/command/video.cpp:693 ../src/command/video.cpp:794
+#: ../src/command/video.cpp:816
+msgid "OCR Region"
+msgstr ""
+
+#: ../src/command/video.cpp:701
+msgid "Select OCR Region"
+msgstr ""
+
+#: ../src/command/video.cpp:713
+msgid "Drag ROI border lines (2 vertical + 2 horizontal) to set OCR region."
+msgstr ""
+
+#: ../src/command/video.cpp:715
+msgid "Use arrow keys: Left/Right = +/-1 frame, Up/Down = +/-10 frames."
+msgstr ""
+
+#: ../src/command/video.cpp:781 ../src/command/video.cpp:863
+msgid "Full frame"
+msgstr ""
+
+#: ../src/command/video.cpp:794
+msgid "Could not load video frame for ROI selection."
+msgstr ""
+
+#: ../src/command/video.cpp:816
+msgid "Please pick an OCR region or disable \"Use OCR region\"."
+msgstr ""
+
+#: ../src/command/video.cpp:824 ../src/command/video.cpp:1040
+#: ../src/command/video.cpp:1041 ../src/command/video.cpp:1084
+msgid "OCR Lines"
+msgstr ""
+
+#: ../src/command/video.cpp:833
+msgid "OCR frame:"
+msgstr ""
+
+#: ../src/command/video.cpp:835
+msgid "First frame of each line"
+msgstr ""
+
+#: ../src/command/video.cpp:836
+msgid "Middle frame of each line"
+msgstr ""
+
+#: ../src/command/video.cpp:837
+msgid "Last frame of each line"
+msgstr ""
+
+#: ../src/command/video.cpp:841
+msgid "Insert mode:"
+msgstr ""
+
+#: ../src/command/video.cpp:843
+msgid "Insert before"
+msgstr ""
+
+#: ../src/command/video.cpp:844
+msgid "Insert after"
+msgstr ""
+
+#: ../src/command/video.cpp:845
+msgid "Replace line text"
+msgstr ""
+
+#: ../src/command/video.cpp:846
+msgid "Insert into Original"
+msgstr ""
+
+#: ../src/command/video.cpp:849
+msgid "Language:"
+msgstr ""
+
+#: ../src/command/video.cpp:851
+msgid "Auto"
+msgstr ""
+
+#: ../src/command/video.cpp:857
+msgid "OCR region:"
+msgstr ""
+
+#: ../src/command/video.cpp:859
+msgid "Use OCR region"
+msgstr ""
+
+#: ../src/command/video.cpp:861
+msgid "Pick region..."
 msgstr ""
 
 #: ../src/command/vis_tool.cpp:73 ../src/command/vis_tool.cpp:74
@@ -5189,6 +5308,10 @@ msgstr ""
 msgid "Characters Per Second"
 msgstr ""
 
+#: ../src/grid_column.cpp:493
+msgid "Original text"
+msgstr ""
+
 #: ../src/hotkey.cpp:261
 msgid "Invalid command name for hotkey"
 msgstr ""
@@ -6967,4 +7090,3 @@ msgstr ""
 #: packages/win_installer/fragment_strings.iss:1
 msgid "This will install Aegisub {#BUILD_GIT_VERSION_STRING} on your computer.%n%nAegisub is covered by the GNU General Public License version 2. This means you may use the application for any purpose without charge, but that no warranties of any kind are given either.%n%nSee the Aegisub website for information on obtaining the source code."
 msgstr ""
-

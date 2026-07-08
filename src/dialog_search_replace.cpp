@@ -77,22 +77,23 @@ static std::vector<PreviewSegment> make_segments(SearchReplaceMatch const& match
 	return segments;
 }
 
+// "replace" icon from VS Code codicons, (c) Microsoft Corporation, licensed
+// under CC BY 4.0 (https://github.com/microsoft/vscode-codicons). The fill is
+// set to currentColor so it can be recolored to the current theme below.
+static const char *kReplaceIconSVG = R"SVG(<svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" fill="currentColor"><path fill-rule="evenodd" clip-rule="evenodd" d="M10 2.813C10.295 2.619 10.634 2.5 11 2.5C12.103 2.5 13 3.509 13 4.75C13 5.991 12.103 7 11 7C10.62 7 10.269 6.873 9.966 6.666C9.897 6.86 9.717 7 9.5 7C9.224 7 9 6.776 9 6.5V1.5C9 1.224 9.224 1 9.5 1C9.776 1 10 1.224 10 1.5V2.813ZM10 4.75C10 5.439 10.448 6 11 6C11.552 6 12 5.439 12 4.75C12 4.061 11.552 3.5 11 3.5C10.448 3.5 10 4.061 10 4.75Z"/><path fill-rule="evenodd" clip-rule="evenodd" d="M2 9H7C7.552 9 8 9.448 8 10V15C8 15.552 7.552 16 7 16H2C1.448 16 1 15.552 1 15V10C1 9.448 1.448 9 2 9ZM5.039 13.645C4.81 13.849 4.199 13.968 3.83 13.506C3.617 13.24 3.5 12.88 3.5 12.492C3.5 12.104 3.618 11.744 3.83 11.478C4.201 11.014 4.811 11.133 5.04 11.339C5.244 11.525 5.56 11.507 5.746 11.303C5.931 11.098 5.915 10.782 5.709 10.597C4.922 9.887 3.733 10.001 3.049 10.853C2.695 11.297 2.5 11.878 2.5 12.492C2.5 13.106 2.695 13.688 3.049 14.131C3.43 14.605 3.945 14.867 4.5 14.867C4.941 14.867 5.359 14.701 5.708 14.387C5.913 14.202 5.93 13.886 5.745 13.681C5.559 13.476 5.243 13.458 5.039 13.645Z"/><path d="M3.99998 4.5C3.99998 3.673 4.67298 3 5.49998 3H7.50198C7.77798 3 8.00198 3.224 8.00198 3.5C8.00198 3.776 7.77798 4 7.50198 4H5.50198C5.22598 4 5.00198 4.225 5.00198 4.5V6.293L6.14798 5.147C6.34298 4.952 6.65998 4.952 6.85498 5.147C7.04998 5.342 7.04998 5.659 6.85498 5.854L4.85498 7.854C4.75698 7.951 4.62898 8 4.50098 8C4.37298 8 4.24498 7.952 4.14698 7.854L2.14698 5.854C1.95198 5.659 1.95198 5.342 2.14698 5.147C2.34198 4.952 2.65898 4.952 2.85398 5.147L3.99998 6.293V4.5Z"/></svg>)SVG";
 
-
-
-
-
-
-
-
-
+static wxBitmapBundle make_replace_icon(wxColour colour) {
+	wxString svg(kReplaceIconSVG, wxConvUTF8);
+	svg.Replace("currentColor", colour.GetAsString(wxC2S_HTML_SYNTAX));
+	auto utf8 = svg.utf8_str();
+	return wxBitmapBundle::FromSVG(utf8.data(), wxSize(16, 16));
+}
 
 class SearchReplacePreview final : public wxScrolledWindow {
 	std::vector<SearchReplaceMatch> matches;
 	int selected = -1;
 	std::function<void(size_t)> select_match;
 	std::function<void(size_t)> replace_match;
-	wxBitmapBundle replace_icon;
 
 	int RowHeight() const { return FromDIP(24); }
 	int Padding() const { return FromDIP(6); }
@@ -104,7 +105,9 @@ class SearchReplacePreview final : public wxScrolledWindow {
 	}
 
 	bool IsOnReplaceIcon(wxPoint pos, int row) const {
-		return IconRect(row).Contains(pos);
+		int x, y;
+		CalcUnscrolledPosition(pos.x, pos.y, &x, &y);
+		return IconRect(row).Contains(wxPoint(x, y));
 	}
 
 	int RowFromPoint(wxPoint pos) const {
@@ -116,7 +119,8 @@ class SearchReplacePreview final : public wxScrolledWindow {
 		return row;
 	}
 
-	void DrawReplaceIcon(wxDC& dc, wxRect rect) {
+	void DrawReplaceIcon(wxDC& dc, wxRect rect, wxColour colour) {
+		auto replace_icon = make_replace_icon(colour);
 		dc.DrawBitmap(replace_icon.GetBitmap(wxSize(rect.width, rect.height)), rect.x, rect.y, true);
 	}
 
@@ -195,7 +199,7 @@ class SearchReplacePreview final : public wxScrolledWindow {
 			dc.DrawText(wxString::Format("%d", match.line_number), Padding(), text_y);
 			int max_x = IconX() - Padding();
 			DrawPreviewLine(dc, segments, text_y, max_x);
-			DrawReplaceIcon(dc, IconRect(row));
+			DrawReplaceIcon(dc, IconRect(row), fg);
 		}
 	}
 
@@ -221,7 +225,22 @@ class SearchReplacePreview final : public wxScrolledWindow {
 
 	void OnMotion(wxMouseEvent& event) {
 		int row = RowFromPoint(event.GetPosition());
-		SetCursor(row != -1 && IsOnReplaceIcon(event.GetPosition(), row) ? wxCursor(wxCURSOR_HAND) : wxNullCursor);
+		bool on_replace_icon = row != -1 && IsOnReplaceIcon(event.GetPosition(), row);
+		SetCursor(on_replace_icon ? wxCursor(wxCURSOR_HAND) : wxNullCursor);
+
+		if (on_replace_icon) {
+			auto tooltip = _("Replace selected");
+			if (tooltip != GetToolTipText())
+				SetToolTip(tooltip);
+		}
+		else {
+			UnsetToolTip();
+		}
+	}
+
+	void OnLeaveWindow(wxMouseEvent&) {
+		SetCursor(wxNullCursor);
+		UnsetToolTip();
 	}
 
 public:
@@ -229,7 +248,6 @@ public:
 	: wxScrolledWindow(parent, -1, wxDefaultPosition, wxSize(720, 220), wxBORDER_THEME | wxVSCROLL)
 	, select_match(std::move(select_match))
 	, replace_match(std::move(replace_match))
-	, replace_icon(GETBUNDLE(button_next, 16))
 	{
 		SetBackgroundStyle(wxBG_STYLE_PAINT);
 		SetScrollRate(0, RowHeight());
@@ -237,6 +255,7 @@ public:
 		Bind(wxEVT_LEFT_DOWN, &SearchReplacePreview::OnLeftDown, this);
 		Bind(wxEVT_LEFT_DCLICK, &SearchReplacePreview::OnLeftDClick, this);
 		Bind(wxEVT_MOTION, &SearchReplacePreview::OnMotion, this);
+		Bind(wxEVT_LEAVE_WINDOW, &SearchReplacePreview::OnLeaveWindow, this);
 		Bind(wxEVT_SIZE, [this](wxSizeEvent& event) {
 			SetVirtualSize(GetClientSize().x, RowHeight() * matches.size());
 			event.Skip();
@@ -339,12 +358,10 @@ DialogSearchReplace<has_replace>::DialogSearchReplace(agi::Context* c)
 	auto find_next = new wxButton(this, -1, wxControl::RemoveMnemonics(_("&Find next")));
 	auto replace_next = new wxButton(this, -1, wxControl::RemoveMnemonics(_("Replace &next")));
 	auto replace_all = new wxButton(this, -1, wxControl::RemoveMnemonics(_("Replace &all")));
-	replace_selected = new wxButton(this, -1, wxControl::RemoveMnemonics(_("Replace selected")));
 #else
 	auto find_next = new wxButton(this, -1, _("&Find next"));
 	auto replace_next = new wxButton(this, -1, _("Replace &next"));
 	auto replace_all = new wxButton(this, -1, _("Replace &all"));
-	replace_selected = new wxButton(this, -1, _("Replace selected"));
 #endif
 	find_next->SetDefault();
 
@@ -352,13 +369,11 @@ DialogSearchReplace<has_replace>::DialogSearchReplace(agi::Context* c)
 	button_sizer->Add(find_next, wxSizerFlags().Border(wxBOTTOM));
 	button_sizer->Add(replace_next, wxSizerFlags().Border(wxBOTTOM));
 	button_sizer->Add(replace_all, wxSizerFlags().Border(wxBOTTOM));
-	button_sizer->Add(replace_selected, wxSizerFlags().Border(wxBOTTOM));
 	button_sizer->Add(new wxButton(this, wxID_CANCEL));
 
 	if (!has_replace) {
 		button_sizer->Hide(replace_next);
 		button_sizer->Hide(replace_all);
-		button_sizer->Hide(replace_selected);
 	}
 
 	auto top_sizer = new wxBoxSizer(wxHORIZONTAL);
@@ -375,7 +390,6 @@ DialogSearchReplace<has_replace>::DialogSearchReplace(agi::Context* c)
 			[this](size_t index) { GoToPreviewSelection(index); },
 			[this](size_t index) { ReplacePreviewMatch(index); });
 		main_sizer->Add(preview_list, wxSizerFlags(1).Expand().Border(wxLEFT | wxRIGHT | wxBOTTOM));
-		replace_selected->Enable(false);
 	}
 
 	SetSizerAndFit(main_sizer);
@@ -392,7 +406,6 @@ DialogSearchReplace<has_replace>::DialogSearchReplace(agi::Context* c)
 	find_next->Bind(wxEVT_BUTTON, std::bind(&DialogSearchReplace::FindReplace, this, &SearchReplaceEngine::FindNext));
 	replace_next->Bind(wxEVT_BUTTON, std::bind(&DialogSearchReplace::FindReplace, this, &SearchReplaceEngine::ReplaceNext));
 	replace_all->Bind(wxEVT_BUTTON, std::bind(&DialogSearchReplace::FindReplace, this, &SearchReplaceEngine::ReplaceAll));
-	replace_selected->Bind(wxEVT_BUTTON, std::bind(&DialogSearchReplace::ReplaceSelected, this));
 
 	if (has_replace) {
 		Bind(wxEVT_TIMER, [this](wxTimerEvent&) { UpdatePreviewIfNeeded(); }, preview_timer.GetId());
@@ -524,7 +537,6 @@ void DialogSearchReplace<has_replace>::UpdatePreview() {
 	preview_dirty = false;
 	preview_matches.clear();
 	preview_list->SetMatches({});
-	replace_selected->Enable(false);
 
 	if (settings->find.empty())
 		return;
@@ -540,11 +552,9 @@ void DialogSearchReplace<has_replace>::UpdatePreview() {
 	}
 
 	preview_list->SetMatches(preview_matches);
-	replace_selected->Enable(preview_list->GetSelection() != -1);
 }
 template<bool has_replace>
 void DialogSearchReplace<has_replace>::GoToPreviewSelection(size_t index) {
-	replace_selected->Enable(true);
 	if (index >= preview_matches.size())
 		return;
 
@@ -590,21 +600,6 @@ void DialogSearchReplace<has_replace>::ReplacePreviewMatch(size_t index) {
 
 	preview_list->Scroll(xPos, yPos);
 }
-
-
-
-template<bool has_replace>
-void DialogSearchReplace<has_replace>::ReplaceSelected() {
-	if (!has_replace || !preview_list)
-		return;
-
-	int selected = preview_list->GetSelection();
-	if (selected == -1)
-		return;
-
-	ReplacePreviewMatch(selected);
-}
-
 template<bool replace>
 void ShowSearchReplaceDialog(agi::Context *context) {
 	auto other = context->dialog->Get<DialogSearchReplace<!replace>>();
@@ -627,4 +622,3 @@ void ShowSearchReplaceDialog(agi::Context *context, bool replace) {
 		ShowSearchReplaceDialog<false>(context);
 	}
 }
-

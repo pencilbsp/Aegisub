@@ -337,7 +337,8 @@ enum class OcrLineFrameMode {
 enum class OcrLineInsertMode {
 	InsertBefore,
 	InsertAfter,
-	Replace
+	Replace,
+	Original
 };
 
 struct OcrNormalizedRect {
@@ -843,6 +844,7 @@ public:
 		insert_mode->Append(_("Insert before"));
 		insert_mode->Append(_("Insert after"));
 		insert_mode->Append(_("Replace line text"));
+		insert_mode->Append(_("Insert into Original"));
 		insert_mode->SetSelection(2);
 		grid->Add(insert_mode, 1, wxEXPAND);
 
@@ -887,6 +889,7 @@ public:
 		switch (insert_mode->GetSelection()) {
 			case 0: return OcrLineInsertMode::InsertBefore;
 			case 1: return OcrLineInsertMode::InsertAfter;
+			case 3: return OcrLineInsertMode::Original;
 			default: return OcrLineInsertMode::Replace;
 		}
 	}
@@ -1142,7 +1145,10 @@ struct video_ocr_selected_lines final : public validator_video_loaded {
 				continue;
 			}
 
-			line->Text = merge_ocr_text(line->Text.get(), result.text, dialog.GetInsertMode());
+			if (dialog.GetInsertMode() == OcrLineInsertMode::Original)
+				line->Original = result.text;
+			else
+				line->Text = merge_ocr_text(line->Text.get(), result.text, dialog.GetInsertMode());
 			++changed;
 			commit_id = c->ass->Commit(_("ocr selected lines"), AssFile::COMMIT_DIAG_TEXT, commit_id, line);
 			if (wxTheApp)

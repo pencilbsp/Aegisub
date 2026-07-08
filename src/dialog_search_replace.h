@@ -31,7 +31,6 @@
 namespace agi { struct Context; }
 class SearchReplaceEngine;
 struct SearchReplaceSettings;
-class wxButton;
 class wxComboBox;
 class SearchReplacePreview;
 
@@ -41,7 +40,6 @@ class DialogSearchReplace final : public wxDialog {
 	std::unique_ptr<SearchReplaceSettings> settings;
 	wxComboBox *replace_edit;
 	SearchReplacePreview *preview_list = nullptr;
-	wxButton *replace_selected = nullptr;
 	std::vector<SearchReplaceMatch> preview_matches;
 	wxTimer preview_timer;
 	std::string last_preview_key;
@@ -53,7 +51,6 @@ class DialogSearchReplace final : public wxDialog {
 	void SchedulePreviewUpdate();
 	void UpdatePreview();
 	void UpdatePreviewIfNeeded();
-	void ReplaceSelected();
 	void ReplacePreviewMatch(size_t index);
 	void GoToPreviewSelection(size_t index);
 	void SaveSettings();

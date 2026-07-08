@@ -16,6 +16,19 @@ badlist_orig = []
 link_map = {}
 
 
+def find_missing_lib(lib, targetdir):
+    if not is_bad_lib(lib):
+        return None
+
+    build_dir = os.path.abspath(os.path.join(targetdir, "..", "..", ".."))
+    basename = os.path.basename(lib)
+    for root, _, files in os.walk(os.path.join(build_dir, "subprojects")):
+        if basename in files:
+            return os.path.join(root, basename)
+
+    return None
+
+
 def otool(cmdline):
     with subprocess.Popen(['otool'] + cmdline, stdout=subprocess.PIPE,
                           encoding='utf-8') as p:
@@ -111,6 +124,16 @@ def collectlibs(lib, masterlist, targetdir):
                     print("    LINK %s ... copied to target" % check)
                     link_list.append(basename)
                     check = os.path.join(os.path.dirname(check), link_dst)
+                    continue
+
+                replacement = find_missing_lib(check, targetdir)
+                if replacement:
+                    print("    MISSING %s ... using %s" % (check, replacement))
+                    check = replacement
+                    continue
+
+                print("    MISSING %s ... skipped" % check)
+                break
         elif l not in goodlist and l not in masterlist:
             goodlist.append(l)
     masterlist.extend(locallist)
