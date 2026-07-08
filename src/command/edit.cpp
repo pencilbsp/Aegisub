@@ -68,6 +68,7 @@
 
 #include <wx/clipbrd.h>
 #include <wx/fontdlg.h>
+#include <wx/stc/stc.h>
 #include <wx/textentry.h>
 
 namespace {
@@ -80,6 +81,36 @@ struct validate_sel_nonempty : public Command {
 		return c->selectionController->GetSelectedSet().size() > 0;
 	}
 };
+
+bool handle_focused_text_undo(bool redo, bool execute) {
+	wxWindow *focus = wxWindow::FindFocus();
+
+	if (wxStyledTextCtrl *ctrl = dynamic_cast<wxStyledTextCtrl*>(focus)) {
+		if (execute) {
+			if (redo) {
+				if (ctrl->CanRedo())
+					ctrl->Redo();
+			}
+			else if (ctrl->CanUndo())
+				ctrl->Undo();
+		}
+		return true;
+	}
+
+	if (wxTextEntryBase *ctrl = dynamic_cast<wxTextEntryBase*>(focus)) {
+		if (execute) {
+			if (redo) {
+				if (ctrl->CanRedo())
+					ctrl->Redo();
+			}
+			else if (ctrl->CanUndo())
+				ctrl->Undo();
+		}
+		return true;
+	}
+
+	return false;
+}
 
 struct validate_video_and_sel_nonempty : public Command {
 	CMD_TYPE(COMMAND_VALIDATE)
@@ -1195,10 +1226,13 @@ struct edit_redo final : public Command {
 	}
 
 	bool Validate(const agi::Context *c) override {
-		return !c->subsController->IsRedoStackEmpty();
+		return handle_focused_text_undo(true, false) || !c->subsController->IsRedoStackEmpty();
 	}
 
 	void operator()(agi::Context *c) override {
+		if (handle_focused_text_undo(true, true))
+			return;
+
 		c->subsController->Redo();
 	}
 };
@@ -1221,10 +1255,13 @@ struct edit_undo final : public Command {
 	}
 
 	bool Validate(const agi::Context *c) override {
-		return !c->subsController->IsUndoStackEmpty();
+		return handle_focused_text_undo(false, false) || !c->subsController->IsUndoStackEmpty();
 	}
 
 	void operator()(agi::Context *c) override {
+		if (handle_focused_text_undo(false, true))
+			return;
+
 		c->subsController->Undo();
 	}
 };

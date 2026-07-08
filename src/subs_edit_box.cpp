@@ -126,6 +126,26 @@ void time_edit_char_hook(wxKeyEvent &event) {
 		event.Skip();
 }
 
+bool is_undo_redo_key(wxKeyEvent &event, bool *redo) {
+	if (!event.CmdDown() || event.AltDown())
+		return false;
+
+	int key = event.GetKeyCode();
+	if (key >= 'a' && key <= 'z')
+		key -= 'a' - 'A';
+
+	if (key == 'Z') {
+		*redo = event.ShiftDown();
+		return true;
+	}
+	if (key == 'Y' && !event.ShiftDown()) {
+		*redo = true;
+		return true;
+	}
+
+	return false;
+}
+
 // Passing a pointer-to-member directly to a function sometimes does not work
 // in VC++ 2015 Update 2, with it instead passing a null pointer
 const auto AssDialogue_Actor = &AssDialogue::Actor;
@@ -482,16 +502,35 @@ void SubsEditBox::UpdateFrameTiming(agi::vfr::Framerate const& fps) {
 }
 
 void SubsEditBox::OnKeyDown(wxKeyEvent &event) {
+	if (event.GetEventObject() == edit_ctrl) {
+		bool redo = false;
+		if (is_undo_redo_key(event, &redo)) {
+			if (redo) {
+				if (edit_ctrl->CanRedo())
+					edit_ctrl->Redo();
+			}
+			else if (edit_ctrl->CanUndo())
+				edit_ctrl->Undo();
+			return;
+		}
+	}
+
 	if (!osx::ime::process_key_event(edit_ctrl, event))
 		hotkey::check("Subtitle Edit Box", c, event);
 }
 
 void SubsEditBox::OnChange(wxStyledTextEvent &event) {
 	if (line && edit_ctrl->GetTextRaw().data() != line->Text.get()) {
-		if (event.GetModificationType() & wxSTC_STARTACTION)
+		int modification_type = event.GetModificationType();
+		if (modification_type & wxSTC_STARTACTION)
 			commit_id = -1;
 		CommitText(_("modify text"));
 		UpdateCharacterCount(line->Text);
+
+		if ((modification_type & wxSTC_PERFORMED_USER) && (modification_type & (wxSTC_MOD_INSERTTEXT | wxSTC_MOD_DELETETEXT))) {
+			edit_ctrl->BeginUndoAction();
+			edit_ctrl->EndUndoAction();
+		}
 	}
 }
 

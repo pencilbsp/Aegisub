@@ -418,6 +418,9 @@ void SubsTextEditCtrl::SetTextTo(std::string const& text) {
 		SetSelection(pos, pos);
 	}
 
+	EmptyUndoBuffer();
+	SetSavePoint();
+
 	SetEvtHandlerEnabled(true);
 	Thaw();
 }

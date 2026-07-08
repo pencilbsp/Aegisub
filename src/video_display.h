@@ -102,8 +102,7 @@ class VideoDisplay final : public wxGLCanvas {
 	double contentZoomValue = 1;
 
 	bool isZoomGestureActive = false;
-	double contentZoomAtGestureStart = 1;
-	Vector2D zoomGestureAnchorPoint = {0, 0};
+	double windowZoomAtGestureStart = 1;
 
 	/// The video pan, in units relative to the viewport height.
 	/// @see viewportSize

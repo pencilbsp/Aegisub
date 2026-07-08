@@ -2286,7 +2286,83 @@ bool wxIsIMEBoundaryCommand(SEL sel)
     return sel == @selector(insertNewline:) ||
            sel == @selector(insertLineBreak:) ||
            sel == @selector(insertParagraphSeparator:) ||
-           sel == @selector(insertNewlineIgnoringFieldEditor:);
+           sel == @selector(insertNewlineIgnoringFieldEditor:) ||
+           sel == @selector(insertTab:) ||
+           sel == @selector(insertBacktab:) ||
+           sel == @selector(insertTabIgnoringFieldEditor:) ||
+           sel == @selector(cancelOperation:);
+}
+
+bool wxIsIMENavigationCommand(SEL sel)
+{
+    return sel == @selector(moveForward:) ||
+           sel == @selector(moveBackward:) ||
+           sel == @selector(moveLeft:) ||
+           sel == @selector(moveRight:) ||
+           sel == @selector(moveUp:) ||
+           sel == @selector(moveDown:) ||
+           sel == @selector(moveWordForward:) ||
+           sel == @selector(moveWordBackward:) ||
+           sel == @selector(moveWordLeft:) ||
+           sel == @selector(moveWordRight:) ||
+           sel == @selector(moveToBeginningOfLine:) ||
+           sel == @selector(moveToEndOfLine:) ||
+           sel == @selector(moveToBeginningOfParagraph:) ||
+           sel == @selector(moveToEndOfParagraph:) ||
+           sel == @selector(moveToBeginningOfDocument:) ||
+           sel == @selector(moveToEndOfDocument:) ||
+           sel == @selector(pageUp:) ||
+           sel == @selector(pageDown:) ||
+           sel == @selector(movePageUp:) ||
+           sel == @selector(movePageDown:) ||
+           sel == @selector(scrollPageUp:) ||
+           sel == @selector(scrollPageDown:) ||
+           sel == @selector(moveForwardAndModifySelection:) ||
+           sel == @selector(moveBackwardAndModifySelection:) ||
+           sel == @selector(moveLeftAndModifySelection:) ||
+           sel == @selector(moveRightAndModifySelection:) ||
+           sel == @selector(moveUpAndModifySelection:) ||
+           sel == @selector(moveDownAndModifySelection:) ||
+           sel == @selector(moveWordForwardAndModifySelection:) ||
+           sel == @selector(moveWordBackwardAndModifySelection:) ||
+           sel == @selector(moveWordLeftAndModifySelection:) ||
+           sel == @selector(moveWordRightAndModifySelection:) ||
+           sel == @selector(moveToBeginningOfLineAndModifySelection:) ||
+           sel == @selector(moveToEndOfLineAndModifySelection:) ||
+           sel == @selector(moveToBeginningOfParagraphAndModifySelection:) ||
+           sel == @selector(moveToEndOfParagraphAndModifySelection:) ||
+           sel == @selector(moveToBeginningOfDocumentAndModifySelection:) ||
+           sel == @selector(moveToEndOfDocumentAndModifySelection:) ||
+           sel == @selector(pageUpAndModifySelection:) ||
+           sel == @selector(pageDownAndModifySelection:) ||
+           sel == @selector(selectAll:);
+}
+
+bool wxIsIMEEditingCommand(SEL sel)
+{
+    return sel == @selector(deleteBackward:) ||
+           sel == @selector(deleteForward:) ||
+           sel == @selector(deleteBackwardByDecomposingPreviousCharacter:) ||
+           sel == @selector(deleteWordBackward:) ||
+           sel == @selector(deleteWordForward:) ||
+           sel == @selector(deleteToBeginningOfLine:) ||
+           sel == @selector(deleteToEndOfLine:) ||
+           sel == @selector(deleteToBeginningOfParagraph:) ||
+           sel == @selector(deleteToEndOfParagraph:) ||
+           sel == @selector(delete:) ||
+           sel == @selector(cut:) ||
+           sel == @selector(paste:) ||
+           sel == @selector(yank:) ||
+           sel == @selector(complete:) ||
+           sel == @selector(transpose:) ||
+           sel == @selector(transposeWords:);
+}
+
+bool wxShouldDiscardIMEStateAfterCommand(SEL sel)
+{
+    return wxIsIMEBoundaryCommand(sel) ||
+           wxIsIMENavigationCommand(sel) ||
+           wxIsIMEEditingCommand(sel);
 }
 
 long wxClampToDocument(wxTextEntryBase* entry, long pos)
@@ -2729,7 +2805,7 @@ void wxWidgetCocoaImpl::setMarkedText(id aString,
     }
     else
     {
-        if ( hasMarkedText() && wxIsValidIMEIndexRange(m_markedRange) )
+        if ( isMarkedTextValid && wxIsValidIMEIndexRange(m_markedRange) )
         {
             long oldMarkedFrom = 0;
             long oldMarkedTo = 0;
@@ -2945,7 +3021,8 @@ bool wxWidgetCocoaImpl::doCommandBySelector(void* sel, WXWidget slf, void* WXUNU
 
     const bool isDeleteSelector =
         sel == @selector(deleteBackward:) || sel == @selector(deleteForward:);
-    const bool isIMEBoundaryCommand = wxIsIMEBoundaryCommand((SEL)sel);
+    const bool shouldDiscardIMEState =
+        hasMarkedText() && wxShouldDiscardIMEStateAfterCommand((SEL)sel);
 
     bool hasDeleteSelection = false;
     if (isDeleteSelector)
@@ -2989,7 +3066,7 @@ bool wxWidgetCocoaImpl::doCommandBySelector(void* sel, WXWidget slf, void* WXUNU
         wxLogTrace(TRACE_KEYS, "Doing nothing in doCommandBySelector:");
     }
 
-    if ( isIMEBoundaryCommand )
+    if ( shouldDiscardIMEState )
     {
         [[slf inputContext] discardMarkedText];
         unmarkText(slf);
@@ -3023,6 +3100,12 @@ bool wxWidgetCocoaImpl::resignFirstResponder(WXWidget slf, void *_cmd)
 {
     wxOSX_FocusHandlerPtr superimpl = (wxOSX_FocusHandlerPtr) [[slf superclass] instanceMethodForSelector:(SEL)_cmd];
     BOOL r = superimpl(slf, (SEL)_cmd);
+
+    if ( r && hasMarkedText() )
+    {
+        [[slf inputContext] discardMarkedText];
+        unmarkText(slf);
+    }
     
     // wxNSTextFields and wxNSComboBoxes have an editor as real responder, therefore they get
     // a resign notification when their editor takes over, don't trigger  event here, the control

@@ -479,15 +479,14 @@ void VideoDisplay::OnGestureZoom(wxZoomGestureEvent& event) {
 		return;
 	}
 
-	wxPoint scaled_position = event.GetPosition() * scale_factor;
 	if (event.IsGestureStart()) {
 		isZoomGestureActive = true;
-		contentZoomAtGestureStart = contentZoomValue;
-		zoomGestureAnchorPoint = GetZoomAnchorPoint(scaled_position);
+		windowZoomAtGestureStart = windowZoomValue;
 	} else if (event.IsGestureEnd()) {
 		isZoomGestureActive = false;
 	}
-	ZoomAndPan(contentZoomAtGestureStart * event.GetZoomFactor(), zoomGestureAnchorPoint, scaled_position);
+
+	SetWindowZoom(windowZoomAtGestureStart * event.GetZoomFactor());
 }
 
 void VideoDisplay::Pan(Vector2D delta) {

@@ -114,7 +114,9 @@ AudioBox::AudioBox(wxWindow *parent, agi::Context *context)
 	SetMinSize(wxSize(-1, OPT_GET("Audio/Display Height")->GetInt()));
 	SetMinimumSizeY(panel->GetSize().GetHeight());
 
+	audioDisplay->EnableTouchEvents(wxTOUCH_ZOOM_GESTURE);
 	audioDisplay->Bind(wxEVT_MOUSEWHEEL, &AudioBox::OnMouseWheel, this);
+	audioDisplay->Bind(wxEVT_GESTURE_ZOOM, &AudioBox::OnGestureZoom, this);
 
 	audioDisplay->SetZoomLevel(-HorizontalZoom->GetValue());
 	audioDisplay->SetAmplitudeScale(pow(mid(1, VerticalZoom->GetValue(), 100) / 50.0, 3));
@@ -149,6 +151,24 @@ void AudioBox::OnMouseWheel(wxMouseEvent &evt) {
 	}
 }
 
+void AudioBox::OnGestureZoom(wxZoomGestureEvent &event) {
+	if (!zoom_gesture_active && !event.IsGestureStart())
+		return;
+
+	if (event.IsGestureStart()) {
+		zoom_gesture_active = true;
+		zoom_gesture_start_level = audioDisplay->GetZoomLevel();
+		zoom_gesture_anchor_x = event.GetPosition().x;
+		zoom_gesture_anchor_time = audioDisplay->TimeFromRelativeX(zoom_gesture_anchor_x);
+	}
+	else if (event.IsGestureEnd()) {
+		zoom_gesture_active = false;
+	}
+
+	double target_zoom_factor = audioDisplay->GetZoomLevelFactor(zoom_gesture_start_level) * event.GetZoomFactor();
+	SetHorizontalZoomAt(GetClosestZoomLevel(target_zoom_factor), zoom_gesture_anchor_x, zoom_gesture_anchor_time);
+}
+
 void AudioBox::OnSashDrag(wxSashEvent &event) {
 	if (event.GetDragStatus() == wxSASH_STATUS_OUT_OF_RANGE)
 		return;
@@ -176,6 +196,28 @@ void AudioBox::SetHorizontalZoom(int new_zoom) {
 	audioDisplay->SetZoomLevel(new_zoom);
 	HorizontalZoom->SetValue(-new_zoom);
 	OPT_SET("Audio/Zoom/Horizontal")->SetInt(new_zoom);
+}
+
+void AudioBox::SetHorizontalZoomAt(int new_zoom, int anchor_x, int anchor_time) {
+	SetHorizontalZoom(new_zoom);
+	audioDisplay->ScrollPixelToLeft(audioDisplay->AbsoluteXFromTime(anchor_time) - anchor_x);
+}
+
+int AudioBox::GetClosestZoomLevel(double zoom_factor) const {
+	int min_zoom = -HorizontalZoom->GetMax();
+	int max_zoom = -HorizontalZoom->GetMin();
+	int closest = min_zoom;
+	double closest_distance = std::abs(zoom_factor - AudioDisplay::GetZoomLevelFactor(closest));
+
+	for (int zoom = min_zoom + 1; zoom <= max_zoom; ++zoom) {
+		double distance = std::abs(zoom_factor - AudioDisplay::GetZoomLevelFactor(zoom));
+		if (distance < closest_distance) {
+			closest = zoom;
+			closest_distance = distance;
+		}
+	}
+
+	return closest;
 }
 
 void AudioBox::OnVerticalZoom(wxScrollEvent &event) {
