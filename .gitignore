@@ -7,4 +7,4 @@ build*/
 !/subprojects/iconv
 !/subprojects/luabins
 .DS_Store
-.cache/
+.cache/.log
