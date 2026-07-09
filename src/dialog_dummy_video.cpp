@@ -20,6 +20,7 @@
 #include "help_button.h"
 #include "libresrc/libresrc.h"
 #include "options.h"
+#include "utils.h"
 #include "validators.h"
 #include "video_provider_dummy.h"
 

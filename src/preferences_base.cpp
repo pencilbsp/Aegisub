@@ -22,6 +22,7 @@
 #include "compat.h"
 #include "options.h"
 #include "preferences.h"
+#include "utils.h"
 
 #include <libaegisub/exception.h>
 #include <libaegisub/path.h>

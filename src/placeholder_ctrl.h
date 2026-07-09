@@ -16,6 +16,8 @@
 
 #include <wx/settings.h>
 
+class wxComboBox;
+
 // Defined in osx_utils.mm
 void SetPlaceholderText(wxWindow *window, wxString const& placeholder);
 

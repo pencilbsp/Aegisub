@@ -110,21 +110,6 @@ wxString TrimPlaybackSpeedSuffix(wxString text) {
 		text.RemoveLast();
 	return text;
 }
-
-void SizeComboBoxToFit(wxComboBox *combo, wxString const& initial_value, wxArrayString const& choices) {
-	wxString widest = initial_value;
-	int widest_width = combo->GetTextExtent(widest).GetWidth();
-
-	for (auto const& choice : choices) {
-		int width = combo->GetTextExtent(choice).GetWidth();
-		if (width > widest_width) {
-			widest = choice;
-			widest_width = width;
-		}
-	}
-
-	combo->SetInitialSize(combo->GetSizeFromText(widest));
-}
 }
 
 VideoBox::VideoBox(wxWindow *parent, bool isDetached, agi::Context *context)
@@ -146,7 +131,6 @@ VideoBox::VideoBox(wxWindow *parent, bool isDetached, agi::Context *context)
 	for (int i = 1; i <= 24; ++i)
 		choices.Add(fmt_wx("%g%%", i * 12.5));
 	auto zoomBox = new wxComboBox(this, -1, "75%", wxDefaultPosition, wxDefaultSize, choices, wxCB_DROPDOWN | wxTE_PROCESS_ENTER);
-	SizeComboBoxToFit(zoomBox, "75%", choices);
 
 	// Playback speed selector
 	wxArrayString speedChoices;
@@ -158,7 +142,7 @@ VideoBox::VideoBox(wxWindow *parent, bool isDetached, agi::Context *context)
 	speedChoices.Add("1.5x");
 	speedChoices.Add("2.0x");
 	SpeedBox = new wxComboBox(this, -1, "1.0x", wxDefaultPosition, wxDefaultSize, speedChoices, wxCB_DROPDOWN | wxTE_PROCESS_ENTER);
-	SizeComboBoxToFit(SpeedBox, "10.0x", speedChoices);
+	SpeedBox->SetMinSize(wxSize(SpeedBox->GetSizeFromText("10.0x").GetWidth(), -1));
 	SpeedBox->SetToolTip(_("Playback speed"));
 	auto applySpeed = [this](bool show_suffix) {
 		wxString text = TrimPlaybackSpeedSuffix(SpeedBox->GetValue());

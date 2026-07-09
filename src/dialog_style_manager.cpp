@@ -44,6 +44,7 @@
 #include "persist_location.h"
 #include "selection_controller.h"
 #include "subtitle_format.h"
+#include "utils.h"
 
 #include <libaegisub/fs.h>
 #include <libaegisub/path.h>

@@ -25,6 +25,7 @@
 #include "options.h"
 #include "selection_controller.h"
 #include "text_selection_controller.h"
+#include "utils.h"
 
 #include <libaegisub/ass/dialogue_parser.h>
 #include <libaegisub/exception.h>

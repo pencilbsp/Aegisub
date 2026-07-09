@@ -22,6 +22,7 @@
 #include "libresrc/libresrc.h"
 #include "project.h"
 #include "resolution_resampler.h"
+#include "utils.h"
 #include "validators.h"
 
 #include <boost/range/size.hpp>
@@ -134,11 +135,11 @@ DialogResample::DialogResample(agi::Context *c, ResampleSettings &settings)
 	source_x = new wxSpinCtrl(source_res_box, -1, "", wxDefaultPosition, wxDefaultSize, wxSP_ARROW_KEYS, 1, 999999);
 	source_y = new wxSpinCtrl(source_res_box, -1, "", wxDefaultPosition, wxDefaultSize, wxSP_ARROW_KEYS, 1, 999999);
 	source_matrix = new wxComboBox(source_res_box, -1, "", wxDefaultPosition,
-		wxDefaultSize, to_wx(MatrixNames()), wxCB_READONLY);
+			wxDefaultSize, to_wx(MatrixNames()), wxCB_READONLY);
 	dest_x = new wxSpinCtrl(dest_res_box, -1, "", wxDefaultPosition, wxDefaultSize, wxSP_ARROW_KEYS, 1, 999999);
 	dest_y = new wxSpinCtrl(dest_res_box, -1, "", wxDefaultPosition, wxDefaultSize, wxSP_ARROW_KEYS, 1, 999999);
 	dest_matrix = new wxComboBox(dest_res_box, -1, "", wxDefaultPosition, wxDefaultSize,
-		to_wx(MatrixNames()), wxCB_READONLY);
+			to_wx(MatrixNames()), wxCB_READONLY);
 
 	source_x->SetValidator(wxGenericValidator(&settings.source_x));
 	source_y->SetValidator(wxGenericValidator(&settings.source_y));

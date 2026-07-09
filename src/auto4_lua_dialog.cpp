@@ -36,6 +36,7 @@
 
 #include "colour_button.h"
 #include "compat.h"
+#include "utils.h"
 #include "validators.h"
 
 #include <libaegisub/ass/string_codec.h>

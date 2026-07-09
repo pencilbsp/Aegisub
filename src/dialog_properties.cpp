@@ -35,6 +35,7 @@
 #include "libresrc/libresrc.h"
 #include "project.h"
 #include "resolution_resampler.h"
+#include "utils.h"
 #include "validators.h"
 
 #include <boost/algorithm/string/predicate.hpp>
@@ -138,7 +139,7 @@ DialogProperties::DialogProperties(agi::Context *c)
 	res_sizer->Add(FromVideo, 1, 0, 0);
 
 	YCbCrMatrix = new wxComboBox(res_box, -1, to_wx(c->ass->GetScriptInfo("YCbCr Matrix")),
-		 wxDefaultPosition, wxDefaultSize, to_wx(MatrixNames()), wxCB_READONLY);
+		wxDefaultPosition, wxDefaultSize, to_wx(MatrixNames()), wxCB_READONLY);
 
 	auto matrix_sizer = new wxBoxSizer(wxHORIZONTAL);
 	matrix_sizer->Add(new wxStaticText(res_box, -1, _("YCbCr Matrix:")), wxSizerFlags().Center());

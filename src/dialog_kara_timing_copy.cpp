@@ -36,6 +36,7 @@
 #include "include/aegisub/context.h"
 #include "libresrc/libresrc.h"
 #include "options.h"
+#include "utils.h"
 
 #include <libaegisub/ass/karaoke.h>
 #include <libaegisub/karaoke_matcher.h>

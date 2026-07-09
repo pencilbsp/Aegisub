@@ -24,6 +24,7 @@
 #include "compat.h"
 #include "format.h"
 #include "options.h"
+#include "utils.h"
 
 #include <libaegisub/charset_conv.h>
 
