@@ -42,7 +42,7 @@
 #include <wx/control.h>
 #include <wx/combobox.h>
 #include <wx/dcbuffer.h>
-#include <wx/radiobox.h>
+#include <wx/radiobut.h>
 #include <wx/msgdlg.h>
 #include <wx/scrolwin.h>
 #include <wx/settings.h>
@@ -62,13 +62,13 @@ struct PreviewSegment {
 	wxString text;
 };
 
-static std::vector<PreviewSegment> make_segments(SearchReplaceMatch const& match) {
+static std::vector<PreviewSegment> make_segments(SearchReplaceMatch const& match, bool include_replacement) {
 	std::vector<PreviewSegment> segments;
 	if (match.start > 0) {
 		segments.push_back({PreviewSegmentType::Normal, to_wx(match.current_text.substr(0, match.start))});
 	}
 	segments.push_back({PreviewSegmentType::OldMatch, to_wx(match.matched_text)});
-	if (!match.replacement_match.empty()) {
+	if (include_replacement && !match.replacement_match.empty()) {
 		segments.push_back({PreviewSegmentType::Replacement, to_wx(match.replacement_match)});
 	}
 	if (match.end < match.current_text.size()) {
@@ -89,22 +89,47 @@ static wxBitmapBundle make_replace_icon(wxColour colour) {
 	return wxBitmapBundle::FromSVG(utf8.data(), wxSize(16, 16));
 }
 
+template<typename Enum>
+static wxSizer *make_radio_group(wxWindow *parent, wxString const& label, std::vector<std::pair<wxString, Enum>> const& choices, Enum *value, std::function<void(wxCommandEvent&)> const& on_change) {
+	auto sizer = new wxStaticBoxSizer(wxHORIZONTAL, parent, label);
+	auto box = sizer->GetStaticBox();
+	int gap = parent->FromDIP(24);
+
+	for (size_t i = 0; i < choices.size(); ++i) {
+		auto const& choice = choices[i];
+		auto button = new wxRadioButton(box, -1, choice.first, wxDefaultPosition, wxDefaultSize, i == 0 ? wxRB_GROUP : 0);
+		button->SetValue(*value == choice.second);
+		button->Bind(wxEVT_RADIOBUTTON, [value, enum_value = choice.second, on_change](wxCommandEvent& event) {
+			*value = enum_value;
+			on_change(event);
+		});
+		sizer->Add(button, wxSizerFlags().Center().Border(wxRIGHT, i + 1 == choices.size() ? 0 : gap));
+	}
+
+	return sizer;
+}
+
 class SearchReplacePreview final : public wxScrolledWindow {
 	std::vector<SearchReplaceMatch> matches;
 	int selected = -1;
 	std::function<void(size_t)> select_match;
 	std::function<void(size_t)> replace_match;
 
+	bool HasReplaceAction() const { return static_cast<bool>(replace_match); }
 	int RowHeight() const { return FromDIP(24); }
 	int Padding() const { return FromDIP(6); }
 	int IconSize() const { return FromDIP(16); }
 	int IconX() const { return GetClientSize().x - Padding() - IconSize(); }
+	int TextMaxX() const { return HasReplaceAction() ? IconX() - Padding() : GetClientSize().x - Padding(); }
 
 	wxRect IconRect(int row) const {
 		return wxRect(IconX(), row * RowHeight() + (RowHeight() - IconSize()) / 2, IconSize(), IconSize());
 	}
 
 	bool IsOnReplaceIcon(wxPoint pos, int row) const {
+		if (!HasReplaceAction())
+			return false;
+
 		int x, y;
 		CalcUnscrolledPosition(pos.x, pos.y, &x, &y);
 		return IconRect(row).Contains(wxPoint(x, y));
@@ -150,6 +175,7 @@ class SearchReplacePreview final : public wxScrolledWindow {
 		auto red_bg = wxColour(255, 220, 220);
 		auto green = wxColour(0, 120, 0);
 		auto green_bg = wxColour(220, 255, 220);
+		auto orange_bg = wxColour(255, 225, 160);
 
 		int x = Padding() * 2 + dc.GetTextExtent("0000").x + Padding() * 2;
 		for (auto const& segment : segments) {
@@ -158,7 +184,10 @@ class SearchReplacePreview final : public wxScrolledWindow {
 					x = DrawTextSegment(dc, segment.text, x, y, max_x, normal, wxNullColour, false);
 					break;
 				case PreviewSegmentType::OldMatch:
-					x = DrawTextSegment(dc, segment.text, x, y, max_x, red, red_bg, true);
+					if (HasReplaceAction())
+						x = DrawTextSegment(dc, segment.text, x, y, max_x, red, red_bg, true);
+					else
+						x = DrawTextSegment(dc, segment.text, x, y, max_x, normal, orange_bg, false);
 					break;
 				case PreviewSegmentType::Replacement:
 					x = DrawTextSegment(dc, segment.text, x, y, max_x, green, green_bg, false);
@@ -193,13 +222,13 @@ class SearchReplacePreview final : public wxScrolledWindow {
 			dc.DrawLine(0, y + RowHeight() - 1, client.x, y + RowHeight() - 1);
 
 			auto const& match = matches[row];
-			auto segments = make_segments(match);
+			auto segments = make_segments(match, HasReplaceAction());
 			dc.SetTextForeground(fg);
 			int text_y = y + (RowHeight() - dc.GetCharHeight()) / 2;
 			dc.DrawText(wxString::Format("%d", match.line_number), Padding(), text_y);
-			int max_x = IconX() - Padding();
-			DrawPreviewLine(dc, segments, text_y, max_x);
-			DrawReplaceIcon(dc, IconRect(row), fg);
+			DrawPreviewLine(dc, segments, text_y, TextMaxX());
+			if (HasReplaceAction())
+				DrawReplaceIcon(dc, IconRect(row), fg);
 		}
 	}
 
@@ -219,8 +248,13 @@ class SearchReplacePreview final : public wxScrolledWindow {
 
 	void OnLeftDClick(wxMouseEvent& event) {
 		int row = RowFromPoint(event.GetPosition());
-		if (row != -1)
+		if (row == -1)
+			return;
+
+		if (HasReplaceAction())
 			replace_match(row);
+		else
+			SetSelection(row);
 	}
 
 	void OnMotion(wxMouseEvent& event) {
@@ -245,7 +279,7 @@ class SearchReplacePreview final : public wxScrolledWindow {
 
 public:
 	SearchReplacePreview(wxWindow *parent, std::function<void(size_t)> select_match, std::function<void(size_t)> replace_match)
-	: wxScrolledWindow(parent, -1, wxDefaultPosition, wxSize(720, 220), wxBORDER_THEME | wxVSCROLL)
+	: wxScrolledWindow(parent, -1, wxDefaultPosition, wxSize(1, 220), wxBORDER_THEME | wxVSCROLL)
 	, select_match(std::move(select_match))
 	, replace_match(std::move(replace_match))
 	{
@@ -314,24 +348,32 @@ DialogSearchReplace<has_replace>::DialogSearchReplace(agi::Context* c)
 	settings->field = static_cast<SearchReplaceSettings::Field>(OPT_GET("Tool/Search Replace/Field")->GetInt());
 	settings->limit_to = static_cast<SearchReplaceSettings::Limit>(OPT_GET("Tool/Search Replace/Affect")->GetInt());
 	settings->find = recent_find.empty() ? std::string() : from_wx(recent_find.front());
-	settings->replace_with = recent_replace.empty() ? std::string() : from_wx(recent_replace.front());
+	settings->replace_with = has_replace && !recent_replace.empty() ? from_wx(recent_replace.front()) : std::string();
 	settings->match_case = OPT_GET("Tool/Search Replace/Match Case")->GetBool();
 	settings->use_regex = OPT_GET("Tool/Search Replace/RegExp")->GetBool();
 	settings->ignore_comments = OPT_GET("Tool/Search Replace/Skip Comments")->GetBool();
 	settings->skip_tags = OPT_GET("Tool/Search Replace/Skip Tags")->GetBool();
 	settings->exact_match = false;
+	if (has_replace && settings->field == SearchReplaceSettings::Field::ORIGINAL)
+		settings->field = SearchReplaceSettings::Field::TEXT;
+
+	auto schedule_preview = [this](wxCommandEvent& event) {
+		SchedulePreviewUpdate();
+		event.Skip();
+	};
 
 	auto find_sizer = new wxFlexGridSizer(2, 2, 5, 15);
+	find_sizer->AddGrowableCol(1, 1);
 	find_edit = new wxComboBox(this, -1, "", wxDefaultPosition, wxSize(300, -1), recent_find, wxCB_DROPDOWN | wxTE_PROCESS_ENTER, StringBinder(&settings->find));
 	find_edit->SetMaxLength(0);
 	find_sizer->Add(new wxStaticText(this, -1, _("Find what:")), wxSizerFlags().Center().Left());
-	find_sizer->Add(find_edit);
+	find_sizer->Add(find_edit, wxSizerFlags(1).Expand());
 
 	if (has_replace) {
 		replace_edit = new wxComboBox(this, -1, "", wxDefaultPosition, wxSize(300, -1), lagi_MRU_wxAS("Replace"), wxCB_DROPDOWN | wxTE_PROCESS_ENTER, StringBinder(&settings->replace_with));
 		replace_edit->SetMaxLength(0);
 		find_sizer->Add(new wxStaticText(this, -1, _("Replace with:")), wxSizerFlags().Center().Left());
-		find_sizer->Add(replace_edit);
+		find_sizer->Add(replace_edit, wxSizerFlags(1).Expand());
 	}
 
 	auto options_sizer = new wxBoxSizer(wxVERTICAL);
@@ -340,14 +382,24 @@ DialogSearchReplace<has_replace>::DialogSearchReplace(agi::Context* c)
 	options_sizer->Add(new wxCheckBox(this, -1, _("&Skip Comments"), wxDefaultPosition, wxDefaultSize, 0, wxGenericValidator(&settings->ignore_comments)), wxSizerFlags().Border(wxBOTTOM));
 	options_sizer->Add(new wxCheckBox(this, -1, _("S&kip Override Tags"), wxDefaultPosition, wxDefaultSize, 0, wxGenericValidator(&settings->skip_tags)));
 	auto left_sizer = new wxBoxSizer(wxVERTICAL);
-	left_sizer->Add(find_sizer, wxSizerFlags().DoubleBorder(wxBOTTOM));
+	left_sizer->Add(find_sizer, wxSizerFlags().Expand().DoubleBorder(wxBOTTOM));
 	left_sizer->Add(options_sizer);
 
-	wxString field[] = { _("&Text"), _("St&yle"), _("A&ctor"), _("&Effect") };
-	wxString affect[] = { _("A&ll rows"), _("Selected &rows") };
+	std::vector<std::pair<wxString, SearchReplaceSettings::Field>> field = {
+		{ _("&Text"), SearchReplaceSettings::Field::TEXT },
+		{ _("St&yle"), SearchReplaceSettings::Field::STYLE },
+		{ _("A&ctor"), SearchReplaceSettings::Field::ACTOR },
+		{ _("&Effect"), SearchReplaceSettings::Field::EFFECT }
+	};
+	if (!has_replace)
+		field.emplace_back(_("&Original"), SearchReplaceSettings::Field::ORIGINAL);
+	std::vector<std::pair<wxString, SearchReplaceSettings::Limit>> affect = {
+		{ _("A&ll rows"), SearchReplaceSettings::Limit::ALL },
+		{ _("Selected &rows"), SearchReplaceSettings::Limit::SELECTED }
+	};
 	auto limit_sizer = new wxBoxSizer(wxHORIZONTAL);
-	limit_sizer->Add(new wxRadioBox(this, -1, _("In Field"), wxDefaultPosition, wxDefaultSize, std::size(field), field, 0, wxRA_SPECIFY_COLS, MakeEnumBinder(&settings->field)), wxSizerFlags().Border(wxRIGHT));
-	limit_sizer->Add(new wxRadioBox(this, -1, _("Limit to"), wxDefaultPosition, wxDefaultSize, std::size(affect), affect, 0, wxRA_SPECIFY_COLS, MakeEnumBinder(&settings->limit_to)));
+	limit_sizer->Add(make_radio_group(this, _("In Field"), field, &settings->field, schedule_preview), wxSizerFlags().Border(wxRIGHT));
+	limit_sizer->Add(make_radio_group(this, _("Limit to"), affect, &settings->limit_to, schedule_preview));
 
 #ifdef __WXMAC__
 	// wxOSX turns each button's '&' mnemonic into an NSButton keyEquivalent
@@ -366,10 +418,10 @@ DialogSearchReplace<has_replace>::DialogSearchReplace(agi::Context* c)
 	find_next->SetDefault();
 
 	auto button_sizer = new wxBoxSizer(wxVERTICAL);
-	button_sizer->Add(find_next, wxSizerFlags().Border(wxBOTTOM));
-	button_sizer->Add(replace_next, wxSizerFlags().Border(wxBOTTOM));
-	button_sizer->Add(replace_all, wxSizerFlags().Border(wxBOTTOM));
-	button_sizer->Add(new wxButton(this, wxID_CANCEL));
+	button_sizer->Add(find_next, wxSizerFlags().Expand().Border(wxBOTTOM));
+	button_sizer->Add(replace_next, wxSizerFlags().Expand().Border(wxBOTTOM));
+	button_sizer->Add(replace_all, wxSizerFlags().Expand().Border(wxBOTTOM));
+	button_sizer->Add(new wxButton(this, wxID_CANCEL), wxSizerFlags().Expand());
 
 	if (!has_replace) {
 		button_sizer->Hide(replace_next);
@@ -377,20 +429,18 @@ DialogSearchReplace<has_replace>::DialogSearchReplace(agi::Context* c)
 	}
 
 	auto top_sizer = new wxBoxSizer(wxHORIZONTAL);
-	top_sizer->Add(left_sizer, wxSizerFlags().Border());
-	top_sizer->Add(button_sizer, wxSizerFlags().Border());
+	top_sizer->Add(left_sizer, wxSizerFlags(1).Expand().Border());
+	top_sizer->Add(button_sizer, wxSizerFlags().Expand().Border());
 
 	auto main_sizer = new wxBoxSizer(wxVERTICAL);
-	main_sizer->Add(top_sizer);
-	main_sizer->Add(limit_sizer, wxSizerFlags().Border());
+	main_sizer->Add(top_sizer, wxSizerFlags().Expand());
+	main_sizer->Add(limit_sizer, wxSizerFlags().Expand().Border());
 
-	if (has_replace) {
-		preview_list = new SearchReplacePreview(
-			this,
-			[this](size_t index) { GoToPreviewSelection(index); },
-			[this](size_t index) { ReplacePreviewMatch(index); });
-		main_sizer->Add(preview_list, wxSizerFlags(1).Expand().Border(wxLEFT | wxRIGHT | wxBOTTOM));
-	}
+	preview_list = new SearchReplacePreview(
+		this,
+		[this](size_t index) { GoToPreviewSelection(index); },
+		has_replace ? std::function<void(size_t)>([this](size_t index) { ReplacePreviewMatch(index); }) : std::function<void(size_t)>());
+	main_sizer->Add(preview_list, wxSizerFlags(1).Expand().Border(wxLEFT | wxRIGHT | wxBOTTOM));
 
 	SetSizerAndFit(main_sizer);
 	SetMinSize(GetSize());
@@ -407,21 +457,16 @@ DialogSearchReplace<has_replace>::DialogSearchReplace(agi::Context* c)
 	replace_next->Bind(wxEVT_BUTTON, std::bind(&DialogSearchReplace::FindReplace, this, &SearchReplaceEngine::ReplaceNext));
 	replace_all->Bind(wxEVT_BUTTON, std::bind(&DialogSearchReplace::FindReplace, this, &SearchReplaceEngine::ReplaceAll));
 
+	Bind(wxEVT_TIMER, [this](wxTimerEvent&) { UpdatePreviewIfNeeded(); }, preview_timer.GetId());
+	Bind(wxEVT_TEXT, schedule_preview, find_edit->GetId());
+	Bind(wxEVT_COMBOBOX, schedule_preview, find_edit->GetId());
 	if (has_replace) {
-		Bind(wxEVT_TIMER, [this](wxTimerEvent&) { UpdatePreviewIfNeeded(); }, preview_timer.GetId());
-		auto schedule_preview = [this](wxCommandEvent& event) {
-			SchedulePreviewUpdate();
-			event.Skip();
-		};
-		Bind(wxEVT_TEXT, schedule_preview, find_edit->GetId());
-		Bind(wxEVT_COMBOBOX, schedule_preview, find_edit->GetId());
 		Bind(wxEVT_TEXT, schedule_preview, replace_edit->GetId());
 		Bind(wxEVT_COMBOBOX, schedule_preview, replace_edit->GetId());
-		Bind(wxEVT_CHECKBOX, schedule_preview);
-		Bind(wxEVT_RADIOBOX, schedule_preview);
-		UpdatePreview();
-		preview_timer.Start(150);
 	}
+	Bind(wxEVT_CHECKBOX, schedule_preview);
+	UpdatePreview();
+	preview_timer.Start(150);
 }
 
 template<bool has_replace>
@@ -479,7 +524,7 @@ void DialogSearchReplace<has_replace>::UpdateDropDowns() {
 
 template<bool has_replace>
 void DialogSearchReplace<has_replace>::SchedulePreviewUpdate() {
-	if (!has_replace || !preview_list)
+	if (!preview_list)
 		return;
 
 	preview_dirty = true;
@@ -516,7 +561,7 @@ std::string DialogSearchReplace<has_replace>::GetPreviewKey() const {
 
 template<bool has_replace>
 void DialogSearchReplace<has_replace>::UpdatePreviewIfNeeded() {
-	if (!has_replace || !preview_list)
+	if (!preview_list)
 		return;
 
 	SyncSettingsFromControls();
@@ -529,7 +574,7 @@ void DialogSearchReplace<has_replace>::UpdatePreviewIfNeeded() {
 
 template<bool has_replace>
 void DialogSearchReplace<has_replace>::UpdatePreview() {
-	if (!has_replace || !preview_list)
+	if (!preview_list)
 		return;
 
 	SyncSettingsFromControls();
@@ -541,7 +586,6 @@ void DialogSearchReplace<has_replace>::UpdatePreview() {
 	if (settings->find.empty())
 		return;
 
-	c->search->Configure(*settings);
 	c->search->Configure(*settings);
 	try {
 		preview_matches = c->search->GetMatches();

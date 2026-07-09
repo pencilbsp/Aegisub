@@ -40,6 +40,7 @@ auto get_dialogue_field(SearchReplaceSettings::Field field) -> decltype(&AssDial
 		case SearchReplaceSettings::Field::STYLE: return &AssDialogueBase::Style;
 		case SearchReplaceSettings::Field::ACTOR: return &AssDialogueBase::Actor;
 		case SearchReplaceSettings::Field::EFFECT: return &AssDialogueBase::Effect;
+		case SearchReplaceSettings::Field::ORIGINAL: return &AssDialogueBase::Original;
 	}
 	throw agi::InternalError("Bad field for search");
 }

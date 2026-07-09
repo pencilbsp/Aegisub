@@ -37,7 +37,8 @@ struct SearchReplaceSettings {
 		TEXT = 0,
 		STYLE,
 		ACTOR,
-		EFFECT
+		EFFECT,
+		ORIGINAL
 	};
 
 	enum class Limit {

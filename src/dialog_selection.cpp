@@ -136,8 +136,8 @@ wxDialog (c->parent, -1, _("Select"), wxDefaultPosition, wxDefaultSize, wxCAPTIO
 	}
 
 	{
-		wxString fields[] = { _("&Text"), _("&Style"), _("Act&or"), _("E&ffect") };
-		main_sizer->Add(dialogue_field = new wxRadioBox(this, -1, _("In Field"), wxDefaultPosition, wxDefaultSize, 4, fields), main_flags);
+		wxString fields[] = { _("&Text"), _("&Style"), _("Act&or"), _("E&ffect"), _("&Original") };
+		main_sizer->Add(dialogue_field = new wxRadioBox(this, -1, _("In Field"), wxDefaultPosition, wxDefaultSize, std::size(fields), fields), main_flags);
 	}
 
 	{
