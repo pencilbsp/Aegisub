@@ -20,6 +20,7 @@ jobs:
           - name: Windows MSVC Release
             os: windows-latest
             msvc: true
+            asset_platform: windows-x64
             devenv: |
               Import-Module "$env:VS\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
               Enter-VsDevShell -VsInstallPath $env:VS -SkipAutomaticLocation -DevCmdArguments "-arch=x64 -host_arch=x64"
@@ -49,12 +50,13 @@ jobs:
           #   buildtype: debugoptimized,
           #   args: -Db_pch=false
           # }
-          # - {
-          #   name: Ubuntu Release,
-          #   os: ubuntu-latest,
-          #   buildtype: release,
-          #   args: -Db_pch=false
-          # }
+          - {
+              name: Ubuntu Release,
+              os: ubuntu-latest,
+              buildtype: release,
+              asset_platform: source,
+              args: -Db_pch=false,
+            }
           # - {
           #   name: macOS x86_64 Debug,
           #   os: macos-15-intel,
@@ -65,6 +67,7 @@ jobs:
               name: macOS x86_64 Release,
               os: macos-15-intel,
               buildtype: release,
+              asset_platform: macos-x86_64,
               args: -Ddefault_library=static -Dbuild_osx_bundle=true -Dlocal_boost=true --force-fallback-for=ffms2,
             }
           # - {
@@ -77,6 +80,7 @@ jobs:
               name: macOS arm64 Release,
               os: macos-15,
               buildtype: release,
+              asset_platform: macos-arm64,
               args: -Ddefault_library=static -Dbuild_osx_bundle=true -Dlocal_boost=true --force-fallback-for=ffms2,
             }
 
@@ -188,12 +192,28 @@ jobs:
           ${{ matrix.config.devenv }}
           cd build && ninja win-portable
 
+      - name: Normalize Windows release assets
+        if: matrix.config.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $version = if ("${{ github.ref_type }}" -eq "tag") { "${{ github.ref_name }}" -replace '^v', '' } else { "dev" }
+          $assetDir = "build/release-assets"
+          New-Item -ItemType Directory -Path $assetDir -Force | Out-Null
+
+          $installer = Get-ChildItem "build/Aegisub-*.exe" | Select-Object -First 1
+          if (-not $installer) { throw "Windows installer was not produced" }
+          Move-Item $installer.FullName "$assetDir/Aegisub-$version-${{ matrix.config.asset_platform }}.exe" -Force
+
+          $portable = Get-ChildItem "build/aegisub-portable-*.zip" | Select-Object -First 1
+          if (-not $portable) { throw "Windows portable package was not produced" }
+          Move-Item $portable.FullName "$assetDir/Aegisub-$version-${{ matrix.config.asset_platform }}-portable.zip" -Force
+
       - name: Upload artifacts - win_installer
         uses: actions/upload-artifact@v6
         if: matrix.config.os == 'windows-latest'
         with:
           name: ${{ matrix.config.name }} - installer
-          path: build/Aegisub-*.exe
+          path: build/release-assets/Aegisub-*-windows-*.exe
           if-no-files-found: error
 
       - name: Upload artifacts - portable.zip
@@ -201,7 +221,8 @@ jobs:
         if: matrix.config.os == 'windows-latest'
         with:
           name: ${{ matrix.config.name }} - portable
-          path: build/aegisub-portable-*.zip
+          path: build/release-assets/Aegisub-*-windows-*-portable.zip
+          if-no-files-found: error
 
       # macOS artifacts
       - name: Generate macOS installer
@@ -221,12 +242,30 @@ jobs:
             i=$((i+1))
           done
 
+      - name: Normalize macOS release assets
+        if: startsWith(matrix.config.os, 'macos-')
+        run: |
+          set -e
+
+          version="${GITHUB_REF_NAME#v}"
+          if [ "${GITHUB_REF_TYPE}" != "tag" ]; then
+            version="dev"
+          fi
+
+          mkdir -p build/release-assets
+          dmg=$(find build -maxdepth 1 -name 'Aegisub-*.dmg' -print -quit)
+          if [ -z "${dmg}" ]; then
+            echo "macOS dmg was not produced"
+            exit 1
+          fi
+          mv "${dmg}" "build/release-assets/Aegisub-${version}-${{ matrix.config.asset_platform }}.dmg"
+
       - name: Upload artifacts - macOS dmg
         uses: actions/upload-artifact@v6
         if: startsWith(matrix.config.os, 'macos-')
         with:
           name: ${{ matrix.config.name }} - installer
-          path: build/Aegisub-*.dmg
+          path: build/release-assets/Aegisub-*-macos-*.dmg
           if-no-files-found: error
 
       # Tarball
@@ -243,12 +282,20 @@ jobs:
           test -e distcheck/*/subprojects/luabins/meson.build
           test -e distcheck/*/subprojects/LuaJIT*/meson.build
 
+          version="${GITHUB_REF_NAME#v}"
+          if [ "${GITHUB_REF_TYPE}" != "tag" ]; then
+            version="dev"
+          fi
+
+          mkdir -p build/release-assets
+          mv build/meson-dist/*.tar.xz "build/release-assets/Aegisub-${version}-source.tar.xz"
+
       - name: Upload artifacts - tarball
         uses: actions/upload-artifact@v6
         if: matrix.config.os == 'ubuntu-latest' && matrix.config.buildtype == 'release'
         with:
           name: Source Tarball
-          path: build/meson-dist/*.tar.xz
+          path: build/release-assets/Aegisub-*-source.tar.xz
           if-no-files-found: error
 
       # GitHub Releases
@@ -256,10 +303,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/v') && matrix.config.buildtype == 'release'
         with:
-          files: |
-            build/Aegisub-*.exe
-            build/aegisub-portable-*.zip
-            build/Aegisub-*.dmg
-            build/meson-dist/*.tar.xz
+          files: build/release-assets/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
