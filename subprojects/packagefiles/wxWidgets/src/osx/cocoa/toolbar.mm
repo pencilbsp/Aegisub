@@ -615,10 +615,12 @@ void wxToolBarTool::UpdateImages()
 
     if ( CanBeToggled() )
     {
-        // TODO CS this should use the best current representation, or optionally iterate through all
-        wxSize sz = m_bmpNormal.GetDefaultSize();
+        wxWindow* const tbar = (wxWindow*)GetToolBar();
+        wxBitmap normalBitmap = tbar ? m_bmpNormal.GetBitmapFor(tbar)
+                                     : m_bmpNormal.GetBitmap(m_bmpNormal.GetDefaultSize());
+        wxSize sz = normalBitmap.GetLogicalSize();
         m_alternateBitmap = wxBitmap();
-        m_alternateBitmap.Create(sz.x, sz.y, -1); // TODO CS m_alternateBitmap.CreateWithDIPSize(sz, m_bmpNormal.GetScaleFactor());
+        m_alternateBitmap.CreateWithDIPSize(sz, normalBitmap.GetScaleFactor(), -1);
         m_alternateBitmap.UseAlpha();
         wxMemoryDC dc;
 
@@ -631,7 +633,7 @@ void wxToolBarTool::UpdateImages()
         dc.SetPen(grey);
         dc.SetBrush(grey);
         dc.DrawRoundedRectangle( 0, 0, sz.x, sz.y, 3 );
-        dc.DrawBitmap( m_bmpNormal.GetBitmap(sz), 0, 0, true );
+        dc.DrawBitmap( normalBitmap, 0, 0, true );
         dc.SelectObject( wxNullBitmap );
 
         [(NSButton*) m_controlHandle setAlternateImage:m_alternateBitmap.GetNSImage()];
