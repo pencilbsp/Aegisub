@@ -42,6 +42,7 @@
 #include "utils.h"
 
 #include <cmath>
+#include <wx/cursor.h>
 #include <wx/panel.h>
 #include <wx/slider.h>
 #include <wx/scrolbar.h>
@@ -69,10 +70,22 @@ AudioBox::AudioBox(wxWindow *parent, agi::Context *context)
 {
 	SetSashVisible(wxSASH_BOTTOM, true);
 	Bind(wxEVT_SASH_DRAGGED, &AudioBox::OnSashDrag, this);
+	Bind(wxEVT_LEFT_DOWN, &AudioBox::OnResizeMouseDown, this);
+	Bind(wxEVT_MOTION, &AudioBox::OnResizeMouseMove, this);
+	Bind(wxEVT_LEFT_UP, &AudioBox::OnResizeMouseUp, this);
+	panel->Bind(wxEVT_LEFT_DOWN, &AudioBox::OnResizeMouseDown, this);
+	panel->Bind(wxEVT_MOTION, &AudioBox::OnResizeMouseMove, this);
+	panel->Bind(wxEVT_LEFT_UP, &AudioBox::OnResizeMouseUp, this);
 
 	HorizontalZoom->SetToolTip(_("Horizontal zoom"));
 	VerticalZoom->SetToolTip(_("Vertical zoom"));
 	VolumeBar->SetToolTip(_("Audio Volume"));
+
+	int waveform_min_height = FromDIP(36);
+	audioDisplay->SetMinSize(wxSize(-1, waveform_min_height));
+	HorizontalZoom->SetMinSize(wxSize(-1, waveform_min_height));
+	VerticalZoom->SetMinSize(wxSize(-1, waveform_min_height));
+	VolumeBar->SetMinSize(wxSize(-1, waveform_min_height));
 
 	bool link = OPT_GET("Audio/Link")->GetBool();
 	if (link) {
@@ -111,8 +124,11 @@ AudioBox::AudioBox(wxWindow *parent, agi::Context *context)
 	wxSizer *audioSashSizer = new wxBoxSizer(wxHORIZONTAL);
 	audioSashSizer->Add(panel, 1, wxEXPAND);
 	SetSizerAndFit(audioSashSizer);
-	SetMinSize(wxSize(-1, OPT_GET("Audio/Display Height")->GetInt()));
-	SetMinimumSizeY(panel->GetSize().GetHeight());
+	int minimum_height = panel->GetBestSize().GetHeight();
+	int display_height = static_cast<int>(OPT_GET("Audio/Display Height")->GetInt());
+	int default_height = 190;
+	SetMinimumSizeY(minimum_height);
+	SetMinSize(wxSize(-1, std::max({minimum_height, display_height, default_height})));
 
 	audioDisplay->EnableTouchEvents(wxTOUCH_ZOOM_GESTURE);
 	audioDisplay->Bind(wxEVT_MOUSEWHEEL, &AudioBox::OnMouseWheel, this);
@@ -169,12 +185,8 @@ void AudioBox::OnGestureZoom(wxZoomGestureEvent &event) {
 	SetHorizontalZoomAt(GetClosestZoomLevel(target_zoom_factor), zoom_gesture_anchor_x, zoom_gesture_anchor_time);
 }
 
-void AudioBox::OnSashDrag(wxSashEvent &event) {
-	if (event.GetDragStatus() == wxSASH_STATUS_OUT_OF_RANGE)
-		return;
-
-	int new_height = std::min(event.GetDragRect().GetHeight(), GetParent()->GetSize().GetHeight() - 1);
-
+void AudioBox::ApplyAudioHeight(int new_height) {
+	new_height = mid(GetMinimumSizeY(), new_height, GetMaximumAudioHeight());
 	SetMinSize(wxSize(-1, new_height));
 	GetParent()->Layout();
 
@@ -184,6 +196,79 @@ void AudioBox::OnSashDrag(wxSashEvent &event) {
 		new_height -= context->karaoke->GetSize().GetHeight() + 6;
 
 	OPT_SET("Audio/Display Height")->SetInt(new_height);
+}
+
+int AudioBox::GetMaximumAudioHeight() const {
+	int parent_height = GetParent()->GetClientSize().GetHeight();
+	if (parent_height <= 0)
+		parent_height = GetParent()->GetSize().GetHeight();
+	if (parent_height <= GetMinimumSizeY())
+		return std::max(FromDIP(420), GetMinimumSizeY());
+
+	int max_height = std::min(parent_height * 45 / 100, FromDIP(420));
+	return std::max(max_height, GetMinimumSizeY());
+}
+
+bool AudioBox::IsOnResizeEdge(wxMouseEvent &event) const {
+	auto source = dynamic_cast<wxWindow *>(event.GetEventObject());
+	if (!source)
+		return false;
+
+	int y = source->ClientToScreen(event.GetPosition()).y;
+	wxRect rect = GetScreenRect();
+	return y >= rect.GetBottom() - FromDIP(8) && y <= rect.GetBottom() + FromDIP(2);
+}
+
+void AudioBox::OnResizeMouseDown(wxMouseEvent &event) {
+	if (!IsOnResizeEdge(event)) {
+		event.Skip();
+		return;
+	}
+
+	auto source = static_cast<wxWindow *>(event.GetEventObject());
+	resize_drag_active = true;
+	resize_drag_window = source;
+	resize_drag_start_y = source->ClientToScreen(event.GetPosition()).y;
+	resize_drag_start_height = GetSize().GetHeight();
+	source->CaptureMouse();
+}
+
+void AudioBox::OnResizeMouseMove(wxMouseEvent &event) {
+	if (!resize_drag_active) {
+		if (IsOnResizeEdge(event))
+			static_cast<wxWindow *>(event.GetEventObject())->SetCursor(wxCursor(wxCURSOR_SIZENS));
+		else
+			event.Skip();
+		return;
+	}
+
+	if (!event.LeftIsDown()) {
+		OnResizeMouseUp(event);
+		return;
+	}
+
+	auto source = static_cast<wxWindow *>(event.GetEventObject());
+	int current_y = source->ClientToScreen(event.GetPosition()).y;
+	ApplyAudioHeight(resize_drag_start_height + current_y - resize_drag_start_y);
+}
+
+void AudioBox::OnResizeMouseUp(wxMouseEvent &event) {
+	if (!resize_drag_active) {
+		event.Skip();
+		return;
+	}
+
+	resize_drag_active = false;
+	if (resize_drag_window && resize_drag_window->HasCapture())
+		resize_drag_window->ReleaseMouse();
+	resize_drag_window = nullptr;
+}
+
+void AudioBox::OnSashDrag(wxSashEvent &event) {
+	if (event.GetDragStatus() == wxSASH_STATUS_OUT_OF_RANGE)
+		return;
+
+	ApplyAudioHeight(event.GetDragRect().GetHeight());
 }
 
 void AudioBox::OnHorizontalZoom(wxScrollEvent &event) {

@@ -42,10 +42,12 @@ class AudioDisplay;
 class wxBitmapToggleButton;
 class wxButton;
 class wxCommandEvent;
+class wxMouseEvent;
 class wxPanel;
 class wxScrollEvent;
 class wxSizer;
 class wxSlider;
+class wxWindow;
 class wxZoomGestureEvent;
 
 /// @class AudioBox
@@ -73,11 +75,19 @@ class AudioBox final : public wxSashWindow, private agi::signal::ConnectionScope
 	// Mouse wheel zoom accumulator
 	int mouse_zoom_accum = 0;
 
+	bool resize_drag_active = false;
+	wxWindow *resize_drag_window = nullptr;
+	int resize_drag_start_y = 0;
+	int resize_drag_start_height = 0;
+
 	bool zoom_gesture_active = false;
 	int zoom_gesture_start_level = 0;
 	int zoom_gesture_anchor_x = 0;
 	int zoom_gesture_anchor_time = 0;
 
+	void ApplyAudioHeight(int new_height);
+	int GetMaximumAudioHeight() const;
+	bool IsOnResizeEdge(wxMouseEvent &event) const;
 	void SetHorizontalZoom(int new_zoom);
 	void SetHorizontalZoomAt(int new_zoom, int anchor_x, int anchor_time);
 	int GetClosestZoomLevel(double zoom_factor) const;
@@ -85,6 +95,9 @@ class AudioBox final : public wxSashWindow, private agi::signal::ConnectionScope
 	void OnGestureZoom(wxZoomGestureEvent &event);
 	void OnHorizontalZoom(wxScrollEvent &event);
 	void OnMouseWheel(wxMouseEvent &evt);
+	void OnResizeMouseDown(wxMouseEvent &event);
+	void OnResizeMouseMove(wxMouseEvent &event);
+	void OnResizeMouseUp(wxMouseEvent &event);
 	void OnSashDrag(wxSashEvent &event);
 	void OnVerticalLink(agi::OptionValue const& opt);
 	void OnVerticalZoom(wxScrollEvent &event);

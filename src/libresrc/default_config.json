@@ -36,7 +36,7 @@
 			{ "string" : "Green" },
 			{ "string" : "Icy Blue" }
 		],
-		"Display Height" : 200,
+		"Display Height" : 190,
 		"Display" : {
 			"Draw" : {
 				"Cursor Time" : true,
