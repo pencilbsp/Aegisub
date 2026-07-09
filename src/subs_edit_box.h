@@ -80,6 +80,12 @@ class SubsEditBox final : public wxPanel {
 
 	/// Are the buttons currently split into two lines?
 	bool button_bar_split = true;
+	/// Guards against re-entrant original-box height updates (Layout can fire
+	/// a size event that would otherwise recompute the height again).
+	bool updating_original_height = false;
+	/// Last width the original box was laid out for; used to skip redundant
+	/// re-wraps on size events that didn't change the width.
+	int last_original_width = -1;
 	/// Are the controls currently enabled?
 	bool controls_enabled = true;
 
@@ -142,6 +148,8 @@ class SubsEditBox final : public wxPanel {
 	wxComboBox *MakeComboBox(wxString const& initial_text, int style, void (SubsEditBox::*handler)(wxCommandEvent&), wxString const& tooltip);
 	wxRadioButton *MakeRadio(wxString const& text, bool start, wxString const& tooltip);
 	void SetSecondaryEditorFont();
+	/// Resize the read-only original-text box to exactly fit its content.
+	void UpdateSecondaryEditorHeight();
 
 	void OnChange(wxStyledTextEvent &event);
 	void OnKeyDown(wxKeyEvent &event);

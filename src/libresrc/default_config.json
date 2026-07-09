@@ -383,7 +383,11 @@
 		"Edit Box" : {
 			"Soft Line Break": false,
 			"Font Face" : "",
-			"Font Size" : 10
+			"Font Size" : 10,
+			"Original" : {
+				"Font Face" : "",
+				"Font Size" : 10
+			}
 		},
 		"Grid" : {
 			"Column" : [

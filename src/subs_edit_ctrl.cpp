@@ -142,6 +142,10 @@ SubsTextEditCtrl::SubsTextEditCtrl(wxWindow* parent, wxSize wsize, long style, a
 	SetWrapMode(wxSTC_WRAP_WORD);
 	SetMarginWidth(1,0);
 	UsePopUp(wxSTC_POPUP_NEVER);
+	// Don't allow scrolling past the last line, so a large font in a short box
+	// can't be scrolled up into empty space (and won't oscillate while doing
+	// so as the caret is kept visible).
+	SetEndAtLastLine(true);
 	SetStyles();
 
 	// Set hotkeys

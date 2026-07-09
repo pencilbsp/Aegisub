@@ -83,4 +83,25 @@ bool activate_top_window_other_than(wxFrame *wx) {
 void bring_to_front() {
 	[NSApp arrangeInFront:nil];
 }
+
+void set_vertical_scrollbar(wxWindow *win, bool visible) {
+	if (!win)
+		return;
+
+	NSView *view = (NSView *)win->GetHandle();
+	NSScrollView *scroll = nil;
+	if ([view isKindOfClass:[NSScrollView class]])
+		scroll = (NSScrollView *)view;
+	else
+		scroll = [view enclosingScrollView];
+
+	if (!scroll)
+		return;
+
+	[scroll setHasVerticalScroller:visible];
+	// Keep the "always show scroll bars" system setting from re-showing it and
+	// stop elastic overscroll from revealing empty space when it's hidden.
+	[scroll setScrollerStyle:NSScrollerStyleOverlay];
+	[scroll setVerticalScrollElasticity:visible ? NSScrollElasticityAutomatic : NSScrollElasticityNone];
+}
 }

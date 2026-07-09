@@ -222,6 +222,9 @@ void Interface(wxTreebook *book, Preferences *parent) {
 	p->OptionBrowse(edit_box, _("Dictionaries path"), "Path/Dictionary");
 	p->OptionFont(edit_box, "Subtitle/Edit Box/");
 
+	auto original_box = p->PageSizer(_("Original Text Box"));
+	p->OptionFont(original_box, "Subtitle/Edit Box/Original/");
+
 	auto character_count = p->PageSizer(_("Character Counter"));
 	p->OptionAdd(character_count, _("Maximum characters per line"), "Subtitle/Character Limit", 0, 1000);
 	p->OptionAdd(character_count, _("Characters Per Second Warning Threshold"), "Subtitle/Character Counter/CPS Warning Threshold", 0, 1000);

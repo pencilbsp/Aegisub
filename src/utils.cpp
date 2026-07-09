@@ -223,7 +223,9 @@ void SetFloatOnParent(wxWindow *) { }
 #endif
 
 #ifndef __WXOSX_COCOA__
-namespace osx { namespace ime {
+namespace osx {
+	void set_vertical_scrollbar(wxWindow *, bool) { }
+namespace ime {
 	void inject(wxStyledTextCtrl *) { }
 	void invalidate(wxStyledTextCtrl *) { }
 	bool process_key_event(wxStyledTextCtrl *, wxKeyEvent&) { return false; }
