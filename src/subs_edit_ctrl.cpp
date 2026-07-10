@@ -32,7 +32,10 @@
 #include "ass_dialogue.h"
 #include "command/command.h"
 #include "compat.h"
+#include "dialogs.h"
 #include "format.h"
+#include "glossary.h"
+#include "glossary_popup.h"
 #include "options.h"
 #include "include/aegisub/context.h"
 #include "include/aegisub/spellchecker.h"
@@ -44,6 +47,7 @@
 #include <libaegisub/ass/dialogue_parser.h>
 #include <libaegisub/calltip_provider.h>
 #include <libaegisub/character_count.h>
+#include <libaegisub/glossary.h>
 #include <libaegisub/spellchecker.h>
 
 #include <boost/algorithm/string/predicate.hpp>
@@ -56,6 +60,7 @@
 #include <wx/intl.h>
 #include <wx/menu.h>
 #include <wx/settings.h>
+#include <wx/utils.h>
 
 // Maximum number of languages (locales)
 // It should be above 100 (at least 242) and probably not more than 1000
@@ -71,6 +76,9 @@ enum {
 	EDIT_MENU_COPY,
 	EDIT_MENU_PASTE,
 	EDIT_MENU_SELECT_ALL,
+	EDIT_MENU_FIND_SELECTION,
+	EDIT_MENU_REPLACE_SELECTION,
+	EDIT_MENU_ADD_SELECTION_TO_GLOSSARY,
 	EDIT_MENU_ADD_TO_DICT,
 	EDIT_MENU_REMOVE_FROM_DICT,
 	EDIT_MENU_SUGGESTION,
@@ -84,6 +92,7 @@ enum {
 };
 
 namespace {
+
 bool SupportsSystemAppearanceTheming() {
 #ifdef __WXMAC__
 	return true;
@@ -112,6 +121,8 @@ wxColour DefaultDarkSubtitleEditColor(std::string_view option_name, wxColour col
 		return window;
 	if (option_name == "Colour/Subtitle/Syntax/Normal")
 		return window_text;
+	if (option_name == "Colour/Subtitle/Syntax/Line Break")
+		return Blend(color, window, 0.70);
 	if (option_name.starts_with("Colour/Subtitle/Syntax/Background/"))
 		return Blend(color, window, 0.30);
 	if (option_name.starts_with("Colour/Subtitle/Syntax/"))
@@ -128,6 +139,7 @@ wxColour ThemedSubtitleEditColor(std::string const& option_name) {
 
 	return DefaultDarkSubtitleEditColor(option_name, color);
 }
+
 }
 
 SubsTextEditCtrl::SubsTextEditCtrl(wxWindow* parent, wxSize wsize, long style, agi::Context *context,
@@ -135,6 +147,7 @@ SubsTextEditCtrl::SubsTextEditCtrl(wxWindow* parent, wxSize wsize, long style, a
 : wxStyledTextCtrl(parent, -1, wxDefaultPosition, wsize, style)
 , spellchecker(SpellCheckerFactory::GetSpellChecker())
 , thesaurus(std::make_unique<Thesaurus>())
+, glossary(std::make_unique<Glossary>())
 , context(context)
 , use_context_selection(use_context_selection)
 , show_split_menu(show_split_menu)
@@ -173,6 +186,9 @@ SubsTextEditCtrl::SubsTextEditCtrl(wxWindow* parent, wxSize wsize, long style, a
 	Bind(wxEVT_MENU, bind(&SubsTextEditCtrl::Copy, this), EDIT_MENU_COPY);
 	Bind(wxEVT_MENU, bind(&SubsTextEditCtrl::Paste, this), EDIT_MENU_PASTE);
 	Bind(wxEVT_MENU, bind(&SubsTextEditCtrl::SelectAll, this), EDIT_MENU_SELECT_ALL);
+	Bind(wxEVT_MENU, &SubsTextEditCtrl::OnFindSelection, this, EDIT_MENU_FIND_SELECTION);
+	Bind(wxEVT_MENU, &SubsTextEditCtrl::OnReplaceSelection, this, EDIT_MENU_REPLACE_SELECTION);
+	Bind(wxEVT_MENU, &SubsTextEditCtrl::OnAddSelectionToGlossary, this, EDIT_MENU_ADD_SELECTION_TO_GLOSSARY);
 
 	if (context && show_split_menu) {
 		Bind(wxEVT_MENU, bind(&cmd::call, "edit/line/split/preserve", context), EDIT_MENU_SPLIT_PRESERVE);
@@ -191,6 +207,14 @@ SubsTextEditCtrl::SubsTextEditCtrl(wxWindow* parent, wxSize wsize, long style, a
 		}
 
 		UpdateStyle();
+		UpdateGlossary();
+	});
+
+	// Glossary: underline known terms and show their notes immediately on hover.
+	Bind(wxEVT_MOTION, &SubsTextEditCtrl::OnGlossaryMouseMove, this);
+	Bind(wxEVT_LEAVE_WINDOW, [this](wxMouseEvent& event) {
+		MaybeDismissGlossaryPopup();
+		event.Skip();
 	});
 
 	BindConnection(OPT_SUB(this->font_opt_prefix + "/Font Face", &SubsTextEditCtrl::SetStyles, this));
@@ -213,6 +237,8 @@ SubsTextEditCtrl::SubsTextEditCtrl(wxWindow* parent, wxSize wsize, long style, a
 	BindConnection(OPT_SUB("Colour/Subtitle/Background", &SubsTextEditCtrl::SetStyles, this));
 	BindConnection(OPT_SUB("Subtitle/Highlight/Syntax", &SubsTextEditCtrl::UpdateStyle, this));
 	BindConnection(OPT_SUB("App/Call Tips", &SubsTextEditCtrl::UpdateCallTip, this));
+	BindConnection(OPT_SUB("Tool/Glossary/Enabled", &SubsTextEditCtrl::OnGlossaryOptionChanged, this));
+	BindConnection(OPT_SUB("Tool/Glossary/Active Dictionary", &SubsTextEditCtrl::OnGlossaryOptionChanged, this));
 	if (SupportsSystemAppearanceTheming()) {
 		Bind(wxEVT_SYS_COLOUR_CHANGED, [this](wxSysColourChangedEvent &event) {
 			SetStyles();
@@ -235,6 +261,7 @@ SubsTextEditCtrl::SubsTextEditCtrl(wxWindow* parent, wxSize wsize, long style, a
 }
 
 SubsTextEditCtrl::~SubsTextEditCtrl() {
+	HideGlossaryPopup(false);
 }
 
 void SubsTextEditCtrl::Subscribe(std::string const& name) {
@@ -254,10 +281,16 @@ END_EVENT_TABLE()
 
 void SubsTextEditCtrl::OnLoseFocus(wxFocusEvent &event) {
 	CallTipCancel();
+	if (glossary_popup && glossary_popup->ContainsWindow(event.GetWindow())) {
+		event.Skip();
+		return;
+	}
+	HideGlossaryPopup(false);
 	event.Skip();
 }
 
 void SubsTextEditCtrl::OnKeyDown(wxKeyEvent &event) {
+	HideGlossaryPopup(false);
 	if (osx::ime::process_key_event(this, event)) return;
 	event.Skip();
 
@@ -345,6 +378,11 @@ void SubsTextEditCtrl::SetStyles() {
 	// IME pending text indicator
 	IndicatorSetStyle(1, wxSTC_INDIC_PLAIN);
 	IndicatorSetUnder(1, true);
+
+	// Glossary term indicator
+	IndicatorSetStyle(2, wxSTC_INDIC_DOTS);
+	IndicatorSetForeground(2, wxColour(64, 128, 255));
+	IndicatorSetUnder(2, true);
 }
 
 void SubsTextEditCtrl::UpdateStyle() {
@@ -379,6 +417,165 @@ void SubsTextEditCtrl::UpdateStyle() {
 		}
 		pos += style_range.length;
 	}
+}
+
+void SubsTextEditCtrl::UpdateGlossary() {
+	HideGlossaryPopup(false);
+
+	SetIndicatorCurrent(2);
+	IndicatorClearRange(0, GetTextLength());
+
+	glossary_matches = glossary->Match(line_text);
+	for (auto const& m : glossary_matches)
+		IndicatorFillRange(m.offset, m.length);
+}
+
+void SubsTextEditCtrl::OnGlossaryOptionChanged() {
+	glossary->Refresh();
+	UpdateGlossary();
+}
+
+const agi::GlossaryMatch *SubsTextEditCtrl::GlossaryMatchAt(wxPoint const& pt) {
+	// Hit-test the actual glyph rectangles rather than snapping the point to
+	// the nearest character boundary (PositionFromPointClose). Boundary
+	// snapping shrinks the effective hover region by half a glyph, which is a
+	// visible offset for wide CJK characters.
+	for (auto const& m : glossary_matches) {
+		wxRect hit_rect = GlossaryMatchRect(m);
+		hit_rect.Inflate(1, 2);
+		if (hit_rect.Contains(pt))
+			return &m;
+	}
+	return nullptr;
+}
+
+wxRect SubsTextEditCtrl::GlossaryMatchRect(agi::GlossaryMatch const& match) {
+	int start_pos = static_cast<int>(match.offset);
+	int end_pos = static_cast<int>(match.offset + match.length);
+	wxPoint start = PointFromPosition(start_pos);
+	wxPoint end = PointFromPosition(end_pos);
+	int height = TextHeight(LineFromPosition(start_pos));
+
+	if (start.y == end.y) {
+		int left = std::min(start.x, end.x);
+		int right = std::max(start.x, end.x);
+		return wxRect(left, start.y, std::max(1, right - left), height);
+	}
+
+	int top = std::min(start.y, end.y);
+	int bottom = std::max(start.y, end.y) + height;
+	return wxRect(0, top, GetClientSize().x, bottom - top);
+}
+
+void SubsTextEditCtrl::OnGlossaryMouseMove(wxMouseEvent &event) {
+	event.Skip();
+
+	wxPoint mouse_pos = event.GetPosition();
+	const agi::GlossaryMatch *match = GlossaryMatchAt(mouse_pos);
+	if (!match) {
+		MaybeDismissGlossaryPopup();
+		return;
+	}
+
+	wxRect match_rect = GlossaryMatchRect(*match);
+
+	CancelGlossaryPopupDismiss();
+
+	if (glossary_popup &&
+			glossary_popup_entry_id == match->entry_id &&
+			glossary_popup_offset == match->offset &&
+			glossary_popup_length == match->length) {
+		glossary_popup->CancelDismiss();
+		return;
+	}
+
+	HideGlossaryPopup(false);
+
+	agi::GlossaryEntry entry = glossary->GetEntry(match->entry_id);
+	if (entry.id == 0) return;
+
+	wxRect anchor_rect(ClientToScreen(match_rect.GetPosition()), match_rect.GetSize());
+
+	int64_t entry_id = match->entry_id;
+	glossary_popup = new GlossaryPopup(this, entry,
+		[this] { CancelGlossaryPopupDismiss(); },
+		[this] { MaybeDismissGlossaryPopup(); },
+		[this] { HideGlossaryPopup(false); },
+		[this, entry_id] { OpenGlossaryEntryEditor(entry_id); });
+	glossary_popup->PopupAt(anchor_rect);
+	glossary_popup_entry_id = match->entry_id;
+	glossary_popup_offset = match->offset;
+	glossary_popup_length = match->length;
+}
+
+void SubsTextEditCtrl::OpenGlossaryEntryEditor(int64_t entry_id) {
+	// Runs from the popup's double-click handler: defer so that handler unwinds
+	// before we dismiss the popup and enter a modal dialog.
+	CallAfter([this, entry_id] {
+		HideGlossaryPopup(false);
+		if (glossary->EditEntry(this, entry_id))
+			UpdateGlossary();
+	});
+}
+
+void SubsTextEditCtrl::HideGlossaryPopup(bool fade) {
+	if (glossary_popup)
+		glossary_popup->Dismiss(fade);
+	glossary_popup = nullptr;
+	glossary_popup_entry_id = -1;
+	glossary_popup_offset = 0;
+	glossary_popup_length = 0;
+}
+
+bool SubsTextEditCtrl::GlossaryHoverActive() {
+	if (!glossary_popup)
+		return false;
+
+	wxPoint const pointer = wxGetMousePosition();
+
+	// Over the popup itself (arrow area included).
+	if (glossary_popup->ContainsScreenPoint(pointer))
+		return true;
+
+	// Over the term that spawned the popup.
+	agi::GlossaryMatch match{glossary_popup_offset, glossary_popup_length, glossary_popup_entry_id};
+	wxRect term = GlossaryMatchRect(match);
+	wxRect term_screen(ClientToScreen(term.GetPosition()), term.GetSize());
+	if (term_screen.Contains(pointer))
+		return true;
+
+	// The popup sits a hair above or below the term with a tiny gap. Bridge
+	// that gap with a thin corridor spanning both rects so a straight move
+	// between them isn't read as leaving; anything outside dismisses at once.
+	wxRect popup = glossary_popup->GetScreenRect();
+	int left = std::min(term_screen.GetLeft(), popup.GetLeft());
+	int right = std::max(term_screen.GetRight(), popup.GetRight());
+	int gap_top, gap_bottom;
+	if (popup.GetTop() >= term_screen.GetTop()) { // popup below the term
+		gap_top = term_screen.GetBottom();
+		gap_bottom = popup.GetTop();
+	}
+	else { // popup above the term
+		gap_top = popup.GetBottom();
+		gap_bottom = term_screen.GetTop();
+	}
+	wxRect bridge(left, gap_top - 2, right - left + 1, (gap_bottom - gap_top) + 4);
+	return bridge.Contains(pointer);
+}
+
+void SubsTextEditCtrl::MaybeDismissGlossaryPopup() {
+	if (!glossary_popup)
+		return;
+
+	if (GlossaryHoverActive())
+		glossary_popup->CancelDismiss();
+	else
+		HideGlossaryPopup(false);
+}
+
+void SubsTextEditCtrl::CancelGlossaryPopupDismiss() {
+	if (glossary_popup)
+		glossary_popup->CancelDismiss();
 }
 
 void SubsTextEditCtrl::UpdateCallTip() {
@@ -477,6 +674,21 @@ void SubsTextEditCtrl::OnContextMenu(wxContextMenuEvent &event) {
 	}
 
 	AddThesaurusEntries(menu);
+
+	std::string selected_text;
+	int sel_start = std::min(GetSelectionStart(), GetSelectionEnd());
+	int sel_end = std::max(GetSelectionStart(), GetSelectionEnd());
+	if (sel_start != sel_end && sel_start >= 0 && sel_end <= static_cast<int>(line_text.size()))
+		selected_text = line_text.substr(sel_start, sel_end - sel_start);
+
+	if (!selected_text.empty() && context) {
+		menu.Append(EDIT_MENU_REPLACE_SELECTION, _("Replace with..."));
+		menu.Append(EDIT_MENU_FIND_SELECTION, _("Find..."));
+		auto active_dictionary = ActiveGlossaryDictionary();
+		menu.Append(EDIT_MENU_ADD_SELECTION_TO_GLOSSARY,
+			active_dictionary.empty() ? _("Add to dictionary...") : fmt_tl("Add to dictionary \"%s\"...", active_dictionary))->Enable(!active_dictionary.empty());
+		menu.AppendSeparator();
+	}
 
 	// Standard actions
 	menu.Append(EDIT_MENU_CUT,_("Cu&t"))->Enable(GetSelectionStart()-GetSelectionEnd() != 0);
@@ -628,6 +840,38 @@ void SubsTextEditCtrl::OnUseSuggestion(wxCommandEvent &event) {
 	SetTextRaw(new_text.replace(currentWordPos.first, currentWordPos.second, suggestion).c_str());
 
 	SetSelection(currentWordPos.first, currentWordPos.first + suggestion.size());
+	SetFocus();
+}
+
+void SubsTextEditCtrl::OnFindSelection(wxCommandEvent &) {
+	int sel_start = std::min(GetSelectionStart(), GetSelectionEnd());
+	int sel_end = std::max(GetSelectionStart(), GetSelectionEnd());
+	if (!context || sel_start == sel_end || sel_start < 0 || sel_end > static_cast<int>(line_text.size()))
+		return;
+
+	ShowSearchReplaceDialog(context, false, line_text.substr(sel_start, sel_end - sel_start));
+}
+
+void SubsTextEditCtrl::OnReplaceSelection(wxCommandEvent &) {
+	int sel_start = std::min(GetSelectionStart(), GetSelectionEnd());
+	int sel_end = std::max(GetSelectionStart(), GetSelectionEnd());
+	if (!context || sel_start == sel_end || sel_start < 0 || sel_end > static_cast<int>(line_text.size()))
+		return;
+
+	ShowSearchReplaceDialog(context, true, line_text.substr(sel_start, sel_end - sel_start));
+}
+
+void SubsTextEditCtrl::OnAddSelectionToGlossary(wxCommandEvent &) {
+	int sel_start = std::min(GetSelectionStart(), GetSelectionEnd());
+	int sel_end = std::max(GetSelectionStart(), GetSelectionEnd());
+	if (sel_start == sel_end || sel_start < 0 || sel_end > static_cast<int>(line_text.size()))
+		return;
+
+	std::string selected_text = line_text.substr(sel_start, sel_end - sel_start);
+	if (glossary->AddEntry(this, selected_text)) {
+		glossary->Refresh();
+		UpdateGlossary();
+	}
 	SetFocus();
 }
 

@@ -232,6 +232,7 @@ endif
 
 deps += dependency('icu-uc', version: '>=4.8.1.1')
 deps += dependency('icu-i18n', version: '>=4.8.1.1')
+deps += dependency('sqlite3', fallback: ['sqlite3', 'sqlite3_dep'])
 
 check_deps = [
     # audio, in order of precedence

@@ -1,0 +1,10 @@
+UTF-8
+7
+Word 1|6
+Word 2|53
+Word 3|163
+Too few fields
+Too many fields|100|100
+Not a number|foo
+Out of range|195
+Further out of range|196

@@ -1,0 +1,23 @@
+{
+	"Always" : {
+		"cmd1" : [
+			"Ctrl-C"
+		]
+	},
+	"Default" : {
+		"cmd1" : [
+			"Alt-C"
+		],
+		"cmd2" : [
+			"Ctrl-C"
+		]
+	},
+	"Other" : {
+		"cmd1" : [
+			"Shift-C"
+		],
+		"cmd3" : [
+			"Q"
+		]
+	}
+}

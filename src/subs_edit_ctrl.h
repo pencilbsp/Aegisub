@@ -29,15 +29,22 @@
 
 #include <libaegisub/signal.h>
 
+#include <cstdint>
+#include <cstddef>
 #include <memory>
 #include <string>
 #include <vector>
 #include <wx/stc/stc.h>
+#include <wx/timer.h>
 
 class Thesaurus;
+class Glossary;
+class GlossaryPopup;
+class wxMouseEvent;
 namespace agi {
 	class SpellChecker;
 	struct Context;
+	struct GlossaryMatch;
 	namespace ass { struct DialogueToken; }
 }
 
@@ -49,6 +56,18 @@ class SubsTextEditCtrl final : public wxStyledTextCtrl, private agi::signal::Con
 
 	/// Backend thesaurus to use
 	std::unique_ptr<Thesaurus> thesaurus;
+
+	/// User glossary, for underlining known terms and showing their notes
+	std::unique_ptr<Glossary> glossary;
+
+	/// Glossary term matches for the current line, cached for hover lookup
+	std::vector<agi::GlossaryMatch> glossary_matches;
+
+	/// Currently shown glossary note tooltip, if any
+	GlossaryPopup *glossary_popup = nullptr;
+	int64_t glossary_popup_entry_id = -1;
+	size_t glossary_popup_offset = 0;
+	size_t glossary_popup_length = 0;
 
 	/// Project context, for splitting lines
 	agi::Context *context;
@@ -96,6 +115,9 @@ class SubsTextEditCtrl final : public wxStyledTextCtrl, private agi::signal::Con
 	void OnContextMenu(wxContextMenuEvent &);
 	void OnDoubleClick(wxStyledTextEvent&);
 	void OnUseSuggestion(wxCommandEvent &event);
+	void OnFindSelection(wxCommandEvent &event);
+	void OnReplaceSelection(wxCommandEvent &event);
+	void OnAddSelectionToGlossary(wxCommandEvent &event);
 	void OnSetDicLanguage(wxCommandEvent &event);
 	void OnSetThesLanguage(wxCommandEvent &event);
 	void OnLoseFocus(wxFocusEvent &event);
@@ -109,6 +131,30 @@ class SubsTextEditCtrl final : public wxStyledTextCtrl, private agi::signal::Con
 	void SetStyles();
 
 	void UpdateStyle();
+
+	/// Re-run glossary matching and apply the underline indicator
+	void UpdateGlossary();
+
+	/// Rebuild the active glossary and restyle when glossary options change
+	void OnGlossaryOptionChanged();
+
+	/// Mouse hover handler driving the glossary note tooltip
+	void OnGlossaryMouseMove(wxMouseEvent &event);
+	void HideGlossaryPopup(bool fade = true);
+	/// Open the Glossary Entry editor for an entry, then refresh the matches
+	void OpenGlossaryEntryEditor(int64_t entry_id);
+	/// Hide the popup at once unless the pointer is still over the term, the
+	/// popup, or the gap bridging them
+	void MaybeDismissGlossaryPopup();
+	void CancelGlossaryPopupDismiss();
+	/// Whether the pointer is currently within the term/popup/bridge safe zone
+	bool GlossaryHoverActive();
+
+	/// The glossary match whose rectangle contains a client point, or nullptr
+	const agi::GlossaryMatch *GlossaryMatchAt(wxPoint const& pt);
+
+	/// Client rectangle occupied by a glossary match
+	wxRect GlossaryMatchRect(agi::GlossaryMatch const& match);
 
 	/// Add the thesaurus suggestions to a menu
 	void AddThesaurusEntries(wxMenu &menu);

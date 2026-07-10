@@ -16,6 +16,7 @@
 
 #include <libaegisub/color.h>
 
+#include <cstdint>
 #include <functional>
 #include <string>
 #include <wx/string.h>
@@ -25,7 +26,7 @@ class AsyncVideoProvider;
 class wxArrayInt;
 class wxArrayString;
 class wxWindow;
-namespace agi { struct Context; }
+namespace agi { struct Context; class Glossary; }
 struct ResampleSettings;
 
 /// @brief Get a color from the user via a color picker dialog
@@ -64,12 +65,19 @@ void ShowAttachmentsDialog(wxWindow *parent, AssFile *file);
 void ShowAutomationDialog(agi::Context *c);
 void ShowExportDialog(agi::Context *c);
 void ShowFontsCollectorDialog(agi::Context *c);
+void ShowGlossaryDialog(agi::Context *c);
+/// Edit a single glossary entry in a modal dialog, saving it back to the active
+/// dictionary on OK. Returns whether the entry was changed.
+bool EditGlossaryEntry(wxWindow *parent, agi::Glossary &glossary, int64_t entry_id);
+/// Add a new glossary entry to the active dictionary, prefilled with `term`.
+bool AddGlossaryEntry(wxWindow *parent, agi::Glossary &glossary, std::string const& term);
 void ShowJumpToDialog(agi::Context *c);
 void ShowKanjiTimerDialog(agi::Context *c);
 void ShowLogWindow(agi::Context *c);
 void ShowPreferences(wxWindow *parent);
 void ShowPropertiesDialog(agi::Context *c);
 void ShowSearchReplaceDialog(agi::Context *c, bool replace);
+void ShowSearchReplaceDialog(agi::Context *c, bool replace, std::string const& initial_find);
 void ShowSelectLinesDialog(agi::Context *c);
 void ShowShiftTimesDialog(agi::Context *c);
 void ShowSpellcheckerDialog(agi::Context *c);

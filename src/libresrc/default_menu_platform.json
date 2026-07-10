@@ -46,6 +46,8 @@
         { "command" : "tool/style/assistant" },
         { "command" : "tool/translation_assistant" },
         { "command" : "tool/resampleres" },
+        { "command" : "tool/glossary" },
+        { "glossary" : "Glossary &Dictionary" },
         { "command" : "subtitle/spellcheck" },
         {},
         { "submenu" : "main/subtitle/insert lines", "text" : "&Insert Lines" },

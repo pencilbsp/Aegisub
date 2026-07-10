@@ -83,7 +83,7 @@ wxColour Blend(wxColour fg, wxColour bg, double alpha) {
 }
 
 wxColour DarkGridCanvas() {
-	return Blend(wxColour(104, 138, 194), wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW), 0.08);
+	return wxSystemSettings::GetColour(wxSYS_COLOUR_BTNFACE);
 }
 
 wxColour DefaultDarkGridColor(std::string_view option_name, wxColour color) {
@@ -103,7 +103,7 @@ wxColour DefaultDarkGridColor(std::string_view option_name, wxColour color) {
 	if (option_name == "Colour/Subtitle Grid/Left Column")
 		return Blend(wxColour(138, 170, 218), window, 0.28);
 	if (option_name == "Colour/Subtitle Grid/Lines")
-		return Blend(wxColour(128, 147, 176), window, 0.42);
+		return Blend(wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT), window, 0.22);
 	if (option_name == "Colour/Subtitle Grid/Background/Comment")
 		return Blend(wxColour(132, 164, 148), window, 0.28);
 	if (option_name == "Colour/Subtitle Grid/Background/Selected Comment")

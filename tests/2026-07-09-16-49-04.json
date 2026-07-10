@@ -1,0 +1,928 @@
+{
+	"file" : "../libaegisub/common/io.cpp",
+	"func" : "Save",
+	"line" : 43,
+	"message" : "\"/var/folders/_g/79t40ppn55s7fhlr7905jdzw0000gn/T/save_clip\"",
+	"sec" : 103451,
+	"section" : "agi/io/save/file",
+	"severity" : 4,
+	"usec" : 767353250
+}{
+	"file" : "../libaegisub/common/io.cpp",
+	"func" : "Save",
+	"line" : 43,
+	"message" : "\"/var/folders/_g/79t40ppn55s7fhlr7905jdzw0000gn/T/save_clip\"",
+	"sec" : 103451,
+	"section" : "agi/io/save/file",
+	"severity" : 4,
+	"usec" : 774807166
+}{
+	"file" : "../libaegisub/common/io.cpp",
+	"func" : "Save",
+	"line" : 43,
+	"message" : "\"/var/folders/_g/79t40ppn55s7fhlr7905jdzw0000gn/T/save_clip\"",
+	"sec" : 103451,
+	"section" : "agi/io/save/file",
+	"severity" : 4,
+	"usec" : 775029541
+}{
+	"file" : "../libaegisub/common/io.cpp",
+	"func" : "Save",
+	"line" : 43,
+	"message" : "\"/var/folders/_g/79t40ppn55s7fhlr7905jdzw0000gn/T/save_clip\"",
+	"sec" : 103451,
+	"section" : "agi/io/save/file",
+	"severity" : 4,
+	"usec" : 775208041
+}{
+	"file" : "../libaegisub/audio/provider_convert.cpp",
+	"func" : "CreateConvertAudioProvider",
+	"line" : 191,
+	"message" : "Converting 1 bytes per sample or wrong endian to S16",
+	"sec" : 103451,
+	"section" : "audio_provider",
+	"severity" : 4,
+	"usec" : 780379708
+}{
+	"file" : "../libaegisub/audio/provider_convert.cpp",
+	"func" : "CreateConvertAudioProvider",
+	"line" : 191,
+	"message" : "Converting 4 bytes per sample or wrong endian to S16",
+	"sec" : 103451,
+	"section" : "audio_provider",
+	"severity" : 4,
+	"usec" : 780395541
+}{
+	"file" : "../libaegisub/audio/provider_convert.cpp",
+	"func" : "CreateConvertAudioProvider",
+	"line" : 203,
+	"message" : "Doubling sample rate",
+	"sec" : 103451,
+	"section" : "audio_provider",
+	"severity" : 4,
+	"usec" : 780398708
+}{
+	"file" : "../libaegisub/audio/provider_convert.cpp",
+	"func" : "CreateConvertAudioProvider",
+	"line" : 197,
+	"message" : "Downmixing to mono from 2 channels",
+	"sec" : 103451,
+	"section" : "audio_provider",
+	"severity" : 4,
+	"usec" : 780410500
+}{
+	"file" : "../libaegisub/audio/provider_convert.cpp",
+	"func" : "CreateConvertAudioProvider",
+	"line" : 184,
+	"message" : "Converting float to S16",
+	"sec" : 103451,
+	"section" : "audio_provider",
+	"severity" : 4,
+	"usec" : 780416166
+}{
+	"file" : "../libaegisub/audio/provider_convert.cpp",
+	"func" : "CreateConvertAudioProvider",
+	"line" : 184,
+	"message" : "Converting float to S16",
+	"sec" : 103451,
+	"section" : "audio_provider",
+	"severity" : 4,
+	"usec" : 780556333
+}{
+	"file" : "../libaegisub/common/io.cpp",
+	"func" : "Save",
+	"line" : 43,
+	"message" : "\"/var/folders/_g/79t40ppn55s7fhlr7905jdzw0000gn/T/pcm_simple\"",
+	"sec" : 103451,
+	"section" : "agi/io/save/file",
+	"severity" : 4,
+	"usec" : 780744083
+}{
+	"file" : "../libaegisub/common/io.cpp",
+	"func" : "Save",
+	"line" : 43,
+	"message" : "\"/var/folders/_g/79t40ppn55s7fhlr7905jdzw0000gn/T/pcm_truncated\"",
+	"sec" : 103451,
+	"section" : "agi/io/save/file",
+	"severity" : 4,
+	"usec" : 781228750
+}{
+	"file" : "../libaegisub/common/io.cpp",
+	"func" : "Open",
+	"line" : 28,
+	"message" : "\"data/copy_in\"",
+	"sec" : 103451,
+	"section" : "agi/io/open/file",
+	"severity" : 4,
+	"usec" : 800643541
+}{
+	"file" : "../libaegisub/common/io.cpp",
+	"func" : "Save",
+	"line" : 43,
+	"message" : "\"data/copy_out\"",
+	"sec" : 103451,
+	"section" : "agi/io/save/file",
+	"severity" : 4,
+	"usec" : 800658583
+}{
+	"file" : "../libaegisub/common/io.cpp",
+	"func" : "Open",
+	"line" : 28,
+	"message" : "\"data/copy_in\"",
+	"sec" : 103451,
+	"section" : "agi/io/open/file",
+	"severity" : 4,
+	"usec" : 800912333
+}{
+	"file" : "../libaegisub/common/io.cpp",
+	"func" : "Save",
+	"line" : 43,
+	"message" : "\"data/copy_out\"",
+	"sec" : 103451,
+	"section" : "agi/io/save/file",
+	"severity" : 4,
+	"usec" : 800927125
+}{
+	"file" : "../libaegisub/common/hotkey.cpp",
+	"func" : "Hotkey",
+	"line" : 92,
+	"message" : "Generating hotkeys.",
+	"sec" : 103451,
+	"section" : "hotkey/init",
+	"severity" : 4,
+	"usec" : 814762500
+}{
+	"file" : "../libaegisub/common/hotkey.cpp",
+	"func" : "Hotkey",
+	"line" : 92,
+	"message" : "Generating hotkeys.",
+	"sec" : 103451,
+	"section" : "hotkey/init",
+	"severity" : 4,
+	"usec" : 814782708
+}{
+	"file" : "../libaegisub/common/hotkey.cpp",
+	"func" : "Hotkey",
+	"line" : 92,
+	"message" : "Generating hotkeys.",
+	"sec" : 103451,
+	"section" : "hotkey/init",
+	"severity" : 4,
+	"usec" : 814793958
+}{
+	"file" : "../libaegisub/common/json.cpp",
+	"func" : "parse",
+	"line" : 32,
+	"message" : "json::ParseException: Unexpected end of token stream, Line/offset: 1/1",
+	"sec" : 103451,
+	"section" : "json/parse",
+	"severity" : 0,
+	"usec" : 814813666
+}{
+	"file" : "../libaegisub/common/hotkey.cpp",
+	"func" : "Hotkey",
+	"line" : 92,
+	"message" : "Generating hotkeys.",
+	"sec" : 103451,
+	"section" : "hotkey/init",
+	"severity" : 4,
+	"usec" : 814843916
+}{
+	"file" : "../libaegisub/common/hotkey.cpp",
+	"func" : "Scan",
+	"line" : 128,
+	"message" : "Found: Ctrl-C  Context: Always  Command: cmd1",
+	"sec" : 103451,
+	"section" : "agi/hotkey/found",
+	"severity" : 4,
+	"usec" : 814856125
+}{
+	"file" : "../libaegisub/common/hotkey.cpp",
+	"func" : "Scan",
+	"line" : 132,
+	"message" : "Found: Ctrl-C  Context (req/found): Default/Default   Command: cmd2",
+	"sec" : 103451,
+	"section" : "agi/hotkey/found",
+	"severity" : 4,
+	"usec" : 814858500
+}{
+	"file" : "../libaegisub/common/hotkey.cpp",
+	"func" : "Scan",
+	"line" : 132,
+	"message" : "Found: Ctrl-C  Context (req/found): Other/Default   Command: cmd2",
+	"sec" : 103451,
+	"section" : "agi/hotkey/found",
+	"severity" : 4,
+	"usec" : 814859208
+}{
+	"file" : "../libaegisub/common/hotkey.cpp",
+	"func" : "Scan",
+	"line" : 132,
+	"message" : "Found: Ctrl-C  Context (req/found): Nonexistent/Default   Command: cmd2",
+	"sec" : 103451,
+	"section" : "agi/hotkey/found",
+	"severity" : 4,
+	"usec" : 814859750
+}{
+	"file" : "../libaegisub/common/hotkey.cpp",
+	"func" : "Scan",
+	"line" : 118,
+	"message" : "Found: Ctrl-C  Context (req/found): Always/Always   Command: cmd1",
+	"sec" : 103451,
+	"section" : "agi/hotkey/found",
+	"severity" : 4,
+	"usec" : 814860291
+}{
+	"file" : "../libaegisub/common/hotkey.cpp",
+	"func" : "Scan",
+	"line" : 118,
+	"message" : "Found: Ctrl-C  Context (req/found): Default/Always   Command: cmd1",
+	"sec" : 103451,
+	"section" : "agi/hotkey/found",
+	"severity" : 4,
+	"usec" : 814860916
+}{
+	"file" : "../libaegisub/common/hotkey.cpp",
+	"func" : "Scan",
+	"line" : 118,
+	"message" : "Found: Ctrl-C  Context (req/found): Other/Always   Command: cmd1",
+	"sec" : 103451,
+	"section" : "agi/hotkey/found",
+	"severity" : 4,
+	"usec" : 814861375
+}{
+	"file" : "../libaegisub/common/hotkey.cpp",
+	"func" : "Scan",
+	"line" : 118,
+	"message" : "Found: Ctrl-C  Context (req/found): Nonexistent/Always   Command: cmd1",
+	"sec" : 103451,
+	"section" : "agi/hotkey/found",
+	"severity" : 4,
+	"usec" : 814861750
+}{
+	"file" : "../libaegisub/common/hotkey.cpp",
+	"func" : "Scan",
+	"line" : 132,
+	"message" : "Found: Alt-C  Context (req/found): Always/Default   Command: cmd1",
+	"sec" : 103451,
+	"section" : "agi/hotkey/found",
+	"severity" : 4,
+	"usec" : 814862166
+}{
+	"file" : "../libaegisub/common/hotkey.cpp",
+	"func" : "Scan",
+	"line" : 132,
+	"message" : "Found: Alt-C  Context (req/found): Default/Default   Command: cmd1",
+	"sec" : 103451,
+	"section" : "agi/hotkey/found",
+	"severity" : 4,
+	"usec" : 814862500
+}{
+	"file" : "../libaegisub/common/hotkey.cpp",
+	"func" : "Scan",
+	"line" : 132,
+	"message" : "Found: Alt-C  Context (req/found): Other/Default   Command: cmd1",
+	"sec" : 103451,
+	"section" : "agi/hotkey/found",
+	"severity" : 4,
+	"usec" : 814862833
+}{
+	"file" : "../libaegisub/common/hotkey.cpp",
+	"func" : "Scan",
+	"line" : 132,
+	"message" : "Found: Alt-C  Context (req/found): Nonexistent/Default   Command: cmd1",
+	"sec" : 103451,
+	"section" : "agi/hotkey/found",
+	"severity" : 4,
+	"usec" : 814863250
+}{
+	"file" : "../libaegisub/common/hotkey.cpp",
+	"func" : "Scan",
+	"line" : 132,
+	"message" : "Found: Alt-C  Context (req/found): Always/Default   Command: cmd1",
+	"sec" : 103451,
+	"section" : "agi/hotkey/found",
+	"severity" : 4,
+	"usec" : 814863708
+}{
+	"file" : "../libaegisub/common/hotkey.cpp",
+	"func" : "Scan",
+	"line" : 132,
+	"message" : "Found: Alt-C  Context (req/found): Default/Default   Command: cmd1",
+	"sec" : 103451,
+	"section" : "agi/hotkey/found",
+	"severity" : 4,
+	"usec" : 814864041
+}{
+	"file" : "../libaegisub/common/hotkey.cpp",
+	"func" : "Scan",
+	"line" : 132,
+	"message" : "Found: Alt-C  Context (req/found): Other/Default   Command: cmd1",
+	"sec" : 103451,
+	"section" : "agi/hotkey/found",
+	"severity" : 4,
+	"usec" : 814864333
+}{
+	"file" : "../libaegisub/common/hotkey.cpp",
+	"func" : "Scan",
+	"line" : 132,
+	"message" : "Found: Alt-C  Context (req/found): Nonexistent/Default   Command: cmd1",
+	"sec" : 103451,
+	"section" : "agi/hotkey/found",
+	"severity" : 4,
+	"usec" : 814864666
+}{
+	"file" : "../libaegisub/common/hotkey.cpp",
+	"func" : "Scan",
+	"line" : 128,
+	"message" : "Found: Shift-C  Context: Other  Command: cmd1",
+	"sec" : 103451,
+	"section" : "agi/hotkey/found",
+	"severity" : 4,
+	"usec" : 814865291
+}{
+	"file" : "../libaegisub/common/hotkey.cpp",
+	"func" : "Scan",
+	"line" : 128,
+	"message" : "Found: Shift-C  Context: Other  Command: cmd1",
+	"sec" : 103451,
+	"section" : "agi/hotkey/found",
+	"severity" : 4,
+	"usec" : 814866125
+}{
+	"file" : "../libaegisub/common/hotkey.cpp",
+	"func" : "Scan",
+	"line" : 128,
+	"message" : "Found: Q  Context: Other  Command: cmd3",
+	"sec" : 103451,
+	"section" : "agi/hotkey/found",
+	"severity" : 4,
+	"usec" : 814866875
+}{
+	"file" : "../libaegisub/common/hotkey.cpp",
+	"func" : "Scan",
+	"line" : 128,
+	"message" : "Found: Q  Context: Other  Command: cmd3",
+	"sec" : 103451,
+	"section" : "agi/hotkey/found",
+	"severity" : 4,
+	"usec" : 814867583
+}{
+	"file" : "../libaegisub/common/hotkey.cpp",
+	"func" : "Hotkey",
+	"line" : 92,
+	"message" : "Generating hotkeys.",
+	"sec" : 103451,
+	"section" : "hotkey/init",
+	"severity" : 4,
+	"usec" : 814871541
+}{
+	"file" : "../libaegisub/common/hotkey.cpp",
+	"func" : "Hotkey",
+	"line" : 92,
+	"message" : "Generating hotkeys.",
+	"sec" : 103451,
+	"section" : "hotkey/init",
+	"severity" : 4,
+	"usec" : 814897416
+}{
+	"file" : "../libaegisub/common/hotkey.cpp",
+	"func" : "Hotkey",
+	"line" : 92,
+	"message" : "Generating hotkeys.",
+	"sec" : 103451,
+	"section" : "hotkey/init",
+	"severity" : 4,
+	"usec" : 814910500
+}{
+	"file" : "../libaegisub/common/hotkey.cpp",
+	"func" : "Hotkey",
+	"line" : 92,
+	"message" : "Generating hotkeys.",
+	"sec" : 103451,
+	"section" : "hotkey/init",
+	"severity" : 4,
+	"usec" : 814920625
+}{
+	"file" : "../libaegisub/common/hotkey.cpp",
+	"func" : "Hotkey",
+	"line" : 92,
+	"message" : "Generating hotkeys.",
+	"sec" : 103451,
+	"section" : "hotkey/init",
+	"severity" : 4,
+	"usec" : 814932250
+}{
+	"file" : "../libaegisub/common/io.cpp",
+	"func" : "Save",
+	"line" : 43,
+	"message" : "\"data/hotkey_tmp\"",
+	"sec" : 103451,
+	"section" : "agi/io/save/file",
+	"severity" : 4,
+	"usec" : 814936541
+}{
+	"file" : "../libaegisub/common/hotkey.cpp",
+	"func" : "Scan",
+	"line" : 128,
+	"message" : "Found: C  Context: Always  Command: cmd1",
+	"sec" : 103451,
+	"section" : "agi/hotkey/found",
+	"severity" : 4,
+	"usec" : 815055416
+}{
+	"file" : "../libaegisub/common/hotkey.cpp",
+	"func" : "Scan",
+	"line" : 132,
+	"message" : "Found: Shift-C  Context (req/found): Default/Default   Command: cmd2",
+	"sec" : 103451,
+	"section" : "agi/hotkey/found",
+	"severity" : 4,
+	"usec" : 815058083
+}{
+	"file" : "../libaegisub/common/hotkey.cpp",
+	"func" : "Hotkey",
+	"line" : 92,
+	"message" : "Generating hotkeys.",
+	"sec" : 103451,
+	"section" : "hotkey/init",
+	"severity" : 4,
+	"usec" : 815059166
+}{
+	"file" : "../libaegisub/common/io.cpp",
+	"func" : "Open",
+	"line" : 28,
+	"message" : "\"data/hotkey_tmp\"",
+	"sec" : 103451,
+	"section" : "agi/io/open/file",
+	"severity" : 4,
+	"usec" : 815063250
+}{
+	"file" : "../libaegisub/common/hotkey.cpp",
+	"func" : "Hotkey",
+	"line" : 92,
+	"message" : "Generating hotkeys.",
+	"sec" : 103451,
+	"section" : "hotkey/init",
+	"severity" : 4,
+	"usec" : 815087416
+}{
+	"file" : "../libaegisub/common/hotkey.cpp",
+	"func" : "Hotkey",
+	"line" : 92,
+	"message" : "Generating hotkeys.",
+	"sec" : 103451,
+	"section" : "hotkey/init",
+	"severity" : 4,
+	"usec" : 815139583
+}{
+	"file" : "../libaegisub/common/io.cpp",
+	"func" : "Open",
+	"line" : 28,
+	"message" : "\"data/hotkey_tmp\"",
+	"sec" : 103451,
+	"section" : "agi/io/open/file",
+	"severity" : 4,
+	"usec" : 815143083
+}{
+	"file" : "../libaegisub/common/io.cpp",
+	"func" : "Open",
+	"line" : 28,
+	"message" : "\"data/hotkey_tmp\"",
+	"sec" : 103451,
+	"section" : "agi/io/open/file",
+	"severity" : 4,
+	"usec" : 815205375
+}{
+	"file" : "../libaegisub/common/io.cpp",
+	"func" : "Save",
+	"line" : 43,
+	"message" : "\"data/hotkey_tmp.3_1\"",
+	"sec" : 103451,
+	"section" : "agi/io/save/file",
+	"severity" : 4,
+	"usec" : 815214791
+}{
+	"file" : "../libaegisub/common/io.cpp",
+	"func" : "Save",
+	"line" : 43,
+	"message" : "\"data/hotkey_tmp\"",
+	"sec" : 103451,
+	"section" : "agi/io/save/file",
+	"severity" : 4,
+	"usec" : 815291583
+}{
+	"file" : "../libaegisub/common/io.cpp",
+	"func" : "Save",
+	"line" : 43,
+	"message" : "\"data/keyframe/out.txt\"",
+	"sec" : 103451,
+	"section" : "agi/io/save/file",
+	"severity" : 4,
+	"usec" : 871282541
+}{
+	"file" : "../libaegisub/common/mru.cpp",
+	"func" : "MRUManager",
+	"line" : 69,
+	"message" : "Loading MRU List",
+	"sec" : 103451,
+	"section" : "agi/mru",
+	"severity" : 4,
+	"usec" : 871664458
+}{
+	"file" : "../libaegisub/common/mru.cpp",
+	"func" : "MRUManager",
+	"line" : 69,
+	"message" : "Loading MRU List",
+	"sec" : 103451,
+	"section" : "agi/mru",
+	"severity" : 4,
+	"usec" : 871672458
+}{
+	"file" : "../libaegisub/common/mru.cpp",
+	"func" : "MRUManager",
+	"line" : 69,
+	"message" : "Loading MRU List",
+	"sec" : 103451,
+	"section" : "agi/mru",
+	"severity" : 4,
+	"usec" : 871686791
+}{
+	"file" : "../libaegisub/common/mru.cpp",
+	"func" : "MRUManager",
+	"line" : 69,
+	"message" : "Loading MRU List",
+	"sec" : 103451,
+	"section" : "agi/mru",
+	"severity" : 4,
+	"usec" : 871840666
+}{
+	"file" : "../libaegisub/common/io.cpp",
+	"func" : "Save",
+	"line" : 43,
+	"message" : "\"data/mru_tmp\"",
+	"sec" : 103451,
+	"section" : "agi/io/save/file",
+	"severity" : 4,
+	"usec" : 871845666
+}{
+	"file" : "../libaegisub/common/io.cpp",
+	"func" : "Save",
+	"line" : 43,
+	"message" : "\"data/mru_tmp\"",
+	"sec" : 103451,
+	"section" : "agi/io/save/file",
+	"severity" : 4,
+	"usec" : 871988583
+}{
+	"file" : "../libaegisub/common/io.cpp",
+	"func" : "Save",
+	"line" : 43,
+	"message" : "\"data/mru_tmp\"",
+	"sec" : 103451,
+	"section" : "agi/io/save/file",
+	"severity" : 4,
+	"usec" : 872100291
+}{
+	"file" : "../libaegisub/common/io.cpp",
+	"func" : "Save",
+	"line" : 43,
+	"message" : "\"data/mru_tmp\"",
+	"sec" : 103451,
+	"section" : "agi/io/save/file",
+	"severity" : 4,
+	"usec" : 872196291
+}{
+	"file" : "../libaegisub/common/io.cpp",
+	"func" : "Save",
+	"line" : 43,
+	"message" : "\"data/mru_tmp\"",
+	"sec" : 103451,
+	"section" : "agi/io/save/file",
+	"severity" : 4,
+	"usec" : 872289458
+}{
+	"file" : "../libaegisub/common/mru.cpp",
+	"func" : "MRUManager",
+	"line" : 69,
+	"message" : "Loading MRU List",
+	"sec" : 103451,
+	"section" : "agi/mru",
+	"severity" : 4,
+	"usec" : 872427833
+}{
+	"file" : "../libaegisub/common/io.cpp",
+	"func" : "Save",
+	"line" : 43,
+	"message" : "\"data/mru_tmp\"",
+	"sec" : 103451,
+	"section" : "agi/io/save/file",
+	"severity" : 4,
+	"usec" : 872433166
+}{
+	"file" : "../libaegisub/common/io.cpp",
+	"func" : "Save",
+	"line" : 43,
+	"message" : "\"data/mru_tmp\"",
+	"sec" : 103451,
+	"section" : "agi/io/save/file",
+	"severity" : 4,
+	"usec" : 872500958
+}{
+	"file" : "../libaegisub/common/io.cpp",
+	"func" : "Save",
+	"line" : 43,
+	"message" : "\"data/mru_tmp\"",
+	"sec" : 103451,
+	"section" : "agi/io/save/file",
+	"severity" : 4,
+	"usec" : 872590166
+}{
+	"file" : "../libaegisub/common/io.cpp",
+	"func" : "Save",
+	"line" : 43,
+	"message" : "\"data/mru_tmp\"",
+	"sec" : 103451,
+	"section" : "agi/io/save/file",
+	"severity" : 4,
+	"usec" : 872678583
+}{
+	"file" : "../libaegisub/common/io.cpp",
+	"func" : "Save",
+	"line" : 43,
+	"message" : "\"data/mru_tmp\"",
+	"sec" : 103451,
+	"section" : "agi/io/save/file",
+	"severity" : 4,
+	"usec" : 872790833
+}{
+	"file" : "../libaegisub/common/io.cpp",
+	"func" : "Save",
+	"line" : 43,
+	"message" : "\"data/mru_tmp\"",
+	"sec" : 103451,
+	"section" : "agi/io/save/file",
+	"severity" : 4,
+	"usec" : 872887000
+}{
+	"file" : "../libaegisub/common/io.cpp",
+	"func" : "Save",
+	"line" : 43,
+	"message" : "\"data/mru_tmp\"",
+	"sec" : 103451,
+	"section" : "agi/io/save/file",
+	"severity" : 4,
+	"usec" : 873006750
+}{
+	"file" : "../libaegisub/common/mru.cpp",
+	"func" : "MRUManager",
+	"line" : 69,
+	"message" : "Loading MRU List",
+	"sec" : 103451,
+	"section" : "agi/mru",
+	"severity" : 4,
+	"usec" : 873162041
+}{
+	"file" : "../libaegisub/common/io.cpp",
+	"func" : "Save",
+	"line" : 43,
+	"message" : "\"data/mru_tmp\"",
+	"sec" : 103451,
+	"section" : "agi/io/save/file",
+	"severity" : 4,
+	"usec" : 873167833
+}{
+	"file" : "../libaegisub/common/io.cpp",
+	"func" : "Save",
+	"line" : 43,
+	"message" : "\"data/mru_tmp\"",
+	"sec" : 103451,
+	"section" : "agi/io/save/file",
+	"severity" : 4,
+	"usec" : 873258291
+}{
+	"file" : "../libaegisub/common/io.cpp",
+	"func" : "Save",
+	"line" : 43,
+	"message" : "\"data/mru_tmp\"",
+	"sec" : 103451,
+	"section" : "agi/io/save/file",
+	"severity" : 4,
+	"usec" : 873343416
+}{
+	"file" : "../libaegisub/common/io.cpp",
+	"func" : "Save",
+	"line" : 43,
+	"message" : "\"data/mru_tmp\"",
+	"sec" : 103451,
+	"section" : "agi/io/save/file",
+	"severity" : 4,
+	"usec" : 873438500
+}{
+	"file" : "../libaegisub/common/io.cpp",
+	"func" : "Save",
+	"line" : 43,
+	"message" : "\"data/mru_tmp\"",
+	"sec" : 103451,
+	"section" : "agi/io/save/file",
+	"severity" : 4,
+	"usec" : 873531166
+}{
+	"file" : "../libaegisub/common/io.cpp",
+	"func" : "Save",
+	"line" : 43,
+	"message" : "\"data/mru_tmp\"",
+	"sec" : 103451,
+	"section" : "agi/io/save/file",
+	"severity" : 4,
+	"usec" : 873635625
+}{
+	"file" : "../libaegisub/common/io.cpp",
+	"func" : "Save",
+	"line" : 43,
+	"message" : "\"data/mru_tmp\"",
+	"sec" : 103451,
+	"section" : "agi/io/save/file",
+	"severity" : 4,
+	"usec" : 873787541
+}{
+	"file" : "../libaegisub/common/io.cpp",
+	"func" : "Save",
+	"line" : 43,
+	"message" : "\"data/mru_tmp\"",
+	"sec" : 103451,
+	"section" : "agi/io/save/file",
+	"severity" : 4,
+	"usec" : 873895166
+}{
+	"file" : "../libaegisub/common/io.cpp",
+	"func" : "Save",
+	"line" : 43,
+	"message" : "\"data/mru_tmp\"",
+	"sec" : 103451,
+	"section" : "agi/io/save/file",
+	"severity" : 4,
+	"usec" : 874020500
+}{
+	"file" : "../libaegisub/common/io.cpp",
+	"func" : "Save",
+	"line" : 43,
+	"message" : "\"data/mru_tmp\"",
+	"sec" : 103451,
+	"section" : "agi/io/save/file",
+	"severity" : 4,
+	"usec" : 874144583
+}{
+	"file" : "../libaegisub/common/io.cpp",
+	"func" : "Save",
+	"line" : 43,
+	"message" : "\"data/mru_tmp\"",
+	"sec" : 103451,
+	"section" : "agi/io/save/file",
+	"severity" : 4,
+	"usec" : 874259333
+}{
+	"file" : "../libaegisub/common/io.cpp",
+	"func" : "Save",
+	"line" : 43,
+	"message" : "\"data/mru_tmp\"",
+	"sec" : 103451,
+	"section" : "agi/io/save/file",
+	"severity" : 4,
+	"usec" : 874352083
+}{
+	"file" : "../libaegisub/common/io.cpp",
+	"func" : "Save",
+	"line" : 43,
+	"message" : "\"data/mru_tmp\"",
+	"sec" : 103451,
+	"section" : "agi/io/save/file",
+	"severity" : 4,
+	"usec" : 874441791
+}{
+	"file" : "../libaegisub/common/io.cpp",
+	"func" : "Save",
+	"line" : 43,
+	"message" : "\"data/mru_tmp\"",
+	"sec" : 103451,
+	"section" : "agi/io/save/file",
+	"severity" : 4,
+	"usec" : 874529583
+}{
+	"file" : "../libaegisub/common/io.cpp",
+	"func" : "Save",
+	"line" : 43,
+	"message" : "\"data/mru_tmp\"",
+	"sec" : 103451,
+	"section" : "agi/io/save/file",
+	"severity" : 4,
+	"usec" : 874640000
+}{
+	"file" : "../libaegisub/common/io.cpp",
+	"func" : "Save",
+	"line" : 43,
+	"message" : "\"data/mru_tmp\"",
+	"sec" : 103451,
+	"section" : "agi/io/save/file",
+	"severity" : 4,
+	"usec" : 874741083
+}{
+	"file" : "../libaegisub/common/io.cpp",
+	"func" : "Save",
+	"line" : 43,
+	"message" : "\"data/mru_tmp\"",
+	"sec" : 103451,
+	"section" : "agi/io/save/file",
+	"severity" : 4,
+	"usec" : 874861958
+}{
+	"file" : "../libaegisub/common/io.cpp",
+	"func" : "Save",
+	"line" : 43,
+	"message" : "\"data/mru_tmp\"",
+	"sec" : 103451,
+	"section" : "agi/io/save/file",
+	"severity" : 4,
+	"usec" : 874981000
+}{
+	"file" : "../libaegisub/common/io.cpp",
+	"func" : "Save",
+	"line" : 43,
+	"message" : "\"data/mru_tmp\"",
+	"sec" : 103451,
+	"section" : "agi/io/save/file",
+	"severity" : 4,
+	"usec" : 875097416
+}{
+	"file" : "../libaegisub/common/io.cpp",
+	"func" : "Save",
+	"line" : 43,
+	"message" : "\"data/mru_tmp\"",
+	"sec" : 103451,
+	"section" : "agi/io/save/file",
+	"severity" : 4,
+	"usec" : 875217166
+}{
+	"file" : "../libaegisub/common/option.cpp",
+	"func" : "Options",
+	"line" : 179,
+	"message" : "New Options object",
+	"sec" : 103451,
+	"section" : "agi/options",
+	"severity" : 4,
+	"usec" : 875336416
+}{
+	"file" : "../libaegisub/common/mru.cpp",
+	"func" : "MRUManager",
+	"line" : 69,
+	"message" : "Loading MRU List",
+	"sec" : 103451,
+	"section" : "agi/mru",
+	"severity" : 4,
+	"usec" : 875387166
+}{
+	"file" : "../libaegisub/common/io.cpp",
+	"func" : "Save",
+	"line" : 43,
+	"message" : "\"data/mru_tmp\"",
+	"sec" : 103451,
+	"section" : "agi/io/save/file",
+	"severity" : 4,
+	"usec" : 875393500
+}{
+	"file" : "../libaegisub/common/io.cpp",
+	"func" : "Save",
+	"line" : 43,
+	"message" : "\"data/mru_tmp\"",
+	"sec" : 103451,
+	"section" : "agi/io/save/file",
+	"severity" : 4,
+	"usec" : 875481625
+}{
+	"file" : "../libaegisub/common/mru.cpp",
+	"func" : "MRUManager",
+	"line" : 69,
+	"message" : "Loading MRU List",
+	"sec" : 103451,
+	"section" : "agi/mru",
+	"severity" : 4,
+	"usec" : 875606583
+}{
+	"file" : "../libaegisub/common/io.cpp",
+	"func" : "Save",
+	"line" : 43,
+	"message" : "\"data/mru_ok.json\"",
+	"sec" : 103451,
+	"section" : "agi/io/save/file",
+	"severity" : 4,
+	"usec" : 875613708
+}{
+	"file" : "../libaegisub/common/io.cpp",
+	"func" : "Save",
+	"line" : 43,
+	"message" : "\"data/mru_ok.json\"",
+	"sec" : 103451,
+	"section" : "agi/io/save/file",
+	"severity" : 4,
+	"usec" : 875708333
+}

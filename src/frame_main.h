@@ -83,6 +83,8 @@ public:
 	FrameMain();
 	~FrameMain();
 
+	agi::Context *GetContext() const { return context.get(); }
+
 	/// Set the status bar text
 	/// @param text New status bar text
 	/// @param ms Time in milliseconds that the message should be visible

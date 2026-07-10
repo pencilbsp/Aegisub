@@ -22,6 +22,7 @@ libaegisub_src = [
     'common/file_mapping.cpp',
     'common/format.cpp',
     'common/fs.cpp',
+    'common/glossary.cpp',
     'common/hotkey.cpp',
     'common/io.cpp',
     'common/json.cpp',

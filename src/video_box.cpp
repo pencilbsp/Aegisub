@@ -75,7 +75,7 @@ wxColour Blend(wxColour fg, wxColour bg, double alpha) {
 }
 
 wxColour DarkGridCanvas() {
-	return Blend(wxColour(104, 138, 194), wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW), 0.08);
+	return wxSystemSettings::GetColour(wxSYS_COLOUR_BTNFACE);
 }
 
 wxColour ThemedGridSelectionBackgroundColor() {

@@ -50,6 +50,19 @@
 namespace {
 	using cmd::Command;
 
+wxWindow *AppCommandParent(agi::Context *c) {
+	if (c && c->parent)
+		return c->parent;
+
+	if (wxWindow *focus = wxWindow::FindFocus()) {
+		if (wxWindow *top_level = wxGetTopLevelParent(focus))
+			return top_level;
+		return focus;
+	}
+
+	return wxTheApp ? wxTheApp->GetTopWindow() : nullptr;
+}
+
 struct app_about final : public Command {
 	CMD_NAME("app/about")
 	CMD_ICON(about_menu)
@@ -58,7 +71,7 @@ struct app_about final : public Command {
 	STR_HELP("About Aegisub")
 
 	void operator()(agi::Context *c) override {
-		ShowAboutDialog(c->parent);
+		ShowAboutDialog(AppCommandParent(c));
 	}
 };
 
@@ -207,7 +220,7 @@ struct app_options final : public Command {
 
 	void operator()(agi::Context *c) override {
 		try {
-			ShowPreferences(c->parent);
+			ShowPreferences(AppCommandParent(c));
 		} catch (agi::Exception& e) {
 			LOG_E("config/init") << "Caught exception: " << e.GetMessage();
 		}

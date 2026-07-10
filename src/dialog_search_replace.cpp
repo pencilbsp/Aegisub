@@ -33,6 +33,7 @@
 #include "utils.h"
 #include "validators.h"
 
+#include <algorithm>
 #include <functional>
 #include <utility>
 
@@ -87,6 +88,72 @@ static wxBitmapBundle make_replace_icon(wxColour colour) {
 	svg.Replace("currentColor", colour.GetAsString(wxC2S_HTML_SYNTAX));
 	auto utf8 = svg.utf8_str();
 	return wxBitmapBundle::FromSVG(utf8.data(), wxSize(16, 16));
+}
+
+static bool IsDarkAppearanceActive() {
+#ifdef __WXMAC__
+	return wxSystemSettings::GetAppearance().IsDark();
+#else
+	return wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW).GetLuminance() < 0.5;
+#endif
+}
+
+static wxColour Blend(wxColour fg, wxColour bg, double alpha) {
+	alpha = std::clamp(alpha, 0.0, 1.0);
+	return wxColour(
+		wxColour::AlphaBlend(fg.Red(), bg.Red(), alpha),
+		wxColour::AlphaBlend(fg.Green(), bg.Green(), alpha),
+		wxColour::AlphaBlend(fg.Blue(), bg.Blue(), alpha));
+}
+
+struct PreviewColours {
+	wxColour background;
+	wxColour alt_background;
+	wxColour text;
+	wxColour line_number;
+	wxColour separator;
+	wxColour match_text;
+	wxColour match_background;
+	wxColour old_text;
+	wxColour old_background;
+	wxColour replacement_text;
+	wxColour replacement_background;
+};
+
+static PreviewColours GetPreviewColours() {
+	wxColour background = wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW);
+	wxColour text = wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT);
+
+	if (IsDarkAppearanceActive()) {
+		background = Blend(wxColour(255, 255, 255), background, 0.08);
+		return {
+			background,
+			Blend(wxColour(255, 255, 255), background, 0.04),
+			text,
+			Blend(text, background, 0.55),
+			Blend(text, background, 0.18),
+			wxColour(255, 244, 205),
+			wxColour(118, 82, 14),
+			wxColour(255, 206, 206),
+			wxColour(94, 31, 31),
+			wxColour(198, 245, 204),
+			wxColour(30, 80, 42)
+		};
+	}
+
+	return {
+		background,
+		Blend(wxColour(0, 0, 0), background, 0.04),
+		text,
+		wxSystemSettings::GetColour(wxSYS_COLOUR_GRAYTEXT),
+		wxSystemSettings::GetColour(wxSYS_COLOUR_3DLIGHT),
+		text,
+		wxColour(255, 225, 160),
+		wxColour(200, 0, 0),
+		wxColour(255, 220, 220),
+		wxColour(0, 120, 0),
+		wxColour(220, 255, 220)
+	};
 }
 
 template<typename Enum>
@@ -169,14 +236,8 @@ class SearchReplacePreview final : public wxScrolledWindow {
 		return x + extent.x;
 	}
 
-	void DrawPreviewLine(wxDC& dc, std::vector<PreviewSegment> const& segments, int y, int max_x) {
-		auto normal = wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT);
-		auto red = wxColour(200, 0, 0);
-		auto red_bg = wxColour(255, 220, 220);
-		auto green = wxColour(0, 120, 0);
-		auto green_bg = wxColour(220, 255, 220);
-		auto orange_bg = wxColour(255, 225, 160);
-
+	void DrawPreviewLine(wxDC& dc, std::vector<PreviewSegment> const& segments, int y, int max_x, PreviewColours const& colours, bool is_selected) {
+		wxColour normal = is_selected ? wxSystemSettings::GetColour(wxSYS_COLOUR_HIGHLIGHTTEXT) : colours.text;
 		int x = Padding() * 2 + dc.GetTextExtent("0000").x + Padding() * 2;
 		for (auto const& segment : segments) {
 			switch (segment.type) {
@@ -185,12 +246,12 @@ class SearchReplacePreview final : public wxScrolledWindow {
 					break;
 				case PreviewSegmentType::OldMatch:
 					if (HasReplaceAction())
-						x = DrawTextSegment(dc, segment.text, x, y, max_x, red, red_bg, true);
+						x = DrawTextSegment(dc, segment.text, x, y, max_x, colours.old_text, colours.old_background, true);
 					else
-						x = DrawTextSegment(dc, segment.text, x, y, max_x, normal, orange_bg, false);
+						x = DrawTextSegment(dc, segment.text, x, y, max_x, colours.match_text, colours.match_background, false);
 					break;
 				case PreviewSegmentType::Replacement:
-					x = DrawTextSegment(dc, segment.text, x, y, max_x, green, green_bg, false);
+					x = DrawTextSegment(dc, segment.text, x, y, max_x, colours.replacement_text, colours.replacement_background, false);
 					break;
 			}
 		}
@@ -198,7 +259,8 @@ class SearchReplacePreview final : public wxScrolledWindow {
 	void OnPaint(wxPaintEvent&) {
 		wxAutoBufferedPaintDC dc(this);
 		PrepareDC(dc);
-		dc.SetBackground(wxBrush(wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW)));
+		auto colours = GetPreviewColours();
+		dc.SetBackground(wxBrush(colours.background));
 		dc.Clear();
 		dc.SetFont(GetFont());
 
@@ -206,19 +268,13 @@ class SearchReplacePreview final : public wxScrolledWindow {
 		for (int row = 0; row < static_cast<int>(matches.size()); ++row) {
 			int y = row * RowHeight();
 			bool is_selected = row == selected;
-			wxColour base = wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW);
-			wxColour alt = wxColour(
-				std::max(0, (int)base.Red()   - 10),
-				std::max(0, (int)base.Green() - 10),
-				std::max(0, (int)base.Blue()  - 10)
-			);
-			auto bg = is_selected ? wxSystemSettings::GetColour(wxSYS_COLOUR_HIGHLIGHT) : (row % 2 == 0 ? base : alt);
-			auto fg = is_selected ? wxSystemSettings::GetColour(wxSYS_COLOUR_HIGHLIGHTTEXT) : wxSystemSettings::GetColour(wxSYS_COLOUR_GRAYTEXT);
+			auto bg = is_selected ? wxSystemSettings::GetColour(wxSYS_COLOUR_HIGHLIGHT) : (row % 2 == 0 ? colours.background : colours.alt_background);
+			auto fg = is_selected ? wxSystemSettings::GetColour(wxSYS_COLOUR_HIGHLIGHTTEXT) : colours.line_number;
 
 			dc.SetPen(*wxTRANSPARENT_PEN);
 			dc.SetBrush(wxBrush(bg));
 			dc.DrawRectangle(0, y, client.x, RowHeight());
-			dc.SetPen(wxPen(wxSystemSettings::GetColour(wxSYS_COLOUR_3DLIGHT)));
+			dc.SetPen(wxPen(colours.separator));
 			dc.DrawLine(0, y + RowHeight() - 1, client.x, y + RowHeight() - 1);
 
 			auto const& match = matches[row];
@@ -226,7 +282,7 @@ class SearchReplacePreview final : public wxScrolledWindow {
 			dc.SetTextForeground(fg);
 			int text_y = y + (RowHeight() - dc.GetCharHeight()) / 2;
 			dc.DrawText(wxString::Format("%d", match.line_number), Padding(), text_y);
-			DrawPreviewLine(dc, segments, text_y, TextMaxX());
+			DrawPreviewLine(dc, segments, text_y, TextMaxX(), colours, is_selected);
 			if (HasReplaceAction())
 				DrawReplaceIcon(dc, IconRect(row), fg);
 		}
@@ -658,7 +714,7 @@ void DialogSearchReplace<has_replace>::ReplacePreviewMatch(size_t index) {
 	preview_list->Scroll(xPos, yPos);
 }
 template<bool replace>
-void ShowSearchReplaceDialog(agi::Context *context) {
+void ShowSearchReplaceDialog(agi::Context *context, std::string const& initial_find = {}) {
 	auto other = context->dialog->Get<DialogSearchReplace<!replace>>();
 	if (other != nullptr) {
 		other->Close();
@@ -667,15 +723,21 @@ void ShowSearchReplaceDialog(agi::Context *context) {
 	context->dialog->Show<DialogSearchReplace<replace>>(context);
 	auto dialog = context->dialog->Get<DialogSearchReplace<replace>>();
 
+	if (!initial_find.empty())
+		dialog->find_edit->SetValue(to_wx(initial_find));
 	dialog->find_edit->SetFocus();
 	dialog->find_edit->SelectAll();
 	dialog->Raise();
 }
 
-void ShowSearchReplaceDialog(agi::Context *context, bool replace) {
+void ShowSearchReplaceDialog(agi::Context *context, bool replace, std::string const& initial_find) {
 	if (replace) {
-		ShowSearchReplaceDialog<true>(context);
+		ShowSearchReplaceDialog<true>(context, initial_find);
 	} else {
-		ShowSearchReplaceDialog<false>(context);
+		ShowSearchReplaceDialog<false>(context, initial_find);
 	}
+}
+
+void ShowSearchReplaceDialog(agi::Context *context, bool replace) {
+	ShowSearchReplaceDialog(context, replace, {});
 }

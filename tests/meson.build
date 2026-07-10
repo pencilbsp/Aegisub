@@ -25,6 +25,7 @@ tests_src = [
     'tests/dialogue_lexer.cpp',
     'tests/format.cpp',
     'tests/fs.cpp',
+    'tests/glossary.cpp',
     'tests/hotkey.cpp',
     'tests/iconv.cpp',
     'tests/ifind.cpp',

@@ -186,6 +186,9 @@
 		"time/shift" : [
 			"Ctrl-I"
 		],
+		"tool/glossary" : [
+			"Ctrl-Shift-G"
+		],
 		"time/snap/end_video" : [
 			"Ctrl-4"
 		],

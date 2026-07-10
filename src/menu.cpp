@@ -25,7 +25,10 @@
 #include "command/command.h"
 #include "compat.h"
 #include "format.h"
+#include "frame_main.h"
+#include "glossary.h"
 #include "libresrc/libresrc.h"
+#include "main.h"
 #include "options.h"
 #include "utils.h"
 
@@ -50,6 +53,31 @@
 #endif
 
 namespace {
+
+#ifdef __WXMAC__
+agi::Context *GetContextFromWindow(wxWindow *window) {
+	if (!window)
+		return nullptr;
+
+	if (auto frame = dynamic_cast<FrameMain *>(wxGetTopLevelParent(window)))
+		return frame->GetContext();
+
+	if (auto frame = dynamic_cast<FrameMain *>(window))
+		return frame->GetContext();
+
+	return nullptr;
+}
+
+agi::Context *GetActiveContextFallback() {
+	if (auto context = GetContextFromWindow(wxWindow::FindFocus()))
+		return context;
+
+	if (auto context = GetContextFromWindow(wxGetActiveWindow()))
+		return context;
+
+	return GetContextFromWindow(wxTheApp ? wxTheApp->GetTopWindow() : nullptr);
+}
+#endif
 
 class MruMenu final : public wxMenu {
 	/// Window ID of first menu item
@@ -110,6 +138,61 @@ public:
 	}
 };
 
+/// Submenu listing the glossary dictionaries, with the active one checked.
+/// Rebuilt on menu open, backed by the tool/glossary/dictionary/N commands.
+class GlossaryMenu final : public wxMenu {
+	const int id_base;
+	std::vector<wxMenuItem *> items;
+	std::vector<std::string> *cmds;
+
+	void Resize(size_t new_size) {
+		for (size_t i = GetMenuItemCount(); i > new_size; --i)
+			Remove(FindItemByPosition(i - 1));
+
+		for (size_t i = GetMenuItemCount(); i < new_size; ++i) {
+			if (i >= items.size()) {
+				items.push_back(new wxMenuItem(this, id_base + cmds->size(), "_", "", wxITEM_CHECK));
+				cmds->push_back(agi::format("tool/glossary/dictionary/%d", i));
+			}
+			Append(items[i]);
+		}
+	}
+
+public:
+	GlossaryMenu(int id_base, std::vector<std::string> *cmds)
+	: id_base(id_base), cmds(cmds)
+	{
+	}
+
+	~GlossaryMenu() {
+		// Append all items to ensure that they're all cleaned up
+		Resize(items.size());
+	}
+
+	void Update() {
+		auto names = GlossaryDictionaryNames();
+		// Only as many dictionaries as we registered click commands for.
+		if (names.size() > 32)
+			names.resize(32);
+
+		if (names.empty()) {
+			Resize(1);
+			items[0]->SetItemLabel(_("(No dictionaries)"));
+			items[0]->Check(false);
+			items[0]->Enable(false);
+			return;
+		}
+
+		Resize(names.size());
+		std::string active = ActiveGlossaryDictionary();
+		for (size_t i = 0; i < names.size(); ++i) {
+			items[i]->SetItemLabel(to_wx(names[i]));
+			items[i]->Check(names[i] == active);
+			items[i]->Enable(true);
+		}
+	}
+};
+
 /// @class CommandManager
 /// @brief Event dispatcher to update menus on open and handle click events
 ///
@@ -128,6 +211,8 @@ class CommandManager {
 	std::vector<std::string> items;
 	/// MRU menus which need to be updated on menu open
 	std::vector<MruMenu*> mru;
+	/// Glossary dictionary menus which need to be updated on menu open
+	std::vector<GlossaryMenu*> glossary;
 
 	/// Project context
 	agi::Context *context;
@@ -136,19 +221,19 @@ class CommandManager {
 	agi::signal::Connection hotkeys_changed;
 
 	/// Update a single dynamic menu item
-	void UpdateItem(std::pair<std::string, wxMenuItem*> const& item) {
-		cmd::Command *c = cmd::get(item.first);
-		int flags = c->Type();
+	void UpdateItem(std::pair<std::string, wxMenuItem*> const& item, agi::Context *c) {
+		cmd::Command *co = cmd::get(item.first);
+		int flags = co->Type();
 		if (flags & cmd::COMMAND_VALIDATE) {
-			item.second->Enable(c->Validate(context));
-			flags = c->Type();
+			item.second->Enable(co->Validate(c));
+			flags = co->Type();
 		}
 		if (flags & cmd::COMMAND_DYNAMIC_NAME)
-			UpdateItemName(item);
+			UpdateItemName(item, c);
 		if (flags & cmd::COMMAND_DYNAMIC_HELP)
-			item.second->SetHelp(c->StrHelp());
+			item.second->SetHelp(co->StrHelp());
 		if (flags & cmd::COMMAND_RADIO || flags & cmd::COMMAND_TOGGLE) {
-			bool check = c->IsActive(context);
+			bool check = co->IsActive(c);
 			// Don't call Check(false) on radio items as this causes wxGtk to
 			// send a menu clicked event, and it should be a no-op anyway
 			if (check || flags & cmd::COMMAND_TOGGLE)
@@ -156,14 +241,14 @@ class CommandManager {
 		}
 	}
 
-	void UpdateItemName(std::pair<std::string, wxMenuItem*> const& item) {
-		cmd::Command *c = cmd::get(item.first);
+	void UpdateItemName(std::pair<std::string, wxMenuItem*> const& item, agi::Context *c) {
+		cmd::Command *co = cmd::get(item.first);
 		wxString text;
-		if (c->Type() & cmd::COMMAND_DYNAMIC_NAME)
-			text = c->StrMenu(context);
+		if ((co->Type() & cmd::COMMAND_DYNAMIC_NAME) && c)
+			text = co->StrMenu(c);
 		else
 			text = item.second->GetItemLabel().BeforeFirst('\t');
-		item.second->SetItemLabel(text + "\t" + to_wx(hotkey::get_hotkey_str_first("Default", c->name())));
+		item.second->SetItemLabel(text + "\t" + to_wx(hotkey::get_hotkey_str_first("Default", co->name())));
 	}
 
 public:
@@ -175,6 +260,14 @@ public:
 
 	void SetContext(agi::Context *c) {
 		context = c;
+	}
+
+	agi::Context *CurrentContext() const {
+#ifdef __WXMAC__
+		return context ? context : GetActiveContextFallback();
+#else
+		return context;
+#endif
 	}
 
 	int AddCommand(cmd::Command *co, wxMenu *parent, std::string const& text = "") {
@@ -235,31 +328,40 @@ public:
 		parent->AppendSubMenu(mru.back(), _("&Recent"));
 	}
 
+	/// Create a glossary-dictionary menu and register the needed handlers
+	void AddGlossary(std::string const& title, wxMenu *parent) {
+		glossary.push_back(new GlossaryMenu(id_base, &items));
+		parent->AppendSubMenu(glossary.back(), wxGetTranslation(to_wx(title)));
+	}
+
 	void OnMenuOpen(wxMenuEvent &) {
-		if (!context)
+		auto c = CurrentContext();
+		if (!c)
 			return;
-		for (auto const& item : dynamic_items) UpdateItem(item);
+		for (auto const& item : dynamic_items) UpdateItem(item, c);
 		for (auto item : mru) item->Update();
+		for (auto item : glossary) item->Update();
 	}
 
 	void OnMenuClick(wxCommandEvent &evt) {
 		// This also gets clicks on unrelated things such as the toolbar, so
 		// the window ID ranges really need to be unique
+		auto c = CurrentContext();
 		size_t id = static_cast<size_t>(evt.GetId() - id_base);
-		if (id < items.size() && context)
-			cmd::call(items[id], context);
+		if (id < items.size() && c)
+			cmd::call(items[id], c);
 
 #ifdef __WXMAC__
 		else {
 			switch (evt.GetId()) {
 				case wxID_ABOUT:
-					cmd::call("app/about", context);
+					cmd::call("app/about", c);
 					break;
 				case wxID_PREFERENCES:
-					cmd::call("app/options", context);
+					cmd::call("app/options", c);
 					break;
 				case wxID_EXIT:
-					cmd::call("app/exit", context);
+					cmd::call("app/exit", c);
 					break;
 				default:
 					break;
@@ -270,8 +372,9 @@ public:
 
 	/// Update the hotkeys for all menu items
 	void OnHotkeysChanged() {
-		for (auto const& item : dynamic_items) UpdateItemName(item);
-		for (auto const& item : static_items) UpdateItemName(item);
+		auto c = CurrentContext();
+		for (auto const& item : dynamic_items) UpdateItemName(item, c);
+		for (auto const& item : static_items) UpdateItemName(item, c);
 	}
 };
 
@@ -362,6 +465,12 @@ void process_menu_item(wxMenu *parent, agi::Context *c, json::Object const& ele,
 
 	if (read_entry(ele, "recent", &recent)) {
 		cm->AddRecent(recent, parent);
+		return;
+	}
+
+	std::string glossary;
+	if (read_entry(ele, "glossary", &glossary)) {
+		cm->AddGlossary(glossary, parent);
 		return;
 	}
 

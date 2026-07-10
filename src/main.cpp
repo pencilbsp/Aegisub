@@ -281,8 +281,10 @@ bool AegisubApp::OnInit() {
 		AssExportFilterChain::Register(std::make_unique<AssFixStylesFilter>());
 		AssExportFilterChain::Register(std::make_unique<AssTransformFramerateFilter>());
 
-		StartupLog("Install PNG handler");
+		StartupLog("Install image handlers");
 		wxImage::AddHandler(new wxPNGHandler);
+		wxImage::AddHandler(new wxJPEGHandler);
+		wxImage::AddHandler(new wxGIFHandler);
 
 		// Open main frame
 		StartupLog("Create main window");

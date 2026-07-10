@@ -36,6 +36,7 @@
 #include "../dialog_styling_assistant.h"
 #include "../dialog_translation.h"
 #include "../dialogs.h"
+#include "../glossary.h"
 #include "../include/aegisub/context.h"
 #include "../libresrc/libresrc.h"
 #include "../resolution_resampler.h"
@@ -43,6 +44,8 @@
 
 #include <libaegisub/fs.h>
 #include <libaegisub/path.h>
+
+#include <string>
 
 #include <wx/msgdlg.h>
 #include <wx/utils.h>
@@ -73,6 +76,47 @@ struct tool_font_collector final : public Command {
 	void operator()(agi::Context *c) override {
 		ShowFontsCollectorDialog(c);
 	}
+};
+
+struct tool_glossary final : public Command {
+	CMD_NAME("tool/glossary")
+	STR_MENU("&Glossary Manager...")
+	STR_DISP("Glossary Manager")
+	STR_HELP("Manage user glossaries and their terms")
+
+	void operator()(agi::Context *c) override {
+		ShowGlossaryDialog(c);
+	}
+};
+
+// One slot of the "Glossary Dictionary" submenu; the id selects the Nth
+// dictionary. The submenu (GlossaryMenu) sets the labels and check state.
+struct tool_glossary_dictionary : public Command {
+	CMD_NAME("tool/glossary/dictionary/")
+	STR_MENU("Glossary Dictionary")
+	STR_DISP("Glossary Dictionary")
+	STR_HELP("Switch the active glossary dictionary")
+
+	void operator()(agi::Context *, int id) {
+		auto names = GlossaryDictionaryNames();
+		if (id < 0 || static_cast<size_t>(id) >= names.size())
+			return;
+
+		if (names[id] == ActiveGlossaryDictionary())
+			DeactivateGlossaryDictionary();
+		else
+			ActivateGlossaryDictionary(names[id]);
+	}
+};
+
+template<class T>
+class glossary_wrapper final : public T {
+	int id;
+	std::string full_name;
+public:
+	const char *name() const override { return full_name.c_str(); }
+	void operator()(agi::Context *c) override { T::operator()(c, id); }
+	glossary_wrapper(int id) : id(id), full_name(std::string(T::name()) + std::to_string(id)) { }
 };
 
 struct tool_line_select final : public Command {
@@ -266,6 +310,9 @@ namespace cmd {
 	void init_tool() {
 		reg(std::make_unique<tool_export>());
 		reg(std::make_unique<tool_font_collector>());
+		reg(std::make_unique<tool_glossary>());
+		for (int i = 0; i < 32; ++i)
+			reg(std::make_unique<glossary_wrapper<tool_glossary_dictionary>>(i));
 		reg(std::make_unique<tool_line_select>());
 		reg(std::make_unique<tool_resampleres>());
 		reg(std::make_unique<tool_style_assistant>());
