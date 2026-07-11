@@ -6307,9 +6307,48 @@ msgstr ""
 "tập. Tính năng này đôi khi hữu dụng khi biên tập lại phụ đề hoặc dịch phụ đề "
 "này sang ngôn ngữ khác."
 
+#: ../src/subs_edit_box.cpp:263
+msgid "Edit Original"
+msgstr "Sửa gốc"
+
+#: ../src/subs_edit_box.cpp:264
+msgid ""
+"Make the original text editable and commit changes to the line's original "
+"text."
+msgstr ""
+"Cho phép chỉnh sửa văn bản gốc và lưu thay đổi vào văn bản gốc của dòng."
+
 #: ../src/subs_edit_box.cpp:445
 msgid "modify text"
 msgstr "sửa đổi văn bản"
+
+#: ../src/subs_edit_box.cpp:610
+msgid "modify original"
+msgstr "sửa đổi gốc"
+
+#: ../src/visual_tool_ocr.cpp:360
+msgid "Replace current text line"
+msgstr "Thay thế dòng văn bản hiện tại"
+
+#: ../src/visual_tool_ocr.cpp:361
+msgid "Replace current original line"
+msgstr "Thay thế dòng gốc hiện tại"
+
+#: ../src/visual_tool_ocr.cpp:369
+msgid "Insert at cursor (original)"
+msgstr "Chèn tại con trỏ (gốc)"
+
+#: ../src/visual_tool_ocr.cpp:370
+msgid "Insert at cursor (text)"
+msgstr "Chèn tại con trỏ (văn bản)"
+
+#: ../src/subs_edit_box.cpp:389
+msgid "insert OCR text"
+msgstr "chèn văn bản OCR"
+
+#: ../src/subs_edit_box.cpp:395
+msgid "insert OCR original"
+msgstr "chèn gốc OCR"
 
 #: ../src/subs_edit_box.cpp:523
 msgid "modify times"
