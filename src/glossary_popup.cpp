@@ -21,7 +21,6 @@
 #include <algorithm>
 
 #include <wx/cursor.h>
-#include <wx/dcbuffer.h>
 #include <wx/dcclient.h>
 #include <wx/intl.h>
 #include <wx/log.h>
@@ -107,7 +106,7 @@ wxWindow *PopupParentFor(wxWindow *anchor) {
 
 GlossaryPopup::GlossaryPopup(wxWindow *anchor, agi::GlossaryEntry const& entry, std::function<void()> keep_alive,
 	std::function<void()> begin_dismiss, std::function<void()> close_now, std::function<void()> open_editor)
-: wxWindow(PopupParentFor(anchor), wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE)
+: wxWindow()
 , fade_timer(this)
 , link_url(to_wx(entry.note_url))
 , keep_alive(std::move(keep_alive))
@@ -115,6 +114,11 @@ GlossaryPopup::GlossaryPopup(wxWindow *anchor, agi::GlossaryEntry const& entry, 
 , close_now(std::move(close_now))
 , open_editor(std::move(open_editor))
 {
+	// wxWidgets requires transparent background style to be selected before
+	// the native window is created.
+	SetBackgroundStyle(wxBG_STYLE_TRANSPARENT);
+	Create(PopupParentFor(anchor), wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
+
 	auto add_line = [this](std::string const& line, bool link = false, bool bold = false) {
 		if (!line.empty())
 			source_lines.push_back({to_wx(line), link, bold});
@@ -124,7 +128,6 @@ GlossaryPopup::GlossaryPopup(wxWindow *anchor, agi::GlossaryEntry const& entry, 
 	add_line(entry.note_text);
 	add_line(entry.note_url, true);
 
-	SetBackgroundStyle(wxBG_STYLE_PAINT);
 	SetCanFocus(false);
 	SetFont(wxSystemSettings::GetFont(wxSYS_DEFAULT_GUI_FONT));
 
@@ -318,15 +321,16 @@ void GlossaryPopup::OnSize(wxSizeEvent& event) {
 }
 
 void GlossaryPopup::OnPaint(wxPaintEvent&) {
-	wxAutoBufferedPaintDC dc(this);
+	// macOS and GTK paint windows natively double-buffered. Using wxPaintDC
+	// here also avoids wxAutoBufferedPaintDC's requirement that the whole
+	// rectangular window have an opaque wxBG_STYLE_PAINT background.
+	wxPaintDC dc(this);
 
 	wxColour parent_bg = wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW);
 
 	wxColour bg = Blend(TooltipBg, parent_bg, opacity);
 	wxColour border = Blend(TooltipBorder, parent_bg, opacity);
 
-	dc.SetBackground(wxBrush(parent_bg));
-	dc.Clear();
 	dc.SetPen(wxPen(border));
 	dc.SetBrush(wxBrush(bg));
 
