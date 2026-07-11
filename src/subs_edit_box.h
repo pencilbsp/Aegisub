@@ -33,6 +33,7 @@
 #include <boost/container/map.hpp>
 #include <boost/flyweight/flyweight_fwd.hpp>
 #include <list>
+#include <string>
 #include <vector>
 
 #include <wx/combobox.h>
@@ -147,7 +148,9 @@ class SubsEditBox final : public wxPanel {
 	wxButton *MakeBottomButton(const char *cmd_name);
 	wxComboBox *MakeComboBox(wxString const& initial_text, int style, void (SubsEditBox::*handler)(wxCommandEvent&), wxString const& tooltip);
 	wxRadioButton *MakeRadio(wxString const& text, bool start, wxString const& tooltip);
-	void SetSecondaryEditorFont();
+	/// Set the read-only original-text box's contents, temporarily lifting its
+	/// read-only flag so the styled control accepts the programmatic update.
+	void SetOriginalText(std::string const& text);
 	/// Resize the read-only original-text box to exactly fit its content.
 	void UpdateSecondaryEditorHeight();
 
@@ -213,7 +216,7 @@ class SubsEditBox final : public wxPanel {
 	void SetDurationField();
 
 	SubsTextEditCtrl *edit_ctrl;
-	wxTextCtrl *secondary_editor;
+	SubsTextEditCtrl *secondary_editor;
 
 public:
 	/// @brief Constructor

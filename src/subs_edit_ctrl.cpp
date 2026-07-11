@@ -130,11 +130,12 @@ wxColour ThemedSubtitleEditColor(std::string const& option_name) {
 }
 }
 
-SubsTextEditCtrl::SubsTextEditCtrl(wxWindow* parent, wxSize wsize, long style, agi::Context *context)
+SubsTextEditCtrl::SubsTextEditCtrl(wxWindow* parent, wxSize wsize, long style, agi::Context *context, std::string font_opt_prefix)
 : wxStyledTextCtrl(parent, -1, wxDefaultPosition, wsize, style)
 , spellchecker(SpellCheckerFactory::GetSpellChecker())
 , thesaurus(std::make_unique<Thesaurus>())
 , context(context)
+, font_opt_prefix(std::move(font_opt_prefix))
 {
 	osx::ime::inject(this);
 
@@ -189,8 +190,8 @@ SubsTextEditCtrl::SubsTextEditCtrl(wxWindow* parent, wxSize wsize, long style, a
 		UpdateStyle();
 	});
 
-	BindConnection(OPT_SUB("Subtitle/Edit Box/Font Face", &SubsTextEditCtrl::SetStyles, this));
-	BindConnection(OPT_SUB("Subtitle/Edit Box/Font Size", &SubsTextEditCtrl::SetStyles, this));
+	BindConnection(OPT_SUB(this->font_opt_prefix + "/Font Face", &SubsTextEditCtrl::SetStyles, this));
+	BindConnection(OPT_SUB(this->font_opt_prefix + "/Font Size", &SubsTextEditCtrl::SetStyles, this));
 	Subscribe("Normal");
 	Subscribe("Comment");
 	Subscribe("Drawing Command");
@@ -300,9 +301,9 @@ void SubsTextEditCtrl::SetSyntaxStyle(int id, wxFont &font, std::string const& n
 void SubsTextEditCtrl::SetStyles() {
 	wxFont font = *wxNORMAL_FONT;
 	font.SetEncoding(wxFONTENCODING_DEFAULT); // this solves problems with some fonts not working properly
-	wxString fontname = FontFace("Subtitle/Edit Box");
+	wxString fontname = FontFace(font_opt_prefix);
 	if (!fontname.empty()) font.SetFaceName(fontname);
-	font.SetPointSize(OPT_GET("Subtitle/Edit Box/Font Size")->GetInt());
+	font.SetPointSize(OPT_GET(font_opt_prefix + "/Font Size")->GetInt());
 
 	if (SupportsSystemAppearanceTheming()) {
 		SetMargins(FromDIP(4), FromDIP(4));

@@ -53,6 +53,10 @@ class SubsTextEditCtrl final : public wxStyledTextCtrl, private agi::signal::Con
 	/// Project context, for splitting lines
 	agi::Context *context;
 
+	/// Options prefix for the font face/size to use (e.g. "Subtitle/Edit Box").
+	/// Lets a second instance (the read-only original box) have its own font.
+	std::string font_opt_prefix;
+
 	/// The word right-clicked on, used for spellchecker replacing
 	std::string currentWord;
 
@@ -112,10 +116,11 @@ class SubsTextEditCtrl final : public wxStyledTextCtrl, private agi::signal::Con
 	wxMenu *GetLanguagesMenu(int base_id, wxString const& curLang, wxArrayString const& langs);
 
 public:
-	SubsTextEditCtrl(wxWindow* parent, wxSize size, long style, agi::Context *context);
+	SubsTextEditCtrl(wxWindow* parent, wxSize size, long style, agi::Context *context, std::string font_opt_prefix = "Subtitle/Edit Box");
 	~SubsTextEditCtrl();
 
 	void SetTextTo(std::string const& text);
+	void UpdateVerticalScrollState();
 	void Paste() override;
 
 	std::pair<int, int> GetBoundsOfWordAtPosition(int pos);

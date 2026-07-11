@@ -236,9 +236,14 @@ SubsEditBox::SubsEditBox(wxWindow *parent, agi::Context *context)
 	edit_ctrl->Bind(wxEVT_CHAR_HOOK, &SubsEditBox::OnKeyDown, this);
 	edit_ctrl->Bind(wxEVT_MOUSEWHEEL, &SubsEditBox::OnEditorMouseWheel, this);
 
-	secondary_editor = new wxTextCtrl(this, -1, "", wxDefaultPosition, FromDIP(wxSize(300,50)), wxBORDER_SUNKEN | wxTE_MULTILINE | wxTE_READONLY);
+	// The original-text box mirrors the main edit box (same styled control and
+	// syntax highlighting) but is read-only and uses its own font options so it
+	// can be sized independently. A null context keeps it from touching the
+	// main editor's text-selection controller when its contents are updated.
+	secondary_editor = new SubsTextEditCtrl(this, FromDIP(wxSize(300,50)), wxBORDER_SUNKEN, nullptr, "Subtitle/Edit Box/Original");
+	secondary_editor->SetReadOnly(true);
+	secondary_editor->SetUseHorizontalScrollBar(false);
 	secondary_editor->Bind(wxEVT_MOUSEWHEEL, &SubsEditBox::OnEditorMouseWheel, this);
-	SetSecondaryEditorFont();
 
 	// The original-text box is read-only, so it is sized to exactly fit its
 	// content (proportion 0) instead of splitting the space evenly; the main
@@ -283,8 +288,10 @@ SubsEditBox::SubsEditBox(wxWindow *parent, agi::Context *context)
 		if (line)
 			UpdateCharacterCount(line->Text);
 	};
-	auto update_secondary_editor_font = [this](agi::OptionValue const&) {
-		SetSecondaryEditorFont();
+	// The styled control restyles itself when its font options change; the box
+	// only needs to re-fit its height around the new line height afterwards.
+	auto update_original_height = [this](agi::OptionValue const&) {
+		UpdateSecondaryEditorHeight();
 	};
 	connections = agi::signal::make_vector({
 		context->project->AddTimecodesListener(&SubsEditBox::UpdateFrameTiming, this),
@@ -293,8 +300,8 @@ SubsEditBox::SubsEditBox(wxWindow *parent, agi::Context *context)
 		OPT_SUB("Subtitle/Character Limit", update_character_count),
 		OPT_SUB("Subtitle/Character Counter/Ignore Whitespace", update_character_count),
 		OPT_SUB("Subtitle/Character Counter/Ignore Punctuation", update_character_count),
-		OPT_SUB("Subtitle/Edit Box/Original/Font Face", update_secondary_editor_font),
-		OPT_SUB("Subtitle/Edit Box/Original/Font Size", update_secondary_editor_font),
+		OPT_SUB("Subtitle/Edit Box/Original/Font Face", update_original_height),
+		OPT_SUB("Subtitle/Edit Box/Original/Font Size", update_original_height),
 	 });
 
 	context->textSelectionController->SetControl(edit_ctrl);
@@ -323,20 +330,12 @@ wxTextCtrl *SubsEditBox::MakeMarginCtrl(wxString const& tooltip, int margin, wxS
 	return ctrl;
 }
 
-void SubsEditBox::SetSecondaryEditorFont() {
-	if (!secondary_editor)
-		return;
-
-	wxFont font = *wxNORMAL_FONT;
-	font.SetEncoding(wxFONTENCODING_DEFAULT);
-	wxString fontname = FontFace("Subtitle/Edit Box/Original");
-	if (!fontname.empty())
-		font.SetFaceName(fontname);
-	font.SetPointSize(OPT_GET("Subtitle/Edit Box/Original/Font Size")->GetInt());
-
-	secondary_editor->SetFont(font);
-	secondary_editor->Refresh();
-	UpdateSecondaryEditorHeight();
+void SubsEditBox::SetOriginalText(std::string const& text) {
+	// The styled control rejects programmatic edits while read-only, so lift the
+	// flag just long enough to load the new text.
+	secondary_editor->SetReadOnly(false);
+	secondary_editor->SetTextTo(text);
+	secondary_editor->SetReadOnly(true);
 }
 
 void SubsEditBox::UpdateSecondaryEditorHeight() {
@@ -345,29 +344,19 @@ void SubsEditBox::UpdateSecondaryEditorHeight() {
 	if (updating_original_height || !secondary_editor || !secondary_editor->IsShown())
 		return;
 
-	// Width available for text inside the box: panel width minus the sizer's
-	// left/right borders and the control's own internal margins.
-	int text_width = GetClientSize().GetWidth() - FromDIP(2 * 3) - FromDIP(6);
-	if (text_width < FromDIP(10))
+	// Ask Scintilla directly for the number of display (word-wrapped) lines the
+	// current text occupies and the per-line height; both already account for
+	// the control's font and the extra ascent/descent it renders with.
+	int doc_lines = secondary_editor->GetLineCount();
+	int line_count = 0;
+	for (int i = 0; i < doc_lines; ++i)
+		line_count += std::max(1, secondary_editor->WrapCount(i));
+	line_count = std::max(1, line_count);
+
+	int line_height = secondary_editor->TextHeight(0);
+	if (line_height <= 0)
 		return;
 
-	// Count the number of display lines the current text occupies at this
-	// width and font, honoring word wrapping.
-	struct LineCounter final : public wxTextWrapper {
-		int lines = 0;
-		void OnOutputLine(const wxString&) override { ++lines; }
-	} counter;
-	counter.Wrap(secondary_editor, secondary_editor->GetValue(), text_width);
-	int line_count = std::max(1, counter.lines);
-
-	wxClientDC dc(secondary_editor);
-	dc.SetFont(secondary_editor->GetFont());
-	// The native text view renders each line taller than the DC's character
-	// height (it adds line spacing/leading, which grows with the font size),
-	// so use a scaled per-line height. Because the box height is pinned with
-	// SetMaxSize below, underestimating here would leave the box a few pixels
-	// short of its content and make it scrollable even for a single line.
-	int line_height = (dc.GetCharHeight() * 6) / 5; // ~1.2x for leading
 	int chrome = FromDIP(8);                         // internal inset + border
 	int content_height = line_count * line_height + chrome;
 	int min_height = line_height + chrome;
@@ -389,9 +378,8 @@ void SubsEditBox::UpdateSecondaryEditorHeight() {
 	int height = std::clamp(content_height, min_height, max_height);
 
 	// The box only needs a scrollbar when the content is taller than the
-	// (capped) box; hide it otherwise so a single fitting line never shows one,
-	// regardless of the "always show scroll bars" system setting.
-	osx::set_vertical_scrollbar(secondary_editor, content_height > height);
+	// (capped) box; hide it otherwise so a single fitting line never shows one.
+	secondary_editor->SetUseVerticalScrollBar(content_height > height);
 
 	// Ensure the main edit box is always at least one line of its own font
 	// tall. Otherwise, when both boxes use a large font and share the fixed
@@ -542,7 +530,7 @@ void SubsEditBox::UpdateFields(int type, bool repopulate_lists) {
 	}
 
 	if (split_box->IsChecked()) {
-		secondary_editor->SetValue(to_wx(line->Original));
+		SetOriginalText(line->Original);
 		UpdateSecondaryEditorHeight();
 	}
 }
@@ -770,7 +758,7 @@ void SubsEditBox::OnSplit(wxCommandEvent&) {
 void SubsEditBox::DoOnSplit(bool show_original) {
 	Freeze();
 	if (show_original)
-		secondary_editor->SetValue(to_wx(line ? line->Original.get() : std::string()));
+		SetOriginalText(line ? line->Original.get() : std::string());
 
 	GetSizer()->Show(secondary_editor, show_original);
 	GetSizer()->Show(bottom_sizer, show_original);
