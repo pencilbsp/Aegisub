@@ -1000,6 +1000,30 @@ msgstr ""
 msgid "Copy plain text from selected subtitles to the clipboard"
 msgstr ""
 
+#: ../src/command/edit.cpp:651 ../src/command/edit.cpp:652
+msgid "Sync to Original Lines"
+msgstr ""
+
+#: ../src/command/edit.cpp:653
+msgid "Copy the Text field of the selected lines to Original"
+msgstr ""
+
+#: ../src/command/edit.cpp:667
+msgid "sync to original"
+msgstr ""
+
+#: ../src/command/edit.cpp:673 ../src/command/edit.cpp:674
+msgid "Sync to Text Lines"
+msgstr ""
+
+#: ../src/command/edit.cpp:675
+msgid "Copy the Original field of the selected lines to Text"
+msgstr ""
+
+#: ../src/command/edit.cpp:689
+msgid "sync to text"
+msgstr ""
+
 #: ../src/command/edit.cpp:629
 msgid "Cu&t Lines"
 msgstr ""

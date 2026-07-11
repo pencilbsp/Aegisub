@@ -867,6 +867,30 @@ msgstr "Sao chép văn bản thuần"
 msgid "Copy plain text from selected subtitles to the clipboard"
 msgstr "Sao chép văn bản thuần từ phụ đề đang chọn vào khay nhớ tạm"
 
+#: ../src/command/edit.cpp:651 ../src/command/edit.cpp:652
+msgid "Sync to Original Lines"
+msgstr "Đồng bộ sang các dòng gốc"
+
+#: ../src/command/edit.cpp:653
+msgid "Copy the Text field of the selected lines to Original"
+msgstr "Sao chép trường Văn bản của các dòng đang chọn sang Gốc"
+
+#: ../src/command/edit.cpp:667
+msgid "sync to original"
+msgstr "đồng bộ sang gốc"
+
+#: ../src/command/edit.cpp:673 ../src/command/edit.cpp:674
+msgid "Sync to Text Lines"
+msgstr "Đồng bộ sang các dòng văn bản"
+
+#: ../src/command/edit.cpp:675
+msgid "Copy the Original field of the selected lines to Text"
+msgstr "Sao chép trường Gốc của các dòng đang chọn sang Văn bản"
+
+#: ../src/command/edit.cpp:689
+msgid "sync to text"
+msgstr "đồng bộ sang văn bản"
+
 #: ../src/command/edit.cpp:629
 msgid "Cu&t Lines"
 msgstr "Cắ&t dòng"
