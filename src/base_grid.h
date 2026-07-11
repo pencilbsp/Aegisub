@@ -102,6 +102,7 @@ class BaseGrid final : public wxWindow {
 
 	/// Cached grid body context menu
 	std::unique_ptr<wxMenu> context_menu;
+	std::unique_ptr<wxMenu> context_menu_original;
 	int context_menu_column = -1;
 
 	void OnDPIChanged(wxDPIChangedEvent &e);

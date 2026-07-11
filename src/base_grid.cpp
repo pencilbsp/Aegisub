@@ -147,8 +147,7 @@ BaseGrid::BaseGrid(wxWindow* parent, agi::Context *context)
 	SetBackgroundStyle(wxBG_STYLE_PAINT);
 
 	for (size_t i : agi::util::range(std::min(columns_visible.size(), columns.size()))) {
-		if (!columns_visible[i])
-			columns[i]->SetVisible(false);
+		columns[i]->SetVisible(columns_visible[i]);
 	}
 
 	auto const& column_widths = OPT_GET("Subtitle/Grid/Column Width")->GetListInt();
@@ -709,8 +708,19 @@ void BaseGrid::OnContextMenu(wxContextMenuEvent &evt) {
 	wxPoint client_pos = pos == wxDefaultPosition ? wxDefaultPosition : ScreenToClient(pos);
 	if (pos == wxDefaultPosition || client_pos.y > lineHeight) {
 		context_menu_column = client_pos == wxDefaultPosition ? -1 : ColumnAt(client_pos.x);
-		if (!context_menu) context_menu = menu::GetMenu("grid_context", (wxID_HIGHEST + 1) + 8000, context);
-		menu::OpenPopupMenu(context_menu.get(), this);
+		auto use_original_menu = ContextMenuCopiesOriginalText();
+		auto& menu = use_original_menu ? context_menu_original : context_menu;
+		if (!menu) {
+			try {
+				menu = menu::GetMenu(use_original_menu ? "grid_context_original" : "grid_context", (wxID_HIGHEST + 1) + 8000, context);
+			}
+			catch (menu::UnknownMenu const&) {
+				if (!use_original_menu)
+					throw;
+				menu = menu::GetMenu("grid_context", (wxID_HIGHEST + 1) + 8000, context);
+			}
+		}
+		menu::OpenPopupMenu(menu.get(), this);
 	}
 	else {
 		wxMenu menu;

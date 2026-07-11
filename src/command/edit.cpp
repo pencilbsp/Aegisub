@@ -637,6 +637,59 @@ static void copy_grid_context_exact_plain_text(agi::Context *c) {
 		copy_lines_exact_plain_text(c);
 }
 
+struct validate_original_grid_context : public validate_sel_nonempty {
+	bool Validate(const agi::Context *c) override {
+		return c
+			&& validate_sel_nonempty::Validate(c)
+			&& c->subsGrid
+			&& c->subsGrid->ContextMenuCopiesOriginalText();
+	}
+};
+
+struct edit_line_sync_to_original final : public validate_sel_nonempty {
+	CMD_NAME("edit/line/sync_to_original")
+	STR_MENU("Sync to Original Lines")
+	STR_DISP("Sync to Original Lines")
+	STR_HELP("Copy the Text field of the selected lines to Original")
+
+	void operator()(agi::Context *c) override {
+		if (!validate_sel_nonempty::Validate(c)) return;
+
+		bool changed = false;
+		for (auto line : c->selectionController->GetSortedSelection()) {
+			if (line->Original.get() == line->Text.get())
+				continue;
+			line->Original = line->Text;
+			changed = true;
+		}
+
+		if (changed)
+			c->ass->Commit(_("sync to original"), AssFile::COMMIT_DIAG_META);
+	}
+};
+
+struct edit_line_sync_to_text final : public validate_original_grid_context {
+	CMD_NAME("edit/line/sync_to_text")
+	STR_MENU("Sync to Text Lines")
+	STR_DISP("Sync to Text Lines")
+	STR_HELP("Copy the Original field of the selected lines to Text")
+
+	void operator()(agi::Context *c) override {
+		if (!Validate(c)) return;
+
+		bool changed = false;
+		for (auto line : c->selectionController->GetSortedSelection()) {
+			if (line->Text.get() == line->Original.get())
+				continue;
+			line->Text = line->Original;
+			changed = true;
+		}
+
+		if (changed)
+			c->ass->Commit(_("sync to text"), AssFile::COMMIT_DIAG_TEXT);
+	}
+};
+
 static void delete_lines(agi::Context *c, wxString const& commit_message) {
 	auto const& sel = c->selectionController->GetSelectedSet();
 
@@ -1405,6 +1458,8 @@ namespace cmd {
 		reg(std::make_unique<edit_line_split_estimate>());
 		reg(std::make_unique<edit_line_split_preserve>());
 		reg(std::make_unique<edit_line_split_video>());
+		reg(std::make_unique<edit_line_sync_to_original>());
+		reg(std::make_unique<edit_line_sync_to_text>());
 		reg(std::make_unique<edit_style_bold>());
 		reg(std::make_unique<edit_style_italic>());
 		reg(std::make_unique<edit_style_underline>());
