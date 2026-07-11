@@ -34,6 +34,7 @@
 #include <wx/dcclient.h>
 #include <wx/dialog.h>
 #include <wx/filedlg.h>
+#include <wx/listbox.h>
 #include <wx/listctrl.h>
 #include <wx/msgdlg.h>
 #include <wx/sizer.h>
