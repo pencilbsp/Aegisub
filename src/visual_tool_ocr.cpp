@@ -482,7 +482,11 @@ void VisualToolOCR::OnMouseEvent(wxMouseEvent &event) {
 	if (event.LeftDown()) {
 		if (hovered_character >= 0) {
 			size_t const region_idx = characters[hovered_character].region_index;
-			if (!is_multi_select
+			// A modifier-click (Shift/Ctrl/Cmd/Alt) on an already-selected
+			// character toggles it off. A plain click must instead re-anchor a
+			// fresh selection on that character, so it falls through to the
+			// drag-selection path below.
+			if (is_multi_select
 			    && static_cast<size_t>(hovered_character) < selected_characters.size()
 			    && selected_characters[hovered_character]) {
 				selected_characters[hovered_character] = false;
