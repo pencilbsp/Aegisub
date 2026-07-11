@@ -241,9 +241,11 @@ SubsEditBox::SubsEditBox(wxWindow *parent, agi::Context *context)
 	// can be sized independently. It keeps the app context for Find/Replace and
 	// glossary commands, but does not drive the shared text-selection controller.
 	secondary_editor = new SubsTextEditCtrl(this, FromDIP(wxSize(300,50)), wxBORDER_SUNKEN, c, "Subtitle/Edit Box/Original", false, false);
-	secondary_editor->SetReadOnly(true);
 	secondary_editor->SetUseHorizontalScrollBar(false);
 	secondary_editor->Bind(wxEVT_MOUSEWHEEL, &SubsEditBox::OnEditorMouseWheel, this);
+	secondary_editor->Bind(wxEVT_STC_MODIFIED, &SubsEditBox::OnOriginalChange, this);
+	secondary_editor->SetModEventMask(wxSTC_MOD_INSERTTEXT | wxSTC_MOD_DELETETEXT | wxSTC_STARTACTION);
+	SetOriginalEditable(false);
 
 	// The original-text box is read-only, so it is sized to exactly fit its
 	// content (proportion 0) instead of splitting the space evenly; the main
@@ -256,7 +258,12 @@ SubsEditBox::SubsEditBox(wxWindow *parent, agi::Context *context)
 	bottom_sizer->Add(MakeBottomButton("edit/revert"), wxSizerFlags().Border(wxRIGHT));
 	bottom_sizer->Add(MakeBottomButton("edit/clear"), wxSizerFlags().Border(wxRIGHT));
 	bottom_sizer->Add(MakeBottomButton("edit/clear/text"), wxSizerFlags().Border(wxRIGHT));
-	bottom_sizer->Add(MakeBottomButton("edit/insert_original"));
+	bottom_sizer->Add(MakeBottomButton("edit/insert_original"), wxSizerFlags().Border(wxRIGHT));
+
+	edit_original_toggle = new wxCheckBox(this, -1, _("Edit Original"));
+	edit_original_toggle->SetToolTip(_("Make the original text editable and commit changes to the line's original text."));
+	edit_original_toggle->Bind(wxEVT_CHECKBOX, &SubsEditBox::OnEditOriginalToggle, this);
+	bottom_sizer->Add(edit_original_toggle, wxSizerFlags().Center());
 	main_sizer->Add(bottom_sizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 3);
 	main_sizer->Hide(bottom_sizer);
 
@@ -305,6 +312,7 @@ SubsEditBox::SubsEditBox(wxWindow *parent, agi::Context *context)
 	 });
 
 	context->textSelectionController->SetControl(edit_ctrl);
+	context->editBox = this;
 	edit_ctrl->SetFocus();
 
 	// Show Original always starts unchecked; the user enables it per session.
@@ -312,6 +320,7 @@ SubsEditBox::SubsEditBox(wxWindow *parent, agi::Context *context)
 
 SubsEditBox::~SubsEditBox() {
 	c->textSelectionController->SetControl(nullptr);
+	c->editBox = nullptr;
 }
 
 wxTextCtrl *SubsEditBox::MakeMarginCtrl(wxString const& tooltip, int margin, wxString const& commit_msg) {
@@ -332,10 +341,82 @@ wxTextCtrl *SubsEditBox::MakeMarginCtrl(wxString const& tooltip, int margin, wxS
 
 void SubsEditBox::SetOriginalText(std::string const& text) {
 	// The styled control rejects programmatic edits while read-only, so lift the
-	// flag just long enough to load the new text.
+	// flag just long enough to load the new text. The guard keeps the modified
+	// event this triggers from being mistaken for a user edit and committed.
+	updating_original_text = true;
 	secondary_editor->SetReadOnly(false);
 	secondary_editor->SetTextTo(text);
-	secondary_editor->SetReadOnly(true);
+	// Restore editability to whatever the toggle asks for, not always read-only.
+	SetOriginalEditable(IsOriginalEditable());
+	updating_original_text = false;
+}
+
+void SubsEditBox::SetOriginalEditable(bool editable) {
+	secondary_editor->SetReadOnly(!editable);
+	// A read-only box the user can't type into shouldn't show a blinking caret.
+	secondary_editor->SetCaretStyle(editable ? wxSTC_CARETSTYLE_LINE : wxSTC_CARETSTYLE_INVISIBLE);
+}
+
+bool SubsEditBox::IsOriginalEditable() const {
+	return edit_original_toggle && edit_original_toggle->GetValue();
+}
+
+SubsEditBox::CaretTarget SubsEditBox::GetCaretTarget() const {
+	// Right-clicking the video doesn't steal keyboard focus, so the edit box that
+	// currently holds focus is the one whose caret the user sees blinking. Walk
+	// up from the focused window in case focus lands on an internal child.
+	for (wxWindow *focus = wxWindow::FindFocus(); focus; focus = focus->GetParent()) {
+		// The original box only carries a usable caret while it is editable.
+		if (focus == secondary_editor)
+			return IsOriginalEditable() ? CaretTarget::Original : CaretTarget::None;
+		if (focus == edit_ctrl)
+			return CaretTarget::Text;
+	}
+	return CaretTarget::None;
+}
+
+void SubsEditBox::ReplaceActiveText(std::string const& text) {
+	if (!line) return;
+	line->Text = text;
+	c->ass->Commit(_("insert OCR text"), AssFile::COMMIT_DIAG_TEXT, -1, line);
+}
+
+void SubsEditBox::ReplaceActiveOriginal(std::string const& text) {
+	if (!line) return;
+	line->Original = text;
+	c->ass->Commit(_("insert OCR original"), AssFile::COMMIT_DIAG_META, -1, line);
+}
+
+void SubsEditBox::InsertTextAtCaret(std::string const& text) {
+	if (!line) return;
+
+	// Splice the text in at the caret, overwriting any active selection. The
+	// selection offsets are byte positions into the same UTF-8 string the model
+	// holds, so they can index it directly.
+	switch (GetCaretTarget()) {
+		case CaretTarget::Text: {
+			std::string const& full = line->Text.get();
+			int len = static_cast<int>(full.size());
+			int start = std::clamp(c->textSelectionController->GetSelectionStart(), 0, len);
+			int end = std::clamp(c->textSelectionController->GetSelectionEnd(), 0, len);
+			if (start > end) std::swap(start, end);
+			line->Text = full.substr(0, start) + text + full.substr(end);
+			c->ass->Commit(_("insert OCR text"), AssFile::COMMIT_DIAG_TEXT, -1, line);
+			break;
+		}
+		case CaretTarget::Original: {
+			std::string const& full = line->Original.get();
+			int len = static_cast<int>(full.size());
+			int start = std::clamp(secondary_editor->GetSelectionStart(), 0, len);
+			int end = std::clamp(secondary_editor->GetSelectionEnd(), 0, len);
+			if (start > end) std::swap(start, end);
+			line->Original = full.substr(0, start) + text + full.substr(end);
+			c->ass->Commit(_("insert OCR original"), AssFile::COMMIT_DIAG_META, -1, line);
+			break;
+		}
+		case CaretTarget::None:
+			break;
+	}
 }
 
 void SubsEditBox::UpdateSecondaryEditorHeight() {
@@ -609,6 +690,28 @@ void SubsEditBox::OnChange(wxStyledTextEvent &event) {
 	}
 }
 
+void SubsEditBox::OnOriginalChange(wxStyledTextEvent &event) {
+	if (updating_original_text || !line) return;
+
+	auto data = secondary_editor->GetTextRaw();
+	boost::flyweight<std::string> new_value(data.data(), data.length());
+	if (new_value == line->Original) return;
+
+	if (event.GetModificationType() & wxSTC_STARTACTION)
+		commit_id = -1;
+
+	// Propagate the edit to every selected line, mirroring how the main edit box
+	// applies Text changes across the whole selection.
+	SetSelectedRows(&AssDialogue::Original, new_value, _("modify original"), AssFile::COMMIT_DIAG_META, true);
+}
+
+void SubsEditBox::OnEditOriginalToggle(wxCommandEvent&) {
+	bool editable = edit_original_toggle->GetValue();
+	SetOriginalEditable(editable);
+	if (editable)
+		secondary_editor->SetFocus();
+}
+
 void SubsEditBox::Commit(wxString const& desc, int type, bool amend, AssDialogue *line) {
 	file_changed_slot.Block();
 	commit_id = c->ass->Commit(desc, type, (amend && desc == last_commit_type) ? commit_id : -1, line);
@@ -757,6 +860,12 @@ void SubsEditBox::OnSplit(wxCommandEvent&) {
 
 void SubsEditBox::DoOnSplit(bool show_original) {
 	Freeze();
+	if (!show_original) {
+		// Hiding the original box always drops edit mode so it can never be left
+		// editable while invisible; re-showing starts read-only again.
+		edit_original_toggle->SetValue(false);
+		SetOriginalEditable(false);
+	}
 	if (show_original)
 		SetOriginalText(line ? line->Original.get() : std::string());
 

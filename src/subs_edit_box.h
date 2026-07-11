@@ -84,6 +84,9 @@ class SubsEditBox final : public wxPanel {
 	/// Guards against re-entrant original-box height updates (Layout can fire
 	/// a size event that would otherwise recompute the height again).
 	bool updating_original_height = false;
+	/// Guards against committing while the original-text box is being loaded
+	/// programmatically (SetTextTo fires the same modified event as typing).
+	bool updating_original_text = false;
 	/// Last width the original box was laid out for; used to skip redundant
 	/// re-wraps on size events that didn't change the width.
 	int last_original_width = -1;
@@ -109,6 +112,8 @@ class SubsEditBox final : public wxPanel {
 	wxRadioButton *by_frame;
 	wxTextCtrl *char_count;
 	wxCheckBox *split_box;
+	/// Toggle that makes the read-only original-text box editable.
+	wxCheckBox *edit_original_toggle = nullptr;
 
 	wxSizer *top_sizer;
 	wxSizer *middle_right_sizer;
@@ -151,10 +156,17 @@ class SubsEditBox final : public wxPanel {
 	/// Set the read-only original-text box's contents, temporarily lifting its
 	/// read-only flag so the styled control accepts the programmatic update.
 	void SetOriginalText(std::string const& text);
+	/// Toggle whether the original-text box accepts edits, hiding its caret while
+	/// read-only so no cursor blinks in a box the user can't type into.
+	void SetOriginalEditable(bool editable);
 	/// Resize the read-only original-text box to exactly fit its content.
 	void UpdateSecondaryEditorHeight();
 
 	void OnChange(wxStyledTextEvent &event);
+	/// Commit edits made in the original-text box to the active line's Original.
+	void OnOriginalChange(wxStyledTextEvent &event);
+	/// Toggle the read-only state of the original-text box.
+	void OnEditOriginalToggle(wxCommandEvent &event);
 	void OnKeyDown(wxKeyEvent &event);
 	void OnEditorMouseWheel(wxMouseEvent &event);
 
@@ -219,8 +231,23 @@ class SubsEditBox final : public wxPanel {
 	SubsTextEditCtrl *secondary_editor;
 
 public:
+	/// Which edit box a caret-relative insert should target.
+	enum class CaretTarget { None, Text, Original };
+
 	/// @brief Constructor
 	/// @param parent Parent window
 	SubsEditBox(wxWindow *parent, agi::Context *context);
 	~SubsEditBox();
+
+	/// Whether the original-text box is currently editable (Edit Original on).
+	bool IsOriginalEditable() const;
+	/// The edit box that last held the caret; Original only when it is editable.
+	CaretTarget GetCaretTarget() const;
+	/// Replace the active line's Text field with the given string.
+	void ReplaceActiveText(std::string const& text);
+	/// Replace the active line's Original field with the given string.
+	void ReplaceActiveOriginal(std::string const& text);
+	/// Insert text at the caret of the last-focused edit box, replacing any
+	/// selection there. No-op when GetCaretTarget() is None.
+	void InsertTextAtCaret(std::string const& text);
 };
