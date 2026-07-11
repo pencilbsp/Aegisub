@@ -380,9 +380,9 @@ void SubsTextEditCtrl::SetStyles() {
 	IndicatorSetUnder(1, true);
 
 	// Glossary term indicator
-	IndicatorSetStyle(2, wxSTC_INDIC_DOTS);
-	IndicatorSetForeground(2, wxColour(64, 128, 255));
-	IndicatorSetUnder(2, true);
+	IndicatorSetStyle(2, wxSTC_INDIC_SQUIGGLE);
+	IndicatorSetForeground(2, wxColour(0, 170, 0));
+	IndicatorSetUnder(2, false);
 }
 
 void SubsTextEditCtrl::UpdateStyle() {

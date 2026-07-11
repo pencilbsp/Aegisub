@@ -12,5 +12,12 @@
             "Font Face" : "",
             "Font Size" : 12
         }
+    },
+    "Tool" : {
+        "Glossary" : {
+            "Popup" : {
+                "Font Size" : 13
+            }
+        }
     }
 }

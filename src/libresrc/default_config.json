@@ -529,7 +529,11 @@
 		},
 		"Glossary" : {
 			"Active Dictionary" : "",
-			"Enabled" : true
+			"Enabled" : true,
+			"Popup" : {
+				"Font Face" : "",
+				"Font Size" : 10
+			}
 		},
 		"Spell Checker" : {
 			"Backend" : "hunspell",

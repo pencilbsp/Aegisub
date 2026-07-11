@@ -15,6 +15,8 @@
 #include "glossary_popup.h"
 
 #include "compat.h"
+#include "options.h"
+#include "utils.h"
 
 #include <libaegisub/glossary.h>
 
@@ -36,6 +38,7 @@ constexpr int GapBelowAnchor = 1;
 constexpr int ArrowWidth = 18;
 constexpr int ArrowHeight = 10;
 constexpr int ArrowInset = 18;
+constexpr int LineGap = 3;
 constexpr int FadeIntervalMs = 16;
 constexpr double FadeStep = 0.18;
 
@@ -129,7 +132,13 @@ GlossaryPopup::GlossaryPopup(wxWindow *anchor, agi::GlossaryEntry const& entry, 
 	add_line(entry.note_url, true);
 
 	SetCanFocus(false);
-	SetFont(wxSystemSettings::GetFont(wxSYS_DEFAULT_GUI_FONT));
+
+	wxFont font = wxSystemSettings::GetFont(wxSYS_DEFAULT_GUI_FONT);
+	wxString fontname = FontFace("Tool/Glossary/Popup");
+	if (!fontname.empty())
+		font.SetFaceName(fontname);
+	font.SetPointSize(OPT_GET("Tool/Glossary/Popup/Font Size")->GetInt());
+	SetFont(font);
 
 	// The content is drawn directly rather than hosted in a wxTextCtrl: on macOS
 	// that control doesn't emit link clicks and can't give the URL a hover
@@ -201,11 +210,14 @@ wxSize GlossaryPopup::CalculateBestSize() {
 
 	int width = MinWidth;
 	int height = PaddingY * 2;
-	for (auto const& line : lines) {
+	for (size_t i = 0; i < lines.size(); ++i) {
+		auto const& line = lines[i];
 		dc.SetFont(LineFont(line.bold));
 		wxSize extent = dc.GetTextExtent(line.text.empty() ? wxString(" ") : line.text);
 		width = std::max(width, extent.GetWidth() + PaddingX * 2);
 		height += extent.GetHeight();
+		if (i + 1 < lines.size())
+			height += FromDIP(LineGap);
 	}
 
 	return wxSize(std::min(width, MaxWidth), height + ArrowHeight);
@@ -219,7 +231,7 @@ void GlossaryPopup::LayoutLines() {
 		dc.SetFont(LineFont(line.bold));
 		wxSize extent = dc.GetTextExtent(line.text.empty() ? wxString(" ") : line.text);
 		line.rect = wxRect(PaddingX, y, extent.GetWidth(), extent.GetHeight());
-		y += extent.GetHeight();
+		y += extent.GetHeight() + FromDIP(LineGap);
 	}
 }
 
