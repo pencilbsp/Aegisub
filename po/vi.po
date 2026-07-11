@@ -2706,27 +2706,31 @@ msgstr "Chèn sau"
 msgid "Replace line text"
 msgstr "Thay văn bản dòng"
 
-#: ../src/command/video.cpp:846
-msgid "Insert into Original"
-msgstr "Chèn vào Bản gốc"
+#: ../src/command/video.cpp:849
+msgid "%d languages selected"
+msgstr "Đã chọn %d ngôn ngữ"
 
 #: ../src/command/video.cpp:849
+msgid "OCR target:"
+msgstr "Đích OCR:"
+
+#: ../src/command/video.cpp:856
 msgid "Language:"
 msgstr "Ngôn ngữ:"
 
-#: ../src/command/video.cpp:851
+#: ../src/command/video.cpp:858
 msgid "Auto"
 msgstr "Tự động"
 
-#: ../src/command/video.cpp:857
+#: ../src/command/video.cpp:864
 msgid "OCR region:"
 msgstr "Vùng OCR:"
 
-#: ../src/command/video.cpp:859
+#: ../src/command/video.cpp:866
 msgid "Use OCR region"
 msgstr "Dùng vùng OCR"
 
-#: ../src/command/video.cpp:861
+#: ../src/command/video.cpp:868
 msgid "Pick region..."
 msgstr "Chọn vùng..."
 

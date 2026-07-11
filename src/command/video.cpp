@@ -34,6 +34,7 @@
 #include "../ass_file.h"
 #include "../ass_dialogue.h"
 #include "../async_video_provider.h"
+#include "../base_grid.h"
 #include "../compat.h"
 #include "../dialog_detached_video.h"
 #include "../dialog_manager.h"
@@ -66,6 +67,10 @@
 #include <boost/algorithm/string/split.hpp>
 #include <future>
 #include <thread>
+#ifdef __WXOSX_COCOA__
+#include <objc/message.h>
+#include <objc/runtime.h>
+#endif
 #include <wx/app.h>
 #include <wx/button.h>
 #include <wx/checkbox.h>
@@ -75,6 +80,7 @@
 #include <wx/msgdlg.h>
 #include <wx/panel.h>
 #include <wx/progdlg.h>
+#include <wx/radiobut.h>
 #include <wx/sizer.h>
 #include <wx/stattext.h>
 #include <wx/textdlg.h>
@@ -337,7 +343,11 @@ enum class OcrLineFrameMode {
 enum class OcrLineInsertMode {
 	InsertBefore,
 	InsertAfter,
-	Replace,
+	Replace
+};
+
+enum class OcrLineTargetField {
+	Text,
 	Original
 };
 
@@ -762,10 +772,113 @@ public:
 	}
 };
 
+class OcrLanguageChoice final : public wxChoice {
+	std::vector<std::string> supported_languages;
+	std::vector<bool> checked_languages;
+	bool updating = false;
+
+	wxString GetSummary() const {
+		auto language_codes = GetLanguageCodes();
+		if (language_codes.empty())
+			return _("Auto");
+		if (language_codes.size() == 1)
+			return to_wx(language_codes.front());
+		return fmt_tl("%d languages selected", static_cast<int>(language_codes.size()));
+	}
+
+	void RebuildLanguageItems() {
+		Freeze();
+		Clear();
+		Append(GetSummary());
+		for (size_t i = 0; i < supported_languages.size(); ++i)
+			Append(GetLanguageItemLabel(i));
+		SetSelection(0);
+		Thaw();
+		UpdateNativeChecks();
+	}
+
+	void OnChoice(wxCommandEvent& event) {
+		if (updating)
+			return;
+
+		int const selection = event.GetSelection();
+		if (selection > 0) {
+			size_t const language_index = static_cast<size_t>(selection - 1);
+			if (language_index < checked_languages.size())
+				checked_languages[language_index] = !checked_languages[language_index];
+		}
+		UpdateSummary();
+	}
+
+public:
+	OcrLanguageChoice(wxWindow *parent, std::vector<std::string> languages)
+	: wxChoice(parent, wxID_ANY)
+	, supported_languages(std::move(languages))
+	, checked_languages(supported_languages.size(), false)
+	{
+		UpdateSummary();
+		Bind(wxEVT_CHOICE, &OcrLanguageChoice::OnChoice, this);
+	}
+
+	void UpdateSummary() {
+		updating = true;
+		RebuildLanguageItems();
+		updating = false;
+	}
+
+	wxString GetLanguageItemLabel(size_t index) const {
+#ifdef __WXOSX_COCOA__
+		return to_wx(supported_languages[index]);
+#else
+		auto label = to_wx(supported_languages[index]);
+		if (checked_languages[index])
+			label += wxString::FromUTF8(" \xE2\x9C\x93");
+		return label;
+#endif
+	}
+
+	void UpdateNativeChecks() {
+#ifdef __WXOSX_COCOA__
+		id popup = reinterpret_cast<id>(GetHandle());
+		if (!popup)
+			return;
+
+		auto send_id = reinterpret_cast<id (*)(id, SEL)>(objc_msgSend);
+		id menu = send_id(popup, sel_registerName("menu"));
+		if (!menu)
+			return;
+
+		auto item_at_index = reinterpret_cast<id (*)(id, SEL, unsigned long)>(objc_msgSend);
+		auto set_state = reinterpret_cast<void (*)(id, SEL, long)>(objc_msgSend);
+		auto item_count = static_cast<unsigned long>(checked_languages.size() + 1);
+		for (unsigned long item_index = 1; item_index < item_count; ++item_index) {
+			id item = item_at_index(menu, sel_registerName("itemAtIndex:"), item_index);
+			if (item)
+				set_state(item, sel_registerName("setState:"), checked_languages[item_index - 1] ? 1 : 0);
+		}
+#endif
+	}
+
+	bool IsAutoLanguage() const {
+		return std::none_of(checked_languages.begin(), checked_languages.end(), [](bool checked) { return checked; });
+	}
+
+	std::vector<std::string> GetLanguageCodes() const {
+		std::vector<std::string> language_codes;
+		for (size_t i = 0; i < supported_languages.size(); ++i) {
+			if (checked_languages[i])
+				language_codes.push_back(supported_languages[i]);
+		}
+		return language_codes;
+	}
+};
+
 class OcrSelectedLinesDialog final : public wxDialog {
 	wxChoice *frame_mode;
 	wxChoice *insert_mode;
-	wxChoice *language_mode;
+	wxRadioButton *target_text = nullptr;
+	wxRadioButton *target_original = nullptr;
+	OcrLanguageChoice *language_mode = nullptr;
 	wxCheckBox *use_roi = nullptr;
 	wxStaticText *roi_summary = nullptr;
 	agi::Context *context = nullptr;
@@ -821,7 +934,7 @@ class OcrSelectedLinesDialog final : public wxDialog {
 	}
 
 public:
-	OcrSelectedLinesDialog(wxWindow *parent, agi::Context *context, std::vector<std::string> languages)
+	OcrSelectedLinesDialog(wxWindow *parent, agi::Context *context, std::vector<std::string> languages, OcrLineTargetField default_target)
 	: wxDialog(parent, wxID_ANY, _("OCR Lines"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER)
 	, context(context)
 	, roi_preview_frame(context ? context->videoController->GetFrameN() : 0)
@@ -844,16 +957,21 @@ public:
 		insert_mode->Append(_("Insert before"));
 		insert_mode->Append(_("Insert after"));
 		insert_mode->Append(_("Replace line text"));
-		insert_mode->Append(_("Insert into Original"));
 		insert_mode->SetSelection(2);
 		grid->Add(insert_mode, 1, wxEXPAND);
 
+		grid->Add(new wxStaticText(this, wxID_ANY, _("OCR target:")), 0, wxALIGN_CENTER_VERTICAL);
+		auto *target_box = new wxBoxSizer(wxHORIZONTAL);
+		target_text = new wxRadioButton(this, wxID_ANY, _("Text"), wxDefaultPosition, wxDefaultSize, wxRB_GROUP);
+		target_original = new wxRadioButton(this, wxID_ANY, _("Original"));
+		target_text->SetValue(default_target == OcrLineTargetField::Text);
+		target_original->SetValue(default_target == OcrLineTargetField::Original);
+		target_box->Add(target_text, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 16);
+		target_box->Add(target_original, 0, wxALIGN_CENTER_VERTICAL);
+		grid->Add(target_box, 1, wxEXPAND);
+
 		grid->Add(new wxStaticText(this, wxID_ANY, _("Language:")), 0, wxALIGN_CENTER_VERTICAL);
-		language_mode = new wxChoice(this, wxID_ANY);
-		language_mode->Append(_("Auto"));
-		for (auto const& language : supported_languages)
-			language_mode->Append(to_wx(language));
-		language_mode->SetSelection(0);
+		language_mode = new OcrLanguageChoice(this, supported_languages);
 		grid->Add(language_mode, 1, wxEXPAND);
 
 		grid->Add(new wxStaticText(this, wxID_ANY, _("OCR region:")), 0, wxALIGN_CENTER_VERTICAL);
@@ -889,25 +1007,20 @@ public:
 		switch (insert_mode->GetSelection()) {
 			case 0: return OcrLineInsertMode::InsertBefore;
 			case 1: return OcrLineInsertMode::InsertAfter;
-			case 3: return OcrLineInsertMode::Original;
 			default: return OcrLineInsertMode::Replace;
 		}
 	}
 
-	bool IsAutoLanguage() const {
-		return language_mode->GetSelection() <= 0;
+	OcrLineTargetField GetTargetField() const {
+		return target_original->GetValue() ? OcrLineTargetField::Original : OcrLineTargetField::Text;
 	}
 
-	std::string GetLanguageCode() const {
-		int const selection = language_mode->GetSelection();
-		if (selection <= 0)
-			return {};
+	bool IsAutoLanguage() const {
+		return language_mode->IsAutoLanguage();
+	}
 
-		size_t const language_index = static_cast<size_t>(selection - 1);
-		if (language_index >= supported_languages.size())
-			return {};
-
-		return supported_languages[language_index];
+	std::vector<std::string> GetLanguageCodes() const {
+		return language_mode->GetLanguageCodes();
 	}
 
 	bool UseRoi() const {
@@ -1060,17 +1173,17 @@ struct video_ocr_selected_lines final : public validator_video_loaded {
 		if (selected_lines.size() <= 1)
 			return;
 
-		OcrSelectedLinesDialog dialog(c->parent, c, osx::ocr::SupportedRecognitionLanguages());
+		auto const default_target = c->subsGrid && c->subsGrid->ContextMenuCopiesOriginalText()
+			? OcrLineTargetField::Original
+			: OcrLineTargetField::Text;
+		OcrSelectedLinesDialog dialog(c->parent, c, osx::ocr::SupportedRecognitionLanguages(), default_target);
 		if (dialog.ShowModal() != wxID_OK)
 			return;
 
 		osx::ocr::Options ocr_options;
 		ocr_options.auto_detect_language = dialog.IsAutoLanguage();
-		if (!ocr_options.auto_detect_language) {
-			auto language_code = dialog.GetLanguageCode();
-			if (!language_code.empty())
-				ocr_options.recognition_languages.push_back(std::move(language_code));
-		}
+		if (!ocr_options.auto_detect_language)
+			ocr_options.recognition_languages = dialog.GetLanguageCodes();
 
 		int const frame_count = provider->GetFrameCount();
 		if (frame_count <= 0)
@@ -1145,8 +1258,8 @@ struct video_ocr_selected_lines final : public validator_video_loaded {
 				continue;
 			}
 
-			if (dialog.GetInsertMode() == OcrLineInsertMode::Original)
-				line->Original = result.text;
+			if (dialog.GetTargetField() == OcrLineTargetField::Original)
+				line->Original = merge_ocr_text(line->Original.get(), result.text, dialog.GetInsertMode());
 			else
 				line->Text = merge_ocr_text(line->Text.get(), result.text, dialog.GetInsertMode());
 			++changed;

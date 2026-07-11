@@ -2836,27 +2836,31 @@ msgstr ""
 msgid "Replace line text"
 msgstr ""
 
-#: ../src/command/video.cpp:846
-msgid "Insert into Original"
+#: ../src/command/video.cpp:849
+msgid "%d languages selected"
 msgstr ""
 
 #: ../src/command/video.cpp:849
+msgid "OCR target:"
+msgstr ""
+
+#: ../src/command/video.cpp:856
 msgid "Language:"
 msgstr ""
 
-#: ../src/command/video.cpp:851
+#: ../src/command/video.cpp:858
 msgid "Auto"
 msgstr ""
 
-#: ../src/command/video.cpp:857
+#: ../src/command/video.cpp:864
 msgid "OCR region:"
 msgstr ""
 
-#: ../src/command/video.cpp:859
+#: ../src/command/video.cpp:866
 msgid "Use OCR region"
 msgstr ""
 
-#: ../src/command/video.cpp:861
+#: ../src/command/video.cpp:868
 msgid "Pick region..."
 msgstr ""
 
