@@ -200,7 +200,7 @@ wxSize GlossaryPopup::CalculateBestSize() {
 	int height = PaddingY * 2;
 	for (auto const& line : lines) {
 		dc.SetFont(LineFont(line.bold));
-		wxSize extent = dc.GetTextExtent(line.text.empty() ? " " : line.text);
+		wxSize extent = dc.GetTextExtent(line.text.empty() ? wxString(" ") : line.text);
 		width = std::max(width, extent.GetWidth() + PaddingX * 2);
 		height += extent.GetHeight();
 	}
@@ -214,7 +214,7 @@ void GlossaryPopup::LayoutLines() {
 	int y = (arrow_on_top ? ArrowHeight : 0) + PaddingY;
 	for (auto& line : lines) {
 		dc.SetFont(LineFont(line.bold));
-		wxSize extent = dc.GetTextExtent(line.text.empty() ? " " : line.text);
+		wxSize extent = dc.GetTextExtent(line.text.empty() ? wxString(" ") : line.text);
 		line.rect = wxRect(PaddingX, y, extent.GetWidth(), extent.GetHeight());
 		y += extent.GetHeight();
 	}
