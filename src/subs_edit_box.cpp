@@ -238,9 +238,9 @@ SubsEditBox::SubsEditBox(wxWindow *parent, agi::Context *context)
 
 	// The original-text box mirrors the main edit box (same styled control and
 	// syntax highlighting) but is read-only and uses its own font options so it
-	// can be sized independently. A null context keeps it from touching the
-	// main editor's text-selection controller when its contents are updated.
-	secondary_editor = new SubsTextEditCtrl(this, FromDIP(wxSize(300,50)), wxBORDER_SUNKEN, nullptr, "Subtitle/Edit Box/Original");
+	// can be sized independently. It keeps the app context for Find/Replace and
+	// glossary commands, but does not drive the shared text-selection controller.
+	secondary_editor = new SubsTextEditCtrl(this, FromDIP(wxSize(300,50)), wxBORDER_SUNKEN, c, "Subtitle/Edit Box/Original", false, false);
 	secondary_editor->SetReadOnly(true);
 	secondary_editor->SetUseHorizontalScrollBar(false);
 	secondary_editor->Bind(wxEVT_MOUSEWHEEL, &SubsEditBox::OnEditorMouseWheel, this);

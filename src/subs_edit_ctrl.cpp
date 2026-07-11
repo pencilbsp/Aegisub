@@ -130,11 +130,14 @@ wxColour ThemedSubtitleEditColor(std::string const& option_name) {
 }
 }
 
-SubsTextEditCtrl::SubsTextEditCtrl(wxWindow* parent, wxSize wsize, long style, agi::Context *context, std::string font_opt_prefix)
+SubsTextEditCtrl::SubsTextEditCtrl(wxWindow* parent, wxSize wsize, long style, agi::Context *context,
+	std::string font_opt_prefix, bool use_context_selection, bool show_split_menu)
 : wxStyledTextCtrl(parent, -1, wxDefaultPosition, wsize, style)
 , spellchecker(SpellCheckerFactory::GetSpellChecker())
 , thesaurus(std::make_unique<Thesaurus>())
 , context(context)
+, use_context_selection(use_context_selection)
+, show_split_menu(show_split_menu)
 , font_opt_prefix(std::move(font_opt_prefix))
 {
 	osx::ime::inject(this);
@@ -171,7 +174,7 @@ SubsTextEditCtrl::SubsTextEditCtrl(wxWindow* parent, wxSize wsize, long style, a
 	Bind(wxEVT_MENU, bind(&SubsTextEditCtrl::Paste, this), EDIT_MENU_PASTE);
 	Bind(wxEVT_MENU, bind(&SubsTextEditCtrl::SelectAll, this), EDIT_MENU_SELECT_ALL);
 
-	if (context) {
+	if (context && show_split_menu) {
 		Bind(wxEVT_MENU, bind(&cmd::call, "edit/line/split/preserve", context), EDIT_MENU_SPLIT_PRESERVE);
 		Bind(wxEVT_MENU, bind(&cmd::call, "edit/line/split/estimate", context), EDIT_MENU_SPLIT_ESTIMATE);
 		Bind(wxEVT_MENU, bind(&cmd::call, "edit/line/split/video", context), EDIT_MENU_SPLIT_VIDEO);
@@ -412,7 +415,7 @@ void SubsTextEditCtrl::SetTextTo(std::string const& text) {
 	auto old_pos = agi::CharacterCount(std::string_view(line_text).substr(0, insertion_point), 0);
 	line_text.clear();
 
-	if (context) {
+	if (context && use_context_selection) {
 		context->textSelectionController->SetSelection(0, 0);
 		SetTextRaw(text.c_str());
 		auto pos = agi::IndexOfCharacter(text, old_pos);
@@ -483,7 +486,7 @@ void SubsTextEditCtrl::OnContextMenu(wxContextMenuEvent &event) {
 	menu.Append(EDIT_MENU_SELECT_ALL,_("Select &All"));
 
 	// Split
-	if (context) {
+	if (context && show_split_menu) {
 		menu.AppendSeparator();
 		menu.Append(EDIT_MENU_SPLIT_PRESERVE, _("Split at cursor (preserve times)"));
 		menu.Append(EDIT_MENU_SPLIT_ESTIMATE, _("Split at cursor (estimate times)"));

@@ -121,6 +121,8 @@ public:
 					case wxID_CANCEL:
 						return;
 					default:
+						if (context->subsController->TryToClose() == wxCANCEL)
+							return;
 						break; // Open: fall through to the normal load
 				}
 			}

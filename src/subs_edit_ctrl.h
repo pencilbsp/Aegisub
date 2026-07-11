@@ -53,6 +53,13 @@ class SubsTextEditCtrl final : public wxStyledTextCtrl, private agi::signal::Con
 	/// Project context, for splitting lines
 	agi::Context *context;
 
+	/// Whether programmatic text updates should update the shared text
+	/// selection controller. Disabled for the read-only original text box.
+	bool use_context_selection = true;
+
+	/// Whether line-splitting commands should be exposed in the context menu.
+	bool show_split_menu = true;
+
 	/// Options prefix for the font face/size to use (e.g. "Subtitle/Edit Box").
 	/// Lets a second instance (the read-only original box) have its own font.
 	std::string font_opt_prefix;
@@ -116,7 +123,9 @@ class SubsTextEditCtrl final : public wxStyledTextCtrl, private agi::signal::Con
 	wxMenu *GetLanguagesMenu(int base_id, wxString const& curLang, wxArrayString const& langs);
 
 public:
-	SubsTextEditCtrl(wxWindow* parent, wxSize size, long style, agi::Context *context, std::string font_opt_prefix = "Subtitle/Edit Box");
+	SubsTextEditCtrl(wxWindow* parent, wxSize size, long style, agi::Context *context,
+		std::string font_opt_prefix = "Subtitle/Edit Box", bool use_context_selection = true,
+		bool show_split_menu = true);
 	~SubsTextEditCtrl();
 
 	void SetTextTo(std::string const& text);
