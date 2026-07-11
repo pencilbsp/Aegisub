@@ -769,6 +769,12 @@ void SubsEditBox::DoOnSplit(bool show_original) {
 	wxSizer* parent_sizer = GetParent()->GetSizer();
 	if (parent_sizer) parent_sizer->Layout();
 	Thaw();
+
+	// Clicking the checkbox leaves keyboard focus on it. In particular on macOS,
+	// text key events are then delivered to the checkbox rather than Scintilla,
+	// which makes the subtitle editor appear to accept only control keys. Return
+	// focus after the layout has settled so typing can continue immediately.
+	edit_ctrl->SetFocus();
 }
 
 void SubsEditBox::OnStyleChange(wxCommandEvent &evt) {

@@ -55,6 +55,16 @@ void invalidate(wxStyledTextCtrl *ctrl) {
 	if (!view)
 		return;
 
+	// A hidden/read-only Scintilla can be updated while another editor is the
+	// active text input client. Its input context is not independent on macOS,
+	// so discarding marked text through the inactive view can break character
+	// delivery to the actual first responder (editing commands such as Delete
+	// still work, but inserted text is lost). Only the focused native view can
+	// have composition state which needs invalidating.
+	NSWindow *window = [view window];
+	if (!window || [window firstResponder] != view)
+		return;
+
 	if ([view respondsToSelector:@selector(inputContext)])
 		[[view inputContext] discardMarkedText];
 
