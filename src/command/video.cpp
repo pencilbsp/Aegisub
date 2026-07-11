@@ -58,6 +58,7 @@
 #include <libaegisub/ass/time.h>
 #include <libaegisub/fs.h>
 #include <libaegisub/path.h>
+#include <libaegisub/split.h>
 #include <libaegisub/util.h>
 
 #include <algorithm>
@@ -67,14 +68,10 @@
 #include <boost/algorithm/string/split.hpp>
 #include <future>
 #include <thread>
-#ifdef __WXOSX_COCOA__
-#include <objc/message.h>
-#include <objc/runtime.h>
-#endif
 #include <wx/app.h>
 #include <wx/button.h>
 #include <wx/checkbox.h>
-#include <wx/choice.h>
+#include <wx/combobox.h>
 #include <wx/dcbuffer.h>
 #include <wx/dialog.h>
 #include <wx/msgdlg.h>
@@ -772,110 +769,119 @@ public:
 	}
 };
 
-class OcrLanguageChoice final : public wxChoice {
+class OcrLanguageChoice final : public wxComboBox {
 	std::vector<std::string> supported_languages;
-	std::vector<bool> checked_languages;
-	bool updating = false;
+	std::vector<std::string> language_codes_before_choice;
 
-	wxString GetSummary() const {
-		auto language_codes = GetLanguageCodes();
-		if (language_codes.empty())
-			return _("Auto");
-		if (language_codes.size() == 1)
-			return to_wx(language_codes.front());
-		return fmt_tl("%d languages selected", static_cast<int>(language_codes.size()));
-	}
+	std::vector<std::string> ParseLanguageCodes(std::vector<std::string> *invalid_codes = nullptr) const {
+		auto value = std::string(agi::Trim(from_wx(GetValue())));
+		if (value.empty() || value == from_wx(_("Auto")))
+			return {};
 
-	void RebuildLanguageItems() {
-		Freeze();
-		Clear();
-		Append(GetSummary());
-		for (size_t i = 0; i < supported_languages.size(); ++i)
-			Append(GetLanguageItemLabel(i));
-		SetSelection(0);
-		Thaw();
-		UpdateNativeChecks();
-	}
+		std::vector<std::string> tokens;
+		boost::split(tokens, value, boost::is_any_of(","));
 
-	void OnChoice(wxCommandEvent& event) {
-		if (updating)
-			return;
+		std::vector<std::string> language_codes;
+		for (auto const& raw_token : tokens) {
+			auto token = std::string(agi::Trim(raw_token));
+			if (token.empty())
+				continue;
 
-		int const selection = event.GetSelection();
-		if (selection > 0) {
-			size_t const language_index = static_cast<size_t>(selection - 1);
-			if (language_index < checked_languages.size())
-				checked_languages[language_index] = !checked_languages[language_index];
+			if (std::find(supported_languages.begin(), supported_languages.end(), token) == supported_languages.end()) {
+				if (invalid_codes && std::find(invalid_codes->begin(), invalid_codes->end(), token) == invalid_codes->end())
+					invalid_codes->push_back(std::move(token));
+				continue;
+			}
+
+			if (std::find(language_codes.begin(), language_codes.end(), token) == language_codes.end())
+				language_codes.push_back(std::move(token));
 		}
-		UpdateSummary();
+		return language_codes;
+	}
+
+	void SetLanguageCodes(std::vector<std::string> const& language_codes) {
+		if (language_codes.empty()) {
+			ChangeValue(_("Auto"));
+			SetSelection(0);
+			SetInsertionPointEnd();
+			return;
+		}
+
+		wxString normalized_value;
+		for (auto const& language : language_codes) {
+			if (!normalized_value.empty())
+				normalized_value += ",";
+			normalized_value += to_wx(language);
+		}
+		SetSelection(wxNOT_FOUND);
+		ChangeValue(normalized_value);
+		SetInsertionPointEnd();
 	}
 
 public:
 	OcrLanguageChoice(wxWindow *parent, std::vector<std::string> languages)
-	: wxChoice(parent, wxID_ANY)
+	: wxComboBox(parent, wxID_ANY, wxString(), wxDefaultPosition, wxDefaultSize,
+		wxArrayString(), wxCB_DROPDOWN | wxTE_PROCESS_ENTER)
 	, supported_languages(std::move(languages))
-	, checked_languages(supported_languages.size(), false)
 	{
-		UpdateSummary();
-		Bind(wxEVT_CHOICE, &OcrLanguageChoice::OnChoice, this);
+		Append(_("Auto"));
+		for (auto const& language : supported_languages)
+			Append(to_wx(language));
+		SetSelection(0);
+
+		SetToolTip(_("Select languages to add or remove them, or type exact language codes separated by commas (for example: en-US,ja-JP)."));
+		Bind(wxEVT_KILL_FOCUS, [this](wxFocusEvent& event) {
+			NormalizeValue();
+			event.Skip();
+		});
+		Bind(wxEVT_COMBOBOX_DROPDOWN, [this](wxCommandEvent& event) {
+			language_codes_before_choice = ParseLanguageCodes();
+			event.Skip();
+		});
+		Bind(wxEVT_COMBOBOX, [this](wxCommandEvent& event) {
+			int const selection = event.GetSelection();
+			if (selection <= 0) {
+				SetLanguageCodes({});
+			} else if (static_cast<size_t>(selection) <= supported_languages.size()) {
+				auto const& selected_language = supported_languages[static_cast<size_t>(selection - 1)];
+				auto selected = std::find(language_codes_before_choice.begin(),
+					language_codes_before_choice.end(), selected_language);
+				if (selected == language_codes_before_choice.end())
+					language_codes_before_choice.push_back(selected_language);
+				else
+					language_codes_before_choice.erase(selected);
+				SetLanguageCodes(language_codes_before_choice);
+			}
+			event.Skip();
+		});
+		Bind(wxEVT_TEXT_ENTER, [this](wxCommandEvent& event) {
+			NormalizeValue();
+			event.Skip();
+		});
 	}
 
-	void UpdateSummary() {
-		updating = true;
-		RebuildLanguageItems();
-		updating = false;
-	}
-
-	wxString GetLanguageItemLabel(size_t index) const {
-#ifdef __WXOSX_COCOA__
-		return to_wx(supported_languages[index]);
-#else
-		auto label = to_wx(supported_languages[index]);
-		if (checked_languages[index])
-			label += wxString::FromUTF8(" \xE2\x9C\x93");
-		return label;
-#endif
-	}
-
-	void UpdateNativeChecks() {
-#ifdef __WXOSX_COCOA__
-		id popup = reinterpret_cast<id>(GetHandle());
-		if (!popup)
-			return;
-
-		auto send_id = reinterpret_cast<id (*)(id, SEL)>(objc_msgSend);
-		id menu = send_id(popup, sel_registerName("menu"));
-		if (!menu)
-			return;
-
-		auto item_at_index = reinterpret_cast<id (*)(id, SEL, unsigned long)>(objc_msgSend);
-		auto set_state = reinterpret_cast<void (*)(id, SEL, long)>(objc_msgSend);
-		auto item_count = static_cast<unsigned long>(checked_languages.size() + 1);
-		for (unsigned long item_index = 1; item_index < item_count; ++item_index) {
-			id item = item_at_index(menu, sel_registerName("itemAtIndex:"), item_index);
-			if (item)
-				set_state(item, sel_registerName("setState:"), checked_languages[item_index - 1] ? 1 : 0);
-		}
-#endif
+	void NormalizeValue() {
+		SetLanguageCodes(ParseLanguageCodes());
 	}
 
 	bool IsAutoLanguage() const {
-		return std::none_of(checked_languages.begin(), checked_languages.end(), [](bool checked) { return checked; });
+		return ParseLanguageCodes().empty();
 	}
 
 	std::vector<std::string> GetLanguageCodes() const {
-		std::vector<std::string> language_codes;
-		for (size_t i = 0; i < supported_languages.size(); ++i) {
-			if (checked_languages[i])
-				language_codes.push_back(supported_languages[i]);
-		}
-		return language_codes;
+		return ParseLanguageCodes();
+	}
+
+	std::vector<std::string> GetInvalidLanguageCodes() const {
+		std::vector<std::string> invalid_codes;
+		ParseLanguageCodes(&invalid_codes);
+		return invalid_codes;
 	}
 };
 
 class OcrSelectedLinesDialog final : public wxDialog {
-	wxChoice *frame_mode;
-	wxChoice *insert_mode;
+	wxComboBox *frame_mode;
+	wxComboBox *insert_mode;
 	wxRadioButton *target_text = nullptr;
 	wxRadioButton *target_original = nullptr;
 	OcrLanguageChoice *language_mode = nullptr;
@@ -926,6 +932,24 @@ class OcrSelectedLinesDialog final : public wxDialog {
 	}
 
 	void OnOk(wxCommandEvent &event) {
+		language_mode->NormalizeValue();
+		auto invalid_languages = language_mode->GetInvalidLanguageCodes();
+		if (!invalid_languages.empty()) {
+			wxString invalid_list;
+			for (auto const& language : invalid_languages) {
+				if (!invalid_list.empty())
+					invalid_list += ", ";
+				invalid_list += to_wx(language);
+			}
+			wxMessageBox(
+				_("Unsupported OCR language code(s): ") + invalid_list +
+				_("\n\nUse exact codes from the list, separated by commas."),
+				_("OCR Language"), wxOK | wxICON_INFORMATION | wxCENTER, this);
+			language_mode->SetFocus();
+			language_mode->SelectAll();
+			return;
+		}
+
 		if (use_roi->GetValue() && !has_roi_selection) {
 			wxMessageBox(_("Please pick an OCR region or disable \"Use OCR region\"."), _("OCR Region"), wxOK | wxICON_INFORMATION | wxCENTER, this);
 			return;
@@ -945,7 +969,8 @@ public:
 		grid->AddGrowableCol(1, 1);
 
 		grid->Add(new wxStaticText(this, wxID_ANY, _("OCR frame:")), 0, wxALIGN_CENTER_VERTICAL);
-		frame_mode = new wxChoice(this, wxID_ANY);
+		frame_mode = new wxComboBox(this, wxID_ANY, wxString(), wxDefaultPosition,
+			wxDefaultSize, wxArrayString(), wxCB_READONLY);
 		frame_mode->Append(_("First frame of each line"));
 		frame_mode->Append(_("Middle frame of each line"));
 		frame_mode->Append(_("Last frame of each line"));
@@ -953,7 +978,8 @@ public:
 		grid->Add(frame_mode, 1, wxEXPAND);
 
 		grid->Add(new wxStaticText(this, wxID_ANY, _("Insert mode:")), 0, wxALIGN_CENTER_VERTICAL);
-		insert_mode = new wxChoice(this, wxID_ANY);
+		insert_mode = new wxComboBox(this, wxID_ANY, wxString(), wxDefaultPosition,
+			wxDefaultSize, wxArrayString(), wxCB_READONLY);
 		insert_mode->Append(_("Insert before"));
 		insert_mode->Append(_("Insert after"));
 		insert_mode->Append(_("Replace line text"));
@@ -993,6 +1019,16 @@ public:
 
 		pick_roi->Bind(wxEVT_BUTTON, &OcrSelectedLinesDialog::OnPickRegion, this);
 		Bind(wxEVT_BUTTON, &OcrSelectedLinesDialog::OnOk, this, wxID_OK);
+		Bind(wxEVT_CHILD_FOCUS, [this](wxChildFocusEvent& event) {
+			if (event.GetWindow() != language_mode)
+				language_mode->NormalizeValue();
+			event.Skip();
+		});
+		Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent& event) {
+			language_mode->NormalizeValue();
+			SetFocus();
+			event.Skip();
+		});
 	}
 
 	OcrLineFrameMode GetFrameMode() const {
