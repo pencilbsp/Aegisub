@@ -465,6 +465,18 @@ DialogSearchReplace<has_replace>::DialogSearchReplace(agi::Context* c)
 		Bind(wxEVT_COMBOBOX, schedule_preview, replace_edit->GetId());
 	}
 	Bind(wxEVT_CHECKBOX, schedule_preview);
+
+	// Persist the current query and options when the dialog is dismissed
+	// without running a search, so typing a term (or toggling an option) and
+	// closing via the window control or Cancel isn't silently discarded.
+	auto save_on_close = [this](wxEvent& event) {
+		SyncSettingsFromControls();
+		SaveSettings();
+		event.Skip();
+	};
+	Bind(wxEVT_CLOSE_WINDOW, save_on_close);
+	Bind(wxEVT_BUTTON, save_on_close, wxID_CANCEL);
+
 	UpdatePreview();
 	preview_timer.Start(150);
 }
@@ -493,8 +505,9 @@ void DialogSearchReplace<has_replace>::FindReplace(bool (SearchReplaceEngine::*f
 
 template<bool has_replace>
 void DialogSearchReplace<has_replace>::SaveSettings() {
-	config::mru->Add("Find", settings->find);
-	if (has_replace)
+	if (!settings->find.empty())
+		config::mru->Add("Find", settings->find);
+	if (has_replace && !settings->replace_with.empty())
 		config::mru->Add("Replace", settings->replace_with);
 
 	OPT_SET("Tool/Search Replace/Match Case")->SetBool(settings->match_case);
