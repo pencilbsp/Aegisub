@@ -25,6 +25,7 @@
 #include "include/aegisub/context.h"
 #include "project.h"
 #include "selection_controller.h"
+#include "subs_edit_box.h"
 #include "utils.h"
 #include "video_controller.h"
 #include "video_display.h"
@@ -44,9 +45,9 @@
 namespace {
 enum {
 	ID_OCR_COPY = wxID_HIGHEST + 6501,
-	ID_OCR_INSERT_REPLACE,
-	ID_OCR_INSERT_BEFORE,
-	ID_OCR_INSERT_AFTER
+	ID_OCR_REPLACE_TEXT,
+	ID_OCR_REPLACE_ORIGINAL,
+	ID_OCR_INSERT_CARET
 };
 
 Vector2D RegionTopLeft(osx::ocr::Region const& region, Vector2D const& video_pos, Vector2D const& video_size) {
@@ -300,29 +301,23 @@ void VisualToolOCR::InsertSelectedText(InsertMode mode) {
 		return;
 	}
 
-	auto *line = c->selectionController->GetActiveLine();
-	if (!line) {
+	if (!c->editBox || !c->selectionController->GetActiveLine()) {
 		if (c->frame)
 			c->frame->StatusTimeout(_("No active subtitle line to insert into."), 3000);
 		return;
 	}
 
-	std::string const existing_text = line->Text.get();
-	bool const has_existing_text = !existing_text.empty();
-
 	switch (mode) {
-		case InsertMode::Replace:
-			line->Text = text;
+		case InsertMode::ReplaceText:
+			c->editBox->ReplaceActiveText(text);
 			break;
-		case InsertMode::InsertBefore:
-			line->Text = has_existing_text ? text + "\\N" + existing_text : text;
+		case InsertMode::ReplaceOriginal:
+			c->editBox->ReplaceActiveOriginal(text);
 			break;
-		case InsertMode::InsertAfter:
-			line->Text = has_existing_text ? existing_text + "\\N" + text : text;
+		case InsertMode::AtCaret:
+			c->editBox->InsertTextAtCaret(text);
 			break;
 	}
-
-	c->ass->Commit(_("ocr frame"), AssFile::COMMIT_DIAG_TEXT, -1, line);
 
 	if (c->frame)
 		c->frame->StatusTimeout(_("OCR text inserted."), 2500);
@@ -346,33 +341,48 @@ void VisualToolOCR::OpenContextMenu(Vector2D mouse_point) {
 		}
 	}
 
+	bool const has_selection = HasSelection();
+	bool const has_active_line = c->selectionController->GetActiveLine() != nullptr;
+	bool const original_editable = c->editBox && c->editBox->IsOriginalEditable();
+	SubsEditBox::CaretTarget const caret_target =
+		c->editBox ? c->editBox->GetCaretTarget() : SubsEditBox::CaretTarget::None;
+
 	wxMenu menu;
 	menu.Append(ID_OCR_COPY, _("Copy"));
 	menu.AppendSeparator();
-	menu.Append(ID_OCR_INSERT_REPLACE, _("Insert: Replace current line"));
-	menu.Append(ID_OCR_INSERT_BEFORE, _("Insert: Before current line text"));
-	menu.Append(ID_OCR_INSERT_AFTER, _("Insert: After current line text"));
+	// The two replace-line actions are always listed. Editing Original is gated
+	// behind the Edit Original toggle, so that row stays visible but disabled
+	// until the toggle is on.
+	menu.Append(ID_OCR_REPLACE_TEXT, _("Replace current text line"));
+	menu.Append(ID_OCR_REPLACE_ORIGINAL, _("Replace current original line"));
 
-	bool const has_selection = HasSelection();
-	bool const has_active_line = c->selectionController->GetActiveLine() != nullptr;
+	// The caret-relative insert only appears when a caret is actually parked in
+	// one of the edit boxes, and it names the box it will insert into.
+	if (caret_target != SubsEditBox::CaretTarget::None) {
+		menu.AppendSeparator();
+		menu.Append(ID_OCR_INSERT_CARET, caret_target == SubsEditBox::CaretTarget::Original
+			? _("Insert at cursor (original)")
+			: _("Insert at cursor (text)"));
+		menu.Enable(ID_OCR_INSERT_CARET, has_selection && has_active_line);
+	}
+
 	menu.Enable(ID_OCR_COPY, has_selection);
-	menu.Enable(ID_OCR_INSERT_REPLACE, has_selection && has_active_line);
-	menu.Enable(ID_OCR_INSERT_BEFORE, has_selection && has_active_line);
-	menu.Enable(ID_OCR_INSERT_AFTER, has_selection && has_active_line);
+	menu.Enable(ID_OCR_REPLACE_TEXT, has_selection && has_active_line && c->editBox);
+	menu.Enable(ID_OCR_REPLACE_ORIGINAL, has_selection && has_active_line && original_editable);
 
 	menu.Bind(wxEVT_MENU, [this](wxCommandEvent &evt) {
 		switch (evt.GetId()) {
 			case ID_OCR_COPY:
 				CopySelectedText();
 				break;
-			case ID_OCR_INSERT_REPLACE:
-				InsertSelectedText(InsertMode::Replace);
+			case ID_OCR_REPLACE_TEXT:
+				InsertSelectedText(InsertMode::ReplaceText);
 				break;
-			case ID_OCR_INSERT_BEFORE:
-				InsertSelectedText(InsertMode::InsertBefore);
+			case ID_OCR_REPLACE_ORIGINAL:
+				InsertSelectedText(InsertMode::ReplaceOriginal);
 				break;
-			case ID_OCR_INSERT_AFTER:
-				InsertSelectedText(InsertMode::InsertAfter);
+			case ID_OCR_INSERT_CARET:
+				InsertSelectedText(InsertMode::AtCaret);
 				break;
 			default:
 				break;

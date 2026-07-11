@@ -39,9 +39,9 @@ class VisualToolOCR final : public VisualToolBase {
 	std::string last_error;
 
 	enum class InsertMode {
-		Replace,
-		InsertBefore,
-		InsertAfter
+		ReplaceText,
+		ReplaceOriginal,
+		AtCaret
 	};
 
 	void RefreshOcrData();
