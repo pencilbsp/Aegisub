@@ -83,7 +83,7 @@ DialogTranslation::DialogTranslation(agi::Context *c)
 		original_text = new wxStyledTextCtrl(original_box->GetStaticBox(), -1, wxDefaultPosition, wxSize(320, 80));
 		original_text->SetWrapMode(wxSTC_WRAP_WORD);
 		original_text->SetMarginWidth(1, 0);
-		original_text->StyleSetForeground(1, wxColour(10, 60, 200));
+		SetOriginalTextStyles();
 		original_text->SetReadOnly(true);
 		original_box->Add(original_text, 1, wxEXPAND, 0);
 
@@ -158,6 +158,11 @@ DialogTranslation::DialogTranslation(agi::Context *c)
 	persist = std::make_unique<PersistLocation>(this, "Tool/Translation Assistant");
 
 	Bind(wxEVT_KEY_DOWN, &DialogTranslation::OnKeyDown, this);
+	Bind(wxEVT_SYS_COLOUR_CHANGED, [this](wxSysColourChangedEvent &event) {
+		SetOriginalTextStyles();
+		original_text->Refresh();
+		event.Skip();
+	});
 
 	blocks = active_line->ParseTags();
 	if (bad_block(blocks[0])) {
@@ -169,6 +174,21 @@ DialogTranslation::DialogTranslation(agi::Context *c)
 }
 
 DialogTranslation::~DialogTranslation() { }
+
+void DialogTranslation::SetOriginalTextStyles() {
+	auto background = wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW);
+	auto foreground = wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT);
+
+	original_text->StyleSetForeground(wxSTC_STYLE_DEFAULT, foreground);
+	original_text->StyleSetBackground(wxSTC_STYLE_DEFAULT, background);
+	original_text->StyleClearAll();
+
+	// Keep the active block blue, but use a lighter shade on dark backgrounds.
+	original_text->StyleSetForeground(1, background.GetLuminance() < 0.5
+		? wxColour(125, 165, 255)
+		: wxColour(10, 60, 200));
+	original_text->StyleSetBackground(1, background);
+}
 
 void DialogTranslation::OnActiveLineChanged(AssDialogue *new_line) {
 	if (switching_lines) return;

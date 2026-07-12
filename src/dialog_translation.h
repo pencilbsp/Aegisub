@@ -62,6 +62,7 @@ class DialogTranslation final : public wxDialog {
 	void OnKeyDown(wxKeyEvent &evt);
 	void OnExternalCommit(int commit_type);
 
+	void SetOriginalTextStyles();
 	void UpdateDisplay();
 
 	void OnActiveLineChanged(AssDialogue *new_line);
