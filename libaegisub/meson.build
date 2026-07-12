@@ -31,6 +31,7 @@ libaegisub_src = [
     'common/keyframe.cpp',
     'common/line_iterator.cpp',
     'common/log.cpp',
+    'common/mcp/protocol.cpp',
     'common/mru.cpp',
     'common/option.cpp',
     'common/option_value.cpp',
