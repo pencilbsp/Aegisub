@@ -39,6 +39,7 @@ ID allocation for menu items:
 (wxID_HIGHEST + 1) + 8000 ~ (wxID_HIGHEST + 1) + 8024    Grid context menu, see base_grid.cpp
 (wxID_HIGHEST + 1) + 9000 ~ (wxID_HIGHEST + 1) + 9004    Video context menu, see video_display.cpp
 (wxID_HIGHEST + 1) + 10000 ~ (wxID_HIGHEST + 1) + 10999  Main menu
+(wxID_HIGHEST + 1) + 11000 ~ (wxID_HIGHEST + 1) + 11003  Glossary popup context menu, see glossary_popup.cpp
 */
 
 namespace menu {

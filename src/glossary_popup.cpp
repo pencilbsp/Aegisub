@@ -23,13 +23,23 @@
 #include <algorithm>
 
 #include <wx/cursor.h>
+#include <wx/dataobj.h>
 #include <wx/dcclient.h>
+#include <wx/dnd.h>
 #include <wx/intl.h>
 #include <wx/log.h>
+#include <wx/menu.h>
 #include <wx/settings.h>
 #include <wx/utils.h>
 
 namespace {
+enum {
+	GLOSSARY_POPUP_COPY = (wxID_HIGHEST + 1) + 11000,
+	GLOSSARY_POPUP_COPY_ALL,
+	GLOSSARY_POPUP_FIND,
+	GLOSSARY_POPUP_REPLACE
+};
+
 constexpr int PaddingX = 8;
 constexpr int PaddingY = 5;
 constexpr int MaxWidth = 360;
@@ -47,6 +57,8 @@ const wxColour TooltipBorder(118, 118, 118);
 const wxColour TextColour(32, 32, 32);
 const wxColour LinkColour(0, 102, 204);
 const wxColour LinkHoverColour(0, 51, 153);
+
+bool glossary_text_drag_active = false;
 
 bool IsHex(char c) {
 	return (c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f');
@@ -108,7 +120,8 @@ wxWindow *PopupParentFor(wxWindow *anchor) {
 }
 
 GlossaryPopup::GlossaryPopup(wxWindow *anchor, agi::GlossaryEntry const& entry, std::function<void()> keep_alive,
-	std::function<void()> begin_dismiss, std::function<void()> close_now, std::function<void()> open_editor)
+	std::function<void()> begin_dismiss, std::function<void()> close_now, std::function<void()> open_editor,
+	std::function<void(std::string const&, bool)> open_search)
 : wxWindow()
 , fade_timer(this)
 , link_url(to_wx(entry.note_url))
@@ -116,22 +129,23 @@ GlossaryPopup::GlossaryPopup(wxWindow *anchor, agi::GlossaryEntry const& entry, 
 , begin_dismiss(std::move(begin_dismiss))
 , close_now(std::move(close_now))
 , open_editor(std::move(open_editor))
+, open_search(std::move(open_search))
 {
 	// wxWidgets requires transparent background style to be selected before
 	// the native window is created.
 	SetBackgroundStyle(wxBG_STYLE_TRANSPARENT);
 	Create(PopupParentFor(anchor), wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
 
-	auto add_line = [this](std::string const& line, bool link = false, bool bold = false) {
+	auto add_line = [this](std::string const& line, bool link = false, bool bold = false, bool direct_drag = false) {
 		if (!line.empty())
-			source_lines.push_back({to_wx(line), link, bold});
+			source_lines.push_back({to_wx(line), link, bold, direct_drag});
 	};
 
-	add_line(entry.term, false, true);
-	add_line(entry.note_text);
+	add_line(entry.term, false, true, true);
+	add_line(entry.note_text, false, false, true);
 	add_line(entry.note_url, true);
 
-	SetCanFocus(false);
+	SetCanFocus(true);
 
 	wxFont font = wxSystemSettings::GetFont(wxSYS_DEFAULT_GUI_FONT);
 	wxString fontname = FontFace("Tool/Glossary/Popup");
@@ -150,8 +164,12 @@ GlossaryPopup::GlossaryPopup(wxWindow *anchor, agi::GlossaryEntry const& entry, 
 	Bind(wxEVT_ENTER_WINDOW, &GlossaryPopup::OnMouseEnter, this);
 	Bind(wxEVT_LEAVE_WINDOW, &GlossaryPopup::OnMouseLeave, this);
 	Bind(wxEVT_MOTION, &GlossaryPopup::OnMouseMove, this);
+	Bind(wxEVT_LEFT_DOWN, &GlossaryPopup::OnLeftDown, this);
 	Bind(wxEVT_LEFT_UP, &GlossaryPopup::OnLeftUp, this);
 	Bind(wxEVT_LEFT_DCLICK, &GlossaryPopup::OnDoubleClick, this);
+	Bind(wxEVT_CONTEXT_MENU, &GlossaryPopup::OnContextMenu, this);
+	Bind(wxEVT_MOUSE_CAPTURE_LOST, &GlossaryPopup::OnCaptureLost, this);
+	Bind(wxEVT_CHAR_HOOK, &GlossaryPopup::OnKeyDown, this);
 	Hide();
 }
 
@@ -164,12 +182,14 @@ wxFont GlossaryPopup::LineFont(bool bold) const {
 
 void GlossaryPopup::WrapText(wxDC& dc, int max_width) {
 	lines.clear();
+	display_text.clear();
 
-	for (auto const& source : source_lines) {
+	for (size_t source_index = 0; source_index < source_lines.size(); ++source_index) {
+		auto const& source = source_lines[source_index];
 		dc.SetFont(LineFont(source.bold));
 		for (wxString source_line : wxSplit(source.text, '\n')) {
 			if (source_line.empty()) {
-				lines.push_back({"", source.link, source.bold, wxRect()});
+				lines.push_back({"", source.link, source.bold, source_index, 0, wxRect()});
 				continue;
 			}
 
@@ -185,7 +205,7 @@ void GlossaryPopup::WrapText(wxDC& dc, int max_width) {
 
 				wxString candidate = line + pending_space + ch;
 				if (!line.empty() && dc.GetTextExtent(candidate).GetWidth() > max_width) {
-					lines.push_back({line, source.link, source.bold, wxRect()});
+					lines.push_back({line, source.link, source.bold, source_index, 0, wxRect()});
 					line = ch;
 				}
 				else {
@@ -195,12 +215,19 @@ void GlossaryPopup::WrapText(wxDC& dc, int max_width) {
 			}
 
 			if (!line.empty())
-				lines.push_back({line, source.link, source.bold, wxRect()});
+				lines.push_back({line, source.link, source.bold, source_index, 0, wxRect()});
 		}
 	}
 
 	if (lines.empty())
-		lines.push_back({"", false, false, wxRect()});
+		lines.push_back({"", false, false, 0, 0, wxRect()});
+
+	for (auto& line : lines) {
+		if (!display_text.empty())
+			display_text += "\n";
+		line.text_offset = display_text.length();
+		display_text += line.text;
+	}
 }
 
 wxSize GlossaryPopup::CalculateBestSize() {
@@ -245,6 +272,118 @@ int GlossaryPopup::LinkLineAt(wxPoint const& point) const {
 			return static_cast<int>(i);
 	}
 	return -1;
+}
+
+int GlossaryPopup::TextLineAt(wxPoint const& point) const {
+	for (size_t i = 0; i < lines.size(); ++i) {
+		if (lines[i].text.empty())
+			continue;
+		if (lines[i].rect.Contains(point))
+			return static_cast<int>(i);
+	}
+	return -1;
+}
+
+long GlossaryPopup::TextPositionAt(wxPoint const& point, bool clamp) const {
+	if (lines.empty())
+		return -1;
+
+	size_t line_index = lines.size();
+	for (size_t i = 0; i < lines.size(); ++i) {
+		int top = lines[i].rect.GetTop();
+		int bottom = lines[i].rect.GetBottom() + FromDIP(LineGap);
+		if (point.y >= top && point.y <= bottom) {
+			line_index = i;
+			break;
+		}
+	}
+
+	if (line_index == lines.size()) {
+		if (!clamp)
+			return -1;
+		line_index = point.y < lines.front().rect.GetTop() ? 0 : lines.size() - 1;
+	}
+
+	DrawLine const& line = lines[line_index];
+	if (line.text.empty())
+		return static_cast<long>(line.text_offset);
+	if (point.x <= line.rect.GetLeft())
+		return static_cast<long>(line.text_offset);
+	if (point.x >= line.rect.GetRight())
+		return static_cast<long>(line.text_offset + line.text.length());
+
+	wxClientDC dc(const_cast<GlossaryPopup *>(this));
+	dc.SetFont(LineFont(line.bold));
+	wxArrayInt widths;
+	dc.GetPartialTextExtents(line.text, widths);
+	int relative_x = point.x - line.rect.GetLeft();
+	int previous = 0;
+	for (size_t i = 0; i < widths.size(); ++i) {
+		if (relative_x < (previous + widths[i]) / 2)
+			return static_cast<long>(line.text_offset + i);
+		previous = widths[i];
+	}
+	return static_cast<long>(line.text_offset + line.text.length());
+}
+
+wxString GlossaryPopup::SelectedText() const {
+	if (selection_anchor < 0 || selection_caret < 0 || selection_anchor == selection_caret)
+		return {};
+	long start = std::min(selection_anchor, selection_caret);
+	long end = std::max(selection_anchor, selection_caret);
+	return display_text.Mid(static_cast<size_t>(start), static_cast<size_t>(end - start));
+}
+
+wxString GlossaryPopup::AllText() const {
+	wxString text;
+	for (auto const& source : source_lines) {
+		if (!text.empty())
+			text += "\n";
+		text += source.text;
+	}
+	return text;
+}
+
+void GlossaryPopup::BeginTextDrag(wxString const& text) {
+	if (text.empty())
+		return;
+
+	// ReleaseMouse() can synchronously deliver mouse-leave/capture-lost on
+	// macOS. Mark the native drag active first so those events cannot dismiss
+	// and queue-destroy this transient popup while wxDropSource is starting.
+	dragging_text = true;
+	if (keep_alive)
+		keep_alive();
+	if (HasCapture())
+		ReleaseMouse();
+
+	wxTextDataObject data(text);
+	// AppKit retains the source NSView for the duration of DoDragDrop(). The
+	// popup is transient and may be hidden after a successful drop, so use the
+	// stable top-level Aegisub window rather than the popup's own native view.
+	wxWindow *source_window = wxGetTopLevelParent(this);
+	wxDropSource source(data, source_window ? source_window : GetParent());
+	glossary_text_drag_active = true;
+	wxDragResult result = source.DoDragDrop(wxDrag_CopyOnly);
+	glossary_text_drag_active = false;
+	dragging_text = false;
+
+	if (result == wxDragCopy) {
+		// The editor has inserted and committed the text. Closing is deferred
+		// by Dismiss(), so returning from the current mouse event is safe.
+		if (close_now)
+			close_now();
+		else
+			Dismiss(false);
+		return;
+	}
+
+	if (!ContainsScreenPoint(wxGetMousePosition()) && begin_dismiss)
+		begin_dismiss();
+}
+
+bool GlossaryPopup::IsTextDragActive() {
+	return glossary_text_drag_active;
 }
 
 void GlossaryPopup::PopupAt(wxRect const& anchor_rect) {
@@ -376,6 +515,10 @@ void GlossaryPopup::OnPaint(wxPaintEvent&) {
 	wxFont bold = LineFont(true);
 	wxFont underlined = plain;
 	underlined.SetUnderlined(true);
+	wxColour selection_bg = Blend(wxSystemSettings::GetColour(wxSYS_COLOUR_HIGHLIGHT), parent_bg, opacity);
+	wxColour selection_text = Blend(wxSystemSettings::GetColour(wxSYS_COLOUR_HIGHLIGHTTEXT), parent_bg, opacity);
+	long selection_start = std::min(selection_anchor, selection_caret);
+	long selection_end = std::max(selection_anchor, selection_caret);
 
 	for (size_t i = 0; i < lines.size(); ++i) {
 		DrawLine const& line = lines[i];
@@ -384,9 +527,27 @@ void GlossaryPopup::OnPaint(wxPaintEvent&) {
 
 		bool hovered = line.link && static_cast<int>(i) == hovered_line;
 		wxColour colour = line.link ? (hovered ? LinkHoverColour : LinkColour) : TextColour;
-		dc.SetFont(line.bold ? bold : (hovered ? underlined : plain));
+		wxFont line_font = line.bold ? bold : (hovered ? underlined : plain);
+		dc.SetFont(line_font);
 		dc.SetTextForeground(Blend(colour, parent_bg, opacity));
 		dc.DrawText(line.text, line.rect.GetPosition());
+
+		long line_start = static_cast<long>(line.text_offset);
+		long line_end = line_start + static_cast<long>(line.text.length());
+		long selected_start = std::max(selection_start, line_start);
+		long selected_end = std::min(selection_end, line_end);
+		if (selected_start < selected_end) {
+			wxString prefix = line.text.Left(static_cast<size_t>(selected_start - line_start));
+			wxString selected = line.text.Mid(static_cast<size_t>(selected_start - line_start),
+				static_cast<size_t>(selected_end - selected_start));
+			int x = line.rect.x + dc.GetTextExtent(prefix).GetWidth();
+			int width = dc.GetTextExtent(selected).GetWidth();
+			dc.SetPen(*wxTRANSPARENT_PEN);
+			dc.SetBrush(wxBrush(selection_bg));
+			dc.DrawRectangle(x, line.rect.y, width, line.rect.height);
+			dc.SetTextForeground(selection_text);
+			dc.DrawText(selected, wxPoint(x, line.rect.y));
+		}
 	}
 }
 
@@ -397,6 +558,11 @@ void GlossaryPopup::OnMouseEnter(wxMouseEvent& event) {
 }
 
 void GlossaryPopup::OnMouseLeave(wxMouseEvent& event) {
+	if (context_menu_open || selecting || dragging_text) {
+		event.Skip();
+		return;
+	}
+
 	if (hovered_line != -1) {
 		hovered_line = -1;
 		Refresh();
@@ -409,6 +575,37 @@ void GlossaryPopup::OnMouseLeave(wxMouseEvent& event) {
 }
 
 void GlossaryPopup::OnMouseMove(wxMouseEvent& event) {
+	if (selecting && event.LeftIsDown() && !direct_drag_text.empty() &&
+			!GetClientRect().Contains(event.GetPosition())) {
+		wxPoint delta = event.GetPosition() - mouse_down_position;
+		if (std::abs(delta.x) >= FromDIP(4) || std::abs(delta.y) >= FromDIP(4)) {
+			selecting = false;
+			selection_dragged = false;
+			BeginTextDrag(direct_drag_text);
+			return;
+		}
+	}
+
+	if (drag_candidate && event.LeftIsDown()) {
+		wxPoint delta = event.GetPosition() - mouse_down_position;
+		if (std::abs(delta.x) >= FromDIP(4) || std::abs(delta.y) >= FromDIP(4)) {
+			drag_candidate = false;
+			BeginTextDrag(SelectedText());
+			return;
+		}
+	}
+
+	if (selecting && event.LeftIsDown()) {
+		long position = TextPositionAt(event.GetPosition(), true);
+		if (position >= 0 && position != selection_caret) {
+			selection_caret = position;
+			selection_dragged = selection_caret != selection_anchor;
+			if (selection_dragged && !HasFocus())
+				SetFocus();
+			Refresh();
+		}
+	}
+
 	int link = LinkLineAt(event.GetPosition());
 	if (link != hovered_line) {
 		hovered_line = link;
@@ -418,7 +615,60 @@ void GlossaryPopup::OnMouseMove(wxMouseEvent& event) {
 	event.Skip();
 }
 
+void GlossaryPopup::OnLeftDown(wxMouseEvent& event) {
+	long position = TextPositionAt(event.GetPosition(), false);
+	mouse_down_position = event.GetPosition();
+	direct_drag_text.clear();
+	int line = TextLineAt(event.GetPosition());
+	if (line >= 0 && source_lines[lines[line].source_index].direct_drag)
+		direct_drag_text = source_lines[lines[line].source_index].text;
+	long selected_start = std::min(selection_anchor, selection_caret);
+	long selected_end = std::max(selection_anchor, selection_caret);
+	if (position >= selected_start && position < selected_end && !SelectedText().empty()) {
+		drag_candidate = true;
+		selecting = false;
+		direct_drag_text.clear();
+		if (!HasCapture())
+			CaptureMouse();
+		event.Skip();
+		return;
+	}
+
+	drag_candidate = false;
+	selection_anchor = position;
+	selection_caret = position;
+	selection_dragged = false;
+	selecting = position >= 0;
+	if (selecting && !HasCapture())
+		CaptureMouse();
+	Refresh();
+	event.Skip();
+}
+
 void GlossaryPopup::OnLeftUp(wxMouseEvent& event) {
+	if (drag_candidate) {
+		drag_candidate = false;
+		if (HasCapture())
+			ReleaseMouse();
+		long position = TextPositionAt(event.GetPosition(), false);
+		selection_anchor = position;
+		selection_caret = position;
+		Refresh();
+	}
+
+	if (selecting) {
+		long position = TextPositionAt(event.GetPosition(), true);
+		if (position >= 0)
+			selection_caret = position;
+		selection_dragged = selection_caret != selection_anchor;
+		selecting = false;
+		if (HasCapture())
+			ReleaseMouse();
+		Refresh();
+		if (selection_dragged)
+			return;
+	}
+
 	if (LinkLineAt(event.GetPosition()) >= 0)
 		OpenLink();
 	else
@@ -432,6 +682,64 @@ void GlossaryPopup::OnDoubleClick(wxMouseEvent& event) {
 		open_editor();
 	else
 		event.Skip();
+}
+
+void GlossaryPopup::OnContextMenu(wxContextMenuEvent& event) {
+	if (keep_alive)
+		keep_alive();
+
+	wxPoint screen_position = event.GetPosition();
+	if (screen_position == wxDefaultPosition)
+		screen_position = wxGetMousePosition();
+	int line = TextLineAt(ScreenToClient(screen_position));
+	// Context actions are only available when the pointer is directly over a
+	// rendered glyph row, not over the popup's padding, arrow, or background.
+	if (line < 0)
+		return;
+
+	wxString selected_text = SelectedText();
+	wxString action_text = selected_text.empty()
+		? source_lines[lines[line].source_index].text
+		: selected_text;
+
+	wxMenu menu;
+	menu.Append(GLOSSARY_POPUP_COPY, _("Copy"));
+	menu.Append(GLOSSARY_POPUP_COPY_ALL, _("Copy All"));
+	menu.AppendSeparator();
+	menu.Append(GLOSSARY_POPUP_FIND, _("Find..."));
+	menu.Append(GLOSSARY_POPUP_REPLACE, _("Replace with..."));
+
+	context_menu_open = true;
+	int selection = GetPopupMenuSelectionFromUser(menu, ScreenToClient(screen_position));
+	context_menu_open = false;
+
+	if (selection == GLOSSARY_POPUP_COPY)
+		SetClipboard(from_wx(action_text));
+	else if (selection == GLOSSARY_POPUP_COPY_ALL)
+		SetClipboard(from_wx(AllText()));
+	else if ((selection == GLOSSARY_POPUP_FIND || selection == GLOSSARY_POPUP_REPLACE) && open_search)
+		open_search(from_wx(action_text), selection == GLOSSARY_POPUP_REPLACE);
+
+	// Opening the native menu generates a mouse-leave event. Once it closes,
+	// re-evaluate whether the pointer still keeps this popup alive.
+	if (!ContainsScreenPoint(wxGetMousePosition()) && begin_dismiss)
+		begin_dismiss();
+}
+
+void GlossaryPopup::OnCaptureLost(wxMouseCaptureLostEvent&) {
+	selecting = false;
+	drag_candidate = false;
+}
+
+void GlossaryPopup::OnKeyDown(wxKeyEvent& event) {
+	if ((event.GetKeyCode() == 'C' || event.GetKeyCode() == 'c') && event.CmdDown()) {
+		wxString selected_text = SelectedText();
+		if (!selected_text.empty()) {
+			SetClipboard(from_wx(selected_text));
+			return;
+		}
+	}
+	event.Skip();
 }
 
 void GlossaryPopup::OpenLink() {

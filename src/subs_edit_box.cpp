@@ -41,6 +41,7 @@
 #include "compat.h"
 #include "dialog_style_editor.h"
 #include "flyweight_hash.h"
+#include "glossary_popup.h"
 #include "include/aegisub/context.h"
 #include "include/aegisub/hotkey.h"
 #include "initial_line_state.h"
@@ -65,6 +66,7 @@
 #include <wx/button.h>
 #include <wx/checkbox.h>
 #include <wx/cursor.h>
+#include <wx/dnd.h>
 #include <wx/fontenum.h>
 #include <wx/numdlg.h>
 #include <wx/radiobut.h>
@@ -235,6 +237,23 @@ SubsEditBox::SubsEditBox(wxWindow *parent, agi::Context *context)
 	edit_ctrl = new SubsTextEditCtrl(this, FromDIP(wxSize(300,50)), wxBORDER_SUNKEN, c);
 	edit_ctrl->Bind(wxEVT_CHAR_HOOK, &SubsEditBox::OnKeyDown, this);
 	edit_ctrl->Bind(wxEVT_MOUSEWHEEL, &SubsEditBox::OnEditorMouseWheel, this);
+	edit_ctrl->Bind(wxEVT_STC_DO_DROP, [this](wxStyledTextEvent& event) {
+		int selection_start = std::min(edit_ctrl->GetSelectionStart(), edit_ctrl->GetSelectionEnd());
+		int selection_end = std::max(edit_ctrl->GetSelectionStart(), edit_ctrl->GetSelectionEnd());
+		bool drop_in_selection = event.GetPosition() >= selection_start && event.GetPosition() < selection_end;
+		bool glossary_drop = GlossaryPopup::IsTextDragActive() && !edit_ctrl->GetReadOnly();
+		if (glossary_drop &&
+				selection_start != selection_end && drop_in_selection) {
+			// Handle replacement here, then leave an empty payload for Scintilla's
+			// native drop path so it still reports a successful copy to the source.
+			edit_ctrl->ReplaceSelection(event.GetDragText());
+			event.SetDragText({});
+			event.SetPosition(edit_ctrl->GetCurrentPos());
+		}
+		else
+			event.Skip();
+
+	});
 
 	// The original-text box mirrors the main edit box (same styled control and
 	// syntax highlighting) but is read-only and uses its own font options so it
@@ -244,6 +263,32 @@ SubsEditBox::SubsEditBox(wxWindow *parent, agi::Context *context)
 	secondary_editor->SetUseHorizontalScrollBar(false);
 	secondary_editor->Bind(wxEVT_MOUSEWHEEL, &SubsEditBox::OnEditorMouseWheel, this);
 	secondary_editor->Bind(wxEVT_STC_MODIFIED, &SubsEditBox::OnOriginalChange, this);
+	// Scintilla accepts native text drops by default. Explicitly reject them
+	// while Original is read-only so the drag cursor and result match whether
+	// the text can actually be inserted.
+	secondary_editor->Bind(wxEVT_STC_DRAG_OVER, [this](wxStyledTextEvent& event) {
+		if (secondary_editor->GetReadOnly())
+			event.SetDragResult(wxDragNone);
+		else
+			event.Skip();
+	});
+	secondary_editor->Bind(wxEVT_STC_DO_DROP, [this](wxStyledTextEvent& event) {
+		int selection_start = std::min(secondary_editor->GetSelectionStart(), secondary_editor->GetSelectionEnd());
+		int selection_end = std::max(secondary_editor->GetSelectionStart(), secondary_editor->GetSelectionEnd());
+		bool drop_in_selection = event.GetPosition() >= selection_start && event.GetPosition() < selection_end;
+		if (secondary_editor->GetReadOnly()) {
+			event.SetDragResult(wxDragNone);
+		}
+		else if (GlossaryPopup::IsTextDragActive() && selection_start != selection_end && drop_in_selection) {
+			secondary_editor->ReplaceSelection(event.GetDragText());
+			event.SetDragText({});
+			event.SetPosition(secondary_editor->GetCurrentPos());
+		}
+		else {
+			event.Skip();
+		}
+
+	});
 	secondary_editor->SetModEventMask(wxSTC_MOD_INSERTTEXT | wxSTC_MOD_DELETETEXT | wxSTC_STARTACTION);
 	SetOriginalEditable(false);
 

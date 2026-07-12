@@ -209,6 +209,14 @@ SubsTextEditCtrl::SubsTextEditCtrl(wxWindow* parent, wxSize wsize, long style, a
 		UpdateStyle();
 		UpdateGlossary();
 	});
+	// STYLENEEDED is demand-driven and can run before a paste/native drop has
+	// fully settled. Always schedule one coalesced final styling pass after a
+	// text mutation so syntax and glossary indicators reflect the final text.
+	Bind(wxEVT_STC_MODIFIED, [this](wxStyledTextEvent& event) {
+		if (event.GetModificationType() & (wxSTC_MOD_INSERTTEXT | wxSTC_MOD_DELETETEXT))
+			ScheduleTextStylingRefresh();
+		event.Skip();
+	});
 
 	// Glossary: underline known terms and show their notes immediately on hover.
 	Bind(wxEVT_MOTION, &SubsTextEditCtrl::OnGlossaryMouseMove, this);
@@ -501,7 +509,14 @@ void SubsTextEditCtrl::OnGlossaryMouseMove(wxMouseEvent &event) {
 		[this] { CancelGlossaryPopupDismiss(); },
 		[this] { MaybeDismissGlossaryPopup(); },
 		[this] { HideGlossaryPopup(false); },
-		[this, entry_id] { OpenGlossaryEntryEditor(entry_id); });
+		[this, entry_id] { OpenGlossaryEntryEditor(entry_id); },
+		[this](std::string const& text, bool replace) {
+			CallAfter([this, text, replace] {
+				HideGlossaryPopup(false);
+				if (context)
+					ShowSearchReplaceDialog(context, replace, text);
+			});
+		});
 	glossary_popup->PopupAt(anchor_rect);
 	glossary_popup_entry_id = match->entry_id;
 	glossary_popup_offset = match->offset;
@@ -630,6 +645,22 @@ void SubsTextEditCtrl::SetTextTo(std::string const& text) {
 
 	SetEvtHandlerEnabled(true);
 	Thaw();
+}
+
+void SubsTextEditCtrl::RefreshTextStyling() {
+	line_text = GetTextRaw().data();
+	UpdateStyle();
+	UpdateGlossary();
+}
+
+void SubsTextEditCtrl::ScheduleTextStylingRefresh() {
+	if (text_styling_refresh_pending)
+		return;
+	text_styling_refresh_pending = true;
+	CallAfter([this] {
+		text_styling_refresh_pending = false;
+		RefreshTextStyling();
+	});
 }
 
 void SubsTextEditCtrl::Paste() {

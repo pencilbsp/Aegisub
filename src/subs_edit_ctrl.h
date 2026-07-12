@@ -78,6 +78,7 @@ class SubsTextEditCtrl final : public wxStyledTextCtrl, private agi::signal::Con
 
 	/// Whether line-splitting commands should be exposed in the context menu.
 	bool show_split_menu = true;
+	bool text_styling_refresh_pending = false;
 
 	/// Options prefix for the font face/size to use (e.g. "Subtitle/Edit Box").
 	/// Lets a second instance (the read-only original box) have its own font.
@@ -131,6 +132,8 @@ class SubsTextEditCtrl final : public wxStyledTextCtrl, private agi::signal::Con
 	void SetStyles();
 
 	void UpdateStyle();
+	void RefreshTextStyling();
+	void ScheduleTextStylingRefresh();
 
 	/// Re-run glossary matching and apply the underline indicator
 	void UpdateGlossary();
