@@ -31,6 +31,7 @@
 #include "libresrc/libresrc.h"
 #include "options.h"
 #include "preferences_base.h"
+#include "utils.h"
 #include "video_provider_manager.h"
 
 #ifdef WITH_PORTAUDIO
@@ -45,20 +46,42 @@
 
 #include <unordered_set>
 
+#include <wx/button.h>
 #include <wx/checkbox.h>
 #include <wx/combobox.h>
 #include <wx/dc.h>
 #include <wx/event.h>
+#include <wx/filename.h>
 #include <wx/listctrl.h>
 #include <wx/msgdlg.h>
 #include <wx/srchctrl.h>
 #include <wx/sizer.h>
 #include <wx/spinctrl.h>
+#include <wx/stdpaths.h>
 #include <wx/statbox.h>
 #include <wx/stattext.h>
+#include <wx/textctrl.h>
 #include <wx/treebook.h>
 
 namespace {
+wxString McpStdioPath() {
+	auto executable = wxFileName(wxStandardPaths::Get().GetExecutablePath());
+#ifdef __WXMSW__
+	constexpr auto bridge_name = "aegisub-mcp-stdio.exe";
+#else
+	constexpr auto bridge_name = "aegisub-mcp-stdio";
+#endif
+
+	wxFileName bridge(executable.GetPath(), bridge_name);
+	if (bridge.FileExists())
+		return bridge.GetFullPath();
+
+	// Meson keeps the helper under build/tools before it is installed next to
+	// the main executable.
+	wxFileName build_bridge(executable.GetPath() + wxFileName::GetPathSeparator() + "tools", bridge_name);
+	return build_bridge.FileExists() ? build_bridge.GetFullPath() : bridge.GetFullPath();
+}
+
 /// General preferences page
 void General(wxTreebook *book, Preferences *parent) {
 	auto p = new OptionPage(book, parent, _("General"));
@@ -377,6 +400,32 @@ void Advanced(wxTreebook *book, Preferences *parent) {
 	p->sizer->Fit(p);
 	warning->Wrap(400);
 	general.sizer->Add(warning, 0, wxALL, 5);
+
+	p->SetSizerAndFit(p->sizer);
+}
+
+/// Advanced MCP preferences subpage
+void Advanced_MCP(wxTreebook *book, Preferences *parent) {
+	auto p = new OptionPage(book, parent, _("MCP Server"), OptionPage::PAGE_SUB);
+
+	auto general = p->PageSizer(_("General"));
+	p->OptionAdd(general, _("Enabled"), "MCP/Enabled");
+	p->CellSkip(general);
+	p->OptionAdd(general, _("Port"), "MCP/Port", 1024, 65535);
+	p->OptionAdd(general, _("Read only"), "MCP/Read Only");
+	p->CellSkip(general);
+	p->OptionAdd(general, _("Frame max width (0 = original)"), "MCP/Frame Max Width", 0, 8192);
+
+	auto bridge_path = McpStdioPath();
+	auto path = new wxTextCtrl(general.box, -1, bridge_path, wxDefaultPosition, wxSize(280, -1), wxTE_READONLY);
+	auto copy = new wxButton(general.box, -1, _("Copy path"));
+	copy->Bind(wxEVT_BUTTON, [bridge_path](wxCommandEvent&) { SetClipboard(from_wx(bridge_path)); });
+
+	auto path_sizer = new wxBoxSizer(wxHORIZONTAL);
+	path_sizer->Add(path, wxSizerFlags(1).Expand());
+	path_sizer->Add(copy, wxSizerFlags().Expand());
+	general.sizer->Add(new wxStaticText(general.box, -1, "aegisub-mcp-stdio"), 1, wxALIGN_CENTRE_VERTICAL);
+	general.sizer->Add(path_sizer, wxSizerFlags().Expand());
 
 	p->SetSizerAndFit(p->sizer);
 }
@@ -744,6 +793,7 @@ Preferences::Preferences(wxWindow *parent): wxDialog(parent, -1, _("Preferences"
 	Advanced(book, this);
 	Advanced_Audio(book, this);
 	Advanced_Video(book, this);
+	Advanced_MCP(book, this);
 
 	book->Fit();
 

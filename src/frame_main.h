@@ -83,6 +83,10 @@ public:
 	FrameMain();
 	~FrameMain();
 
+	/// Session-unique window id for the MCP server; never reused, so a
+	/// stale id from a closed window can't silently target another window
+	const int window_id;
+
 	agi::Context *GetContext() const { return context.get(); }
 
 	/// Set the status bar text

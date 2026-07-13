@@ -67,6 +67,11 @@ public:
 	agi::Context& NewProjectContext();
 	void CloseAll();
 
+	/// GUI thread only: the frames vector is mutated on window create/destroy
+	std::vector<FrameMain *> const& GetFrames() const { return frames; }
+	/// GUI thread only. Returns nullptr if no window has this id (e.g. closed)
+	FrameMain *GetFrameById(int window_id) const;
+
 	// Apple events
 	void MacOpenFiles(wxArrayString const& filenames)
 #ifdef __APPLE__

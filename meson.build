@@ -456,6 +456,7 @@ endif
 
 subdir('automation')
 subdir('libaegisub')
+subdir('tools')
 subdir('packages')
 subdir('po')
 subdir('src')

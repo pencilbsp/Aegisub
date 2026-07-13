@@ -18,6 +18,8 @@
 
 #include <main.h>
 
+#include <cstdlib>
+
 using agi::Path;
 using namespace std::string_view_literals;
 
@@ -130,6 +132,31 @@ TEST(lagi_path, platform_paths_have_values) {
 	TEST_PLATFORM_PATH_TOKEN("?local");
 	TEST_PLATFORM_PATH_TOKEN("?temp");
 }
+
+#ifdef __APPLE__
+TEST(lagi_path, mac_user_path_respects_home_environment) {
+	class RestoreHome {
+		bool existed;
+		std::string value;
+	public:
+		RestoreHome()
+		: existed(std::getenv("HOME") != nullptr)
+		, value(existed ? std::getenv("HOME") : "")
+		{ }
+		~RestoreHome() {
+			if (existed)
+				setenv("HOME", value.c_str(), 1);
+			else
+				unsetenv("HOME");
+		}
+	} restore_home;
+
+	ASSERT_EQ(0, setenv("HOME", "/tmp/aegisub-test-home", 1));
+	Path p;
+	EXPECT_EQ("/tmp/aegisub-test-home/Library/Application Support/Aegisub",
+		p.Decode("?user").string());
+}
+#endif
 
 TEST(lagi_path, making_empty_absolute_gives_empty) {
 	Path p;

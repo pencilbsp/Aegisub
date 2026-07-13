@@ -83,11 +83,10 @@ void AudioProvider::GetAudio(void *buf, int64_t start, int64_t count) const {
 
 namespace {
 class writer {
-	io::Save outfile;
 	std::ostream& out;
 
 public:
-	writer(agi::fs::path const& filename) : outfile(filename, true), out(outfile.Get()) { }
+	writer(std::ostream& out) : out(out) { }
 
 	template<int N>
 	void write(const char(&str)[N]) {
@@ -111,6 +110,11 @@ public:
 }
 
 void SaveAudioClip(AudioProvider const& provider, fs::path const& path, int start_time, int end_time) {
+	io::Save outfile(path, true);
+	SaveAudioClip(provider, outfile.Get(), start_time, end_time);
+}
+
+void SaveAudioClip(AudioProvider const& provider, std::ostream& stream, int start_time, int end_time) {
 	const auto max_samples = provider.GetNumSamples();
 	const auto start_sample = std::min(max_samples, ((int64_t)start_time * provider.GetSampleRate() + 999) / 1000);
 	const auto end_sample = util::mid(start_sample, ((int64_t)end_time * provider.GetSampleRate() + 999) / 1000, max_samples);
@@ -119,7 +123,7 @@ void SaveAudioClip(AudioProvider const& provider, fs::path const& path, int star
 	const size_t sample_bytes = provider.GetBytesPerSample();
 	const size_t bufsize = (end_sample - start_sample) * bytes_per_sample;
 
-	writer out{path};
+	writer out{stream};
 	out.write("RIFF");
 	out.write<int32_t>(bufsize + 36);
 

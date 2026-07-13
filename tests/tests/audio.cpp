@@ -22,6 +22,7 @@
 #include <libaegisub/util.h>
 
 #include <fstream>
+#include <sstream>
 
 TEST(lagi_audio, dummy_blank) {
 	auto provider = agi::CreateDummyAudioProvider("dummy-audio:", nullptr);
@@ -125,6 +126,22 @@ TEST(lagi_audio, save_audio_clip) {
 		// 10 seconds of 44.1 kHz samples per second of 16-bit mono, plus 44 bytes of header
 		EXPECT_EQ(10 * 44100 * 2 + 44, s.tellg());
 	}
+	agi::fs::Remove(path);
+}
+
+TEST(lagi_audio, save_audio_clip_stream_matches_file) {
+	auto path = agi::Path().Decode("?temp/save_clip_stream");
+	agi::fs::Remove(path);
+	TestAudioProvider<> provider(2);
+
+	agi::SaveAudioClip(provider, path, 250, 1250);
+	std::ifstream file(path, std::ios::binary);
+	std::string file_bytes((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+
+	std::ostringstream stream(std::ios::out | std::ios::binary);
+	agi::SaveAudioClip(provider, stream, 250, 1250);
+	EXPECT_EQ(file_bytes, stream.str());
+
 	agi::fs::Remove(path);
 }
 

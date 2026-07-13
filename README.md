@@ -6,6 +6,9 @@ The bug tracker can be found at https://github.com/TypesettingTools/Aegisub/issu
 
 Support is available on [Discord](https://discord.com/invite/AZaVyPr) or [IRC](irc://irc.rizon.net/aegisub).
 
+AI clients can work with open projects through Aegisub's optional local
+[MCP server](docs/mcp-server.md).
+
 ## Building Aegisub
 
 ### Windows

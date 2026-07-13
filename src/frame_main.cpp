@@ -62,6 +62,7 @@
 #include <libaegisub/dispatch.h>
 #include <libaegisub/log.h>
 
+#include <atomic>
 #include <cctype>
 
 #include <wx/dnd.h>
@@ -136,6 +137,7 @@ public:
 FrameMain::FrameMain()
 : wxFrame(nullptr, -1, "")
 , context(std::make_unique<agi::Context>())
+, window_id([] { static std::atomic<int> next_id{1}; return next_id++; }())
 {
 	StartupLog("Entering FrameMain constructor");
 

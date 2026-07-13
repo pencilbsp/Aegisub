@@ -48,6 +48,7 @@
 #include "frame_main.h"
 #include "include/aegisub/context.h"
 #include "libresrc/libresrc.h"
+#include "mcp/mcp_host.h"
 #include "options.h"
 #include "project.h"
 #include "subs_controller.h"
@@ -334,11 +335,18 @@ bool AegisubApp::OnInit() {
 	StartupLog("Clean old autosave files");
 	CleanCache(config::path->Decode(OPT_GET("Path/Auto/Save")->GetString()), "*.AUTOSAVE.ass", 100, 1000);
 
+	StartupLog("Start MCP server");
+	mcp::Init();
+
 	StartupLog("Initialization complete");
 	return true;
 }
 
 int AegisubApp::OnExit() {
+	// Must happen before anything else is torn down: the server thread
+	// dispatches onto the GUI thread and touches frames, options and commands
+	mcp::Shutdown();
+
 	for (auto frame : frames)
 		delete frame;
 	frames.clear();
@@ -364,6 +372,14 @@ int AegisubApp::OnExit() {
 	crash_writer::Cleanup();
 
 	return wxApp::OnExit();
+}
+
+FrameMain *AegisubApp::GetFrameById(int window_id) const {
+	for (auto frame : frames) {
+		if (frame->window_id == window_id)
+			return frame;
+	}
+	return nullptr;
 }
 
 agi::Context& AegisubApp::NewProjectContext() {

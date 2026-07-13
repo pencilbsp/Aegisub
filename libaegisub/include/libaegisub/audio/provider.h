@@ -20,6 +20,7 @@
 #include <libaegisub/fs.h>
 
 #include <atomic>
+#include <iosfwd>
 #include <memory>
 #include <vector>
 
@@ -94,4 +95,5 @@ std::unique_ptr<AudioProvider> CreateHDAudioProvider(std::unique_ptr<AudioProvid
 std::unique_ptr<AudioProvider> CreateRAMAudioProvider(std::unique_ptr<AudioProvider> source_provider);
 
 void SaveAudioClip(AudioProvider const& provider, agi::fs::path const& path, int start_time, int end_time);
+void SaveAudioClip(AudioProvider const& provider, std::ostream& out, int start_time, int end_time);
 }

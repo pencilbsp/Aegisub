@@ -6082,6 +6082,30 @@ msgid ""
 "these unless you know what you're doing."
 msgstr ""
 
+#: ../src/preferences.cpp:409
+msgid "MCP Server"
+msgstr ""
+
+#: ../src/preferences.cpp:412
+msgid "Enabled"
+msgstr ""
+
+#: ../src/preferences.cpp:414
+msgid "Port"
+msgstr ""
+
+#: ../src/preferences.cpp:415
+msgid "Read only"
+msgstr ""
+
+#: ../src/preferences.cpp:417
+msgid "Frame max width (0 = original)"
+msgstr ""
+
+#: ../src/preferences.cpp:421
+msgid "Copy path"
+msgstr ""
+
 #: ../src/preferences.cpp:382 ../src/preferences.cpp:449
 msgid "Expert"
 msgstr ""

@@ -292,6 +292,13 @@
 		"Undo Levels" : 50
 	},
 
+	"MCP" : {
+		"Enabled" : false,
+		"Frame Max Width" : 1280,
+		"Port" : 27851,
+		"Read Only" : false
+	},
+
 	"Path" : {
 		"Auto" : {
 			"Backup" : "?user/autoback",

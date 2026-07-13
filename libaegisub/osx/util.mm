@@ -21,6 +21,8 @@
 #import <ApplicationServices/ApplicationServices.h>
 #import <Foundation/Foundation.h>
 
+#include <cstdlib>
+
 static std::string EmptyIfNil(NSString *string) {
 	return [string UTF8String] ?: "";
 }
@@ -58,6 +60,11 @@ std::string GetBundleSharedSupportDirectory() {
 
 std::string GetApplicationSupportDirectory() {
 	@autoreleasepool {
+		// Foundation resolves the user's home directory from the account
+		// database and ignores an overridden HOME. Respect HOME explicitly so
+		// isolated/test launches do not read or modify the real user profile.
+		if (const char *home = std::getenv("HOME"); home && home[0] == '/')
+			return std::string(home) + "/Library/Application Support";
 		return EmptyIfNil([NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory, NSUserDomainMask, YES) firstObject]);
 	}
 }
