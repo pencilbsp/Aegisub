@@ -47,8 +47,67 @@ enum {
 	ID_OCR_COPY = wxID_HIGHEST + 6501,
 	ID_OCR_REPLACE_TEXT,
 	ID_OCR_REPLACE_ORIGINAL,
-	ID_OCR_INSERT_CARET
+	ID_OCR_INSERT_CARET,
+	ID_OCR_CLEAR_REGION,
+	ID_OCR_DIM_OUTSIDE_REGION
 };
+
+const char *const OPT_OCR_VISUAL_TOOL_USE_REGION = "Tool/OCR/Visual Tool/Use Region";
+const char *const OPT_OCR_VISUAL_TOOL_DIM_OUTSIDE_REGION = "Tool/OCR/Visual Tool/Dim Outside Region";
+const char *const OPT_OCR_VISUAL_TOOL_REGION_SET = "Tool/OCR/Visual Tool/Region/Set";
+const char *const OPT_OCR_VISUAL_TOOL_REGION_X = "Tool/OCR/Visual Tool/Region/X";
+const char *const OPT_OCR_VISUAL_TOOL_REGION_Y = "Tool/OCR/Visual Tool/Region/Y";
+const char *const OPT_OCR_VISUAL_TOOL_REGION_WIDTH = "Tool/OCR/Visual Tool/Region/Width";
+const char *const OPT_OCR_VISUAL_TOOL_REGION_HEIGHT = "Tool/OCR/Visual Tool/Region/Height";
+
+VisualOcrRoi read_visual_ocr_roi() {
+	VisualOcrRoi roi{
+		OPT_GET(OPT_OCR_VISUAL_TOOL_REGION_X)->GetDouble(),
+		OPT_GET(OPT_OCR_VISUAL_TOOL_REGION_Y)->GetDouble(),
+		OPT_GET(OPT_OCR_VISUAL_TOOL_REGION_WIDTH)->GetDouble(),
+		OPT_GET(OPT_OCR_VISUAL_TOOL_REGION_HEIGHT)->GetDouble()
+	};
+
+	if (!roi.IsValid() || roi.x < 0.0 || roi.y < 0.0 || roi.x >= 1.0 || roi.y >= 1.0)
+		return {0.0, 0.0, 0.0, 0.0};
+
+	roi.width = std::min(roi.width, 1.0 - roi.x);
+	roi.height = std::min(roi.height, 1.0 - roi.y);
+	if (!roi.IsValid())
+		return {0.0, 0.0, 0.0, 0.0};
+
+	return roi;
+}
+
+wxImage CropImageToRoi(wxImage const& image, VisualOcrRoi const& roi) {
+	if (!image.IsOk() || !roi.IsValid())
+		return image;
+
+	int const width = image.GetWidth();
+	int const height = image.GetHeight();
+	if (width <= 1 || height <= 1)
+		return image;
+
+	int x = std::clamp(static_cast<int>(std::lround(roi.x * width)), 0, width - 1);
+	int y = std::clamp(static_cast<int>(std::lround(roi.y * height)), 0, height - 1);
+	int w = std::clamp(static_cast<int>(std::lround(roi.width * width)), 1, width - x);
+	int h = std::clamp(static_cast<int>(std::lround(roi.height * height)), 1, height - y);
+	return image.GetSubImage(wxRect(x, y, w, h));
+}
+
+void MapOcrResultFromRoi(osx::ocr::Result& result, VisualOcrRoi const& roi) {
+	auto map_box = [roi](double& x, double& y, double& width, double& height) {
+		x = roi.x + x * roi.width;
+		y = roi.y + y * roi.height;
+		width *= roi.width;
+		height *= roi.height;
+	};
+
+	for (auto& region : result.regions)
+		map_box(region.x, region.y, region.width, region.height);
+	for (auto& ch : result.characters)
+		map_box(ch.x, ch.y, ch.width, ch.height);
+}
 
 Vector2D RegionTopLeft(osx::ocr::Region const& region, Vector2D const& video_pos, Vector2D const& video_size) {
 	return Vector2D(
@@ -90,12 +149,200 @@ VisualToolOCR::VisualToolOCR(VideoDisplay *parent, agi::Context *context)
 {
 	connections.push_back(c->videoController->AddPlaybackStateChangeListener(&VisualToolOCR::OnPlaybackStateChanged, this));
 	parent->SetCursor(wxCursor(wxCURSOR_HAND));
+	LoadPersistedRoi();
 	RefreshOcrData();
 	UpdateCursor();
 }
 
 VisualToolOCR::~VisualToolOCR() {
 	parent->SetCursor(wxNullCursor);
+}
+
+void VisualToolOCR::LoadPersistedRoi() {
+	roi = read_visual_ocr_roi();
+	has_roi = OPT_GET(OPT_OCR_VISUAL_TOOL_USE_REGION)->GetBool()
+		&& OPT_GET(OPT_OCR_VISUAL_TOOL_REGION_SET)->GetBool()
+		&& roi.IsValid();
+}
+
+void VisualToolOCR::SavePersistedRoi() const {
+	OPT_SET(OPT_OCR_VISUAL_TOOL_USE_REGION)->SetBool(has_roi);
+	OPT_SET(OPT_OCR_VISUAL_TOOL_REGION_SET)->SetBool(has_roi && roi.IsValid());
+	if (!has_roi || !roi.IsValid())
+		return;
+
+	OPT_SET(OPT_OCR_VISUAL_TOOL_REGION_X)->SetDouble(roi.x);
+	OPT_SET(OPT_OCR_VISUAL_TOOL_REGION_Y)->SetDouble(roi.y);
+	OPT_SET(OPT_OCR_VISUAL_TOOL_REGION_WIDTH)->SetDouble(roi.width);
+	OPT_SET(OPT_OCR_VISUAL_TOOL_REGION_HEIGHT)->SetDouble(roi.height);
+}
+
+void VisualToolOCR::ClearRoi() {
+	if (!has_roi)
+		return;
+
+	has_roi = false;
+	roi = {};
+	SavePersistedRoi();
+	RefreshOcrData();
+}
+
+bool VisualToolOCR::IsInsideVideo(Vector2D pos) const {
+	return pos.X() >= video_pos.X()
+	    && pos.Y() >= video_pos.Y()
+	    && pos.X() <= video_pos.X() + video_size.X()
+	    && pos.Y() <= video_pos.Y() + video_size.Y();
+}
+
+Vector2D VisualToolOCR::ClampToVideo(Vector2D pos) const {
+	Vector2D video_max = video_pos + video_size;
+	return video_pos.Max(video_max.Min(pos));
+}
+
+VisualOcrRoi VisualToolOCR::EditableRoi() const {
+	return has_roi && roi.IsValid() ? roi : VisualOcrRoi{};
+}
+
+Vector2D VisualToolOCR::RoiTopLeft(VisualOcrRoi const& draw_roi) const {
+	return Vector2D(
+		video_pos.X() + draw_roi.x * video_size.X(),
+		video_pos.Y() + draw_roi.y * video_size.Y());
+}
+
+Vector2D VisualToolOCR::RoiBottomRight(VisualOcrRoi const& draw_roi) const {
+	return Vector2D(
+		video_pos.X() + (draw_roi.x + draw_roi.width) * video_size.X(),
+		video_pos.Y() + (draw_roi.y + draw_roi.height) * video_size.Y());
+}
+
+VisualOcrRoiEdge VisualToolOCR::HitTestRoiEdge(Vector2D pos) const {
+	if (!IsInsideVideo(pos) || video_size.X() <= 0.0f || video_size.Y() <= 0.0f)
+		return VisualOcrRoiEdge::None;
+
+	auto const edit_roi = EditableRoi();
+	auto const top_left = RoiTopLeft(edit_roi);
+	auto const bottom_right = RoiBottomRight(edit_roi);
+	double const threshold = 8.0;
+	double best_distance = threshold + 1.0;
+	VisualOcrRoiEdge edge = VisualOcrRoiEdge::None;
+
+	auto try_candidate = [&](double distance, VisualOcrRoiEdge candidate) {
+		if (distance <= threshold && distance < best_distance) {
+			best_distance = distance;
+			edge = candidate;
+		}
+	};
+
+	try_candidate(std::abs(pos.X() - top_left.X()), VisualOcrRoiEdge::Left);
+	try_candidate(std::abs(pos.X() - bottom_right.X()), VisualOcrRoiEdge::Right);
+	try_candidate(std::abs(pos.Y() - top_left.Y()), VisualOcrRoiEdge::Top);
+	try_candidate(std::abs(pos.Y() - bottom_right.Y()), VisualOcrRoiEdge::Bottom);
+	return edge;
+}
+
+void VisualToolOCR::AdjustRoiEdge(VisualOcrRoiEdge edge, Vector2D pos) {
+	if (edge == VisualOcrRoiEdge::None || video_size.X() <= 0.0f || video_size.Y() <= 0.0f)
+		return;
+
+	auto const clamped = ClampToVideo(pos);
+	double const x = (clamped.X() - video_pos.X()) / video_size.X();
+	double const y = (clamped.Y() - video_pos.Y()) / video_size.Y();
+	double const min_width = std::min(1.0, 8.0 / video_size.X());
+	double const min_height = std::min(1.0, 8.0 / video_size.Y());
+
+	auto edit_roi = EditableRoi();
+	double left = edit_roi.x;
+	double top = edit_roi.y;
+	double right = edit_roi.x + edit_roi.width;
+	double bottom = edit_roi.y + edit_roi.height;
+
+	switch (edge) {
+		case VisualOcrRoiEdge::Left:
+			left = std::clamp(x, 0.0, std::max(0.0, right - min_width));
+			break;
+		case VisualOcrRoiEdge::Right:
+			right = std::clamp(x, std::min(1.0, left + min_width), 1.0);
+			break;
+		case VisualOcrRoiEdge::Top:
+			top = std::clamp(y, 0.0, std::max(0.0, bottom - min_height));
+			break;
+		case VisualOcrRoiEdge::Bottom:
+			bottom = std::clamp(y, std::min(1.0, top + min_height), 1.0);
+			break;
+		case VisualOcrRoiEdge::None:
+			return;
+	}
+
+	roi = {left, top, right - left, bottom - top};
+	has_roi = roi.IsValid();
+}
+
+void VisualToolOCR::FinishRoiDrag() {
+	if (!dragging_roi)
+		return;
+
+	dragging_roi = false;
+	dragged_roi_edge = VisualOcrRoiEdge::None;
+	if (parent->HasCapture())
+		parent->ReleaseMouse();
+	parent->SetFocus();
+
+	if (has_roi && roi.IsValid()) {
+		SavePersistedRoi();
+		RefreshOcrData();
+		if (c->frame)
+			c->frame->StatusTimeout(_("OCR region updated."), 2500);
+	}
+}
+
+void VisualToolOCR::DrawRoiOverlay(VisualOcrRoi const& draw_roi) {
+	if (!draw_roi.IsValid())
+		return;
+
+	auto const top_left = RoiTopLeft(draw_roi);
+	auto const bottom_right = RoiBottomRight(draw_roi);
+	wxColour color(0, 160, 255);
+
+	if (has_roi && OPT_GET(OPT_OCR_VISUAL_TOOL_DIM_OUTSIDE_REGION)->GetBool()) {
+		Vector2D const video_min = video_pos;
+		Vector2D const video_max = video_pos + video_size;
+		float const shaded_alpha = static_cast<float>(shaded_area_alpha_opt->GetDouble());
+		gl.SetLineColour(*wxBLACK, 0.0f);
+		gl.SetFillColour(*wxBLACK, shaded_alpha);
+		gl.DrawRectangle(video_min, Vector2D(video_max, top_left));
+		gl.DrawRectangle(Vector2D(video_min, bottom_right), video_max);
+		gl.DrawRectangle(Vector2D(video_min, top_left), Vector2D(top_left, bottom_right));
+		gl.DrawRectangle(Vector2D(bottom_right, top_left), Vector2D(video_max, bottom_right));
+	}
+
+	gl.SetLineColour(color, has_roi ? 0.95f : 0.6f, 2);
+
+	gl.DrawLine(Vector2D(top_left.X(), video_pos.Y()), Vector2D(top_left.X(), video_pos.Y() + video_size.Y()));
+	gl.DrawLine(Vector2D(bottom_right.X(), video_pos.Y()), Vector2D(bottom_right.X(), video_pos.Y() + video_size.Y()));
+	gl.DrawLine(Vector2D(video_pos.X(), top_left.Y()), Vector2D(video_pos.X() + video_size.X(), top_left.Y()));
+	gl.DrawLine(Vector2D(video_pos.X(), bottom_right.Y()), Vector2D(video_pos.X() + video_size.X(), bottom_right.Y()));
+
+	VisualOcrRoiEdge const active_edge = dragging_roi ? dragged_roi_edge : hovered_roi_edge;
+	if (active_edge == VisualOcrRoiEdge::None)
+		return;
+
+	gl.SetLineColour(color, 1.0f, 4);
+	switch (active_edge) {
+		case VisualOcrRoiEdge::Left:
+			gl.DrawLine(Vector2D(top_left.X(), video_pos.Y()), Vector2D(top_left.X(), video_pos.Y() + video_size.Y()));
+			break;
+		case VisualOcrRoiEdge::Right:
+			gl.DrawLine(Vector2D(bottom_right.X(), video_pos.Y()), Vector2D(bottom_right.X(), video_pos.Y() + video_size.Y()));
+			break;
+		case VisualOcrRoiEdge::Top:
+			gl.DrawLine(Vector2D(video_pos.X(), top_left.Y()), Vector2D(video_pos.X() + video_size.X(), top_left.Y()));
+			break;
+		case VisualOcrRoiEdge::Bottom:
+			gl.DrawLine(Vector2D(video_pos.X(), bottom_right.Y()), Vector2D(video_pos.X() + video_size.X(), bottom_right.Y()));
+			break;
+		case VisualOcrRoiEdge::None:
+			break;
+	}
 }
 
 void VisualToolOCR::RefreshOcrData() {
@@ -117,12 +364,18 @@ void VisualToolOCR::RefreshOcrData() {
 
 	int const frame = c->videoController->GetFrameN();
 	wxImage image = GetImage(*provider->GetFrame(frame, c->project->Timecodes().TimeAtFrame(frame), true));
+	bool const using_roi = has_roi && roi.IsValid();
+	if (using_roi)
+		image = CropImageToRoi(image, roi);
+
 	auto result = osx::ocr::RecognizeText(image);
 	if (!result.error.empty()) {
 		last_error = result.error;
 		wxLogError(fmt_tl("OCR failed: %s", result.error));
 		return;
 	}
+	if (using_roi)
+		MapOcrResultFromRoi(result, roi);
 
 	regions = std::move(result.regions);
 	characters = std::move(result.characters);
@@ -230,7 +483,18 @@ void VisualToolOCR::UpdateCursor() {
 		return;
 	}
 
-	if (dragging_character_selection || hovered_character >= 0 || hovered_region >= 0)
+	if (dragging_roi) {
+		parent->SetCursor(wxCursor(dragged_roi_edge == VisualOcrRoiEdge::Left || dragged_roi_edge == VisualOcrRoiEdge::Right
+			? wxCURSOR_SIZEWE
+			: wxCURSOR_SIZENS));
+		return;
+	}
+
+	if (hovered_roi_edge == VisualOcrRoiEdge::Left || hovered_roi_edge == VisualOcrRoiEdge::Right)
+		parent->SetCursor(wxCursor(wxCURSOR_SIZEWE));
+	else if (hovered_roi_edge == VisualOcrRoiEdge::Top || hovered_roi_edge == VisualOcrRoiEdge::Bottom)
+		parent->SetCursor(wxCursor(wxCURSOR_SIZENS));
+	else if (dragging_character_selection || hovered_character >= 0 || hovered_region >= 0)
 		parent->SetCursor(wxCursor(wxCURSOR_IBEAM));
 	else
 		parent->SetCursor(wxCursor(wxCURSOR_HAND));
@@ -349,6 +613,10 @@ void VisualToolOCR::OpenContextMenu(Vector2D mouse_point) {
 
 	wxMenu menu;
 	menu.Append(ID_OCR_COPY, _("Copy"));
+	menu.AppendCheckItem(ID_OCR_DIM_OUTSIDE_REGION, _("Dim outside OCR region"))
+		->Check(OPT_GET(OPT_OCR_VISUAL_TOOL_DIM_OUTSIDE_REGION)->GetBool());
+	if (has_roi)
+		menu.Append(ID_OCR_CLEAR_REGION, _("Clear OCR region"));
 	menu.AppendSeparator();
 	// The two replace-line actions are always listed. Editing Original is gated
 	// behind the Edit Original toggle, so that row stays visible but disabled
@@ -384,6 +652,15 @@ void VisualToolOCR::OpenContextMenu(Vector2D mouse_point) {
 			case ID_OCR_INSERT_CARET:
 				InsertSelectedText(InsertMode::AtCaret);
 				break;
+			case ID_OCR_CLEAR_REGION:
+				ClearRoi();
+				if (c->frame)
+					c->frame->StatusTimeout(_("OCR region cleared."), 2500);
+				break;
+			case ID_OCR_DIM_OUTSIDE_REGION:
+				OPT_SET(OPT_OCR_VISUAL_TOOL_DIM_OUTSIDE_REGION)->SetBool(evt.IsChecked());
+				parent->Render();
+				break;
 			default:
 				break;
 		}
@@ -395,7 +672,10 @@ void VisualToolOCR::OpenContextMenu(Vector2D mouse_point) {
 void VisualToolOCR::OnFrameChanged() {
 	if (c->videoController->IsPlaying())
 		return;
-	RefreshOcrData();
+	if (dragging_roi)
+		FinishRoiDrag();
+	else
+		RefreshOcrData();
 	parent->Render();
 }
 
@@ -404,12 +684,16 @@ void VisualToolOCR::OnCoordinateSystemsChanged() {
 }
 
 void VisualToolOCR::OnPlaybackStateChanged(bool is_playing) {
+	bool const was_dragging_roi = dragging_roi;
+	if (was_dragging_roi)
+		FinishRoiDrag();
 	dragging_character_selection = false;
 	drag_additive_selection = false;
 	drag_anchor_character = -1;
 	drag_focus_character = -1;
 
 	if (is_playing) {
+		hovered_roi_edge = VisualOcrRoiEdge::None;
 		hovered_region = -1;
 		hovered_character = -1;
 		UpdateCursor();
@@ -417,7 +701,8 @@ void VisualToolOCR::OnPlaybackStateChanged(bool is_playing) {
 		return;
 	}
 
-	RefreshOcrData();
+	if (!was_dragging_roi)
+		RefreshOcrData();
 	UpdateCursor();
 	parent->Render();
 }
@@ -434,7 +719,10 @@ void VisualToolOCR::OnMouseEvent(wxMouseEvent &event) {
 	mouse_pos = event.GetPosition();
 
 	if (event.Leaving()) {
+		if (dragging_roi)
+			return;
 		mouse_pos = Vector2D();
+		hovered_roi_edge = VisualOcrRoiEdge::None;
 		hovered_region = -1;
 		hovered_character = -1;
 		dragging_character_selection = false;
@@ -446,17 +734,39 @@ void VisualToolOCR::OnMouseEvent(wxMouseEvent &event) {
 		return;
 	}
 
-	hovered_character = HitTestCharacter(mouse_pos);
-	hovered_region = HitTestRegion(mouse_pos);
+	hovered_roi_edge = HitTestRoiEdge(mouse_pos);
+	if (hovered_roi_edge != VisualOcrRoiEdge::None) {
+		hovered_character = -1;
+		hovered_region = -1;
+	}
+	else {
+		hovered_character = HitTestCharacter(mouse_pos);
+		hovered_region = HitTestRegion(mouse_pos);
+	}
 	UpdateCursor();
 
 	bool const is_multi_select = shift_down || ctrl_down || alt_down;
 
 	if (event.LeftUp()) {
+		if (dragging_roi) {
+			AdjustRoiEdge(dragged_roi_edge, mouse_pos);
+			FinishRoiDrag();
+			hovered_roi_edge = HitTestRoiEdge(mouse_pos);
+			UpdateCursor();
+			parent->Render();
+			return;
+		}
+
 		dragging_character_selection = false;
 		drag_additive_selection = false;
 		drag_anchor_character = -1;
 		drag_focus_character = -1;
+		return;
+	}
+
+	if (dragging_roi && event.Dragging() && event.LeftIsDown()) {
+		AdjustRoiEdge(dragged_roi_edge, mouse_pos);
+		parent->Render();
 		return;
 	}
 
@@ -480,6 +790,19 @@ void VisualToolOCR::OnMouseEvent(wxMouseEvent &event) {
 	}
 
 	if (event.LeftDown()) {
+		if (hovered_roi_edge != VisualOcrRoiEdge::None) {
+			dragging_character_selection = false;
+			drag_additive_selection = false;
+			drag_anchor_character = -1;
+			drag_focus_character = -1;
+			dragging_roi = true;
+			dragged_roi_edge = hovered_roi_edge;
+			if (!parent->HasCapture())
+				parent->CaptureMouse();
+			UpdateCursor();
+			return;
+		}
+
 		if (hovered_character >= 0) {
 			size_t const region_idx = characters[hovered_character].region_index;
 			// A modifier-click (Shift/Ctrl/Cmd/Alt) on an already-selected
@@ -566,11 +889,18 @@ bool VisualToolOCR::OnContextMenu(wxContextMenuEvent &event) {
 		context_point = parent->ScreenToClient(context_point);
 
 	mouse_pos = context_point;
-	hovered_character = HitTestCharacter(mouse_pos);
-	hovered_region = HitTestRegion(mouse_pos);
+	hovered_roi_edge = HitTestRoiEdge(mouse_pos);
+	if (hovered_roi_edge != VisualOcrRoiEdge::None) {
+		hovered_character = -1;
+		hovered_region = -1;
+	}
+	else {
+		hovered_character = HitTestCharacter(mouse_pos);
+		hovered_region = HitTestRegion(mouse_pos);
+	}
 	UpdateCursor();
 
-	if (!HasSelection() && hovered_character < 0 && hovered_region < 0)
+	if (!HasSelection() && hovered_character < 0 && hovered_region < 0 && !has_roi)
 		return false;
 
 	OpenContextMenu(mouse_pos);
@@ -649,4 +979,6 @@ void VisualToolOCR::Draw() {
 		gl.SetFillColour(color, fill_alpha);
 		gl.DrawRectangle(top_left, bottom_right);
 	}
+
+	DrawRoiOverlay(EditableRoi());
 }

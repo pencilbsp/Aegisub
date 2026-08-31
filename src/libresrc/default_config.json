@@ -489,6 +489,33 @@
 		"Kanji Timer" : {
 			"Interpolation" : true
 		},
+		"OCR" : {
+			"Selected Lines" : {
+				"Frame Mode" : 1,
+				"Insert Mode" : 2,
+				"Language" : "",
+				"Region" : {
+					"Height" : 1.0,
+					"Set" : false,
+					"Width" : 1.0,
+					"X" : 0.0,
+					"Y" : 0.0
+				},
+				"Target Field" : -1,
+				"Use Region" : false
+			},
+			"Visual Tool" : {
+				"Dim Outside Region" : true,
+				"Region" : {
+					"Height" : 1.0,
+					"Set" : false,
+					"Width" : 1.0,
+					"X" : 0.0,
+					"Y" : 0.0
+				},
+				"Use Region" : false
+			}
+		},
 		"Paste Lines Over" : {
 			"Fields" : [
 				{"bool" : false},

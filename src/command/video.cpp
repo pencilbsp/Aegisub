@@ -359,6 +359,122 @@ struct OcrNormalizedRect {
 	}
 };
 
+const char *const OPT_OCR_LINES_FRAME_MODE = "Tool/OCR/Selected Lines/Frame Mode";
+const char *const OPT_OCR_LINES_INSERT_MODE = "Tool/OCR/Selected Lines/Insert Mode";
+const char *const OPT_OCR_LINES_TARGET_FIELD = "Tool/OCR/Selected Lines/Target Field";
+const char *const OPT_OCR_LINES_LANGUAGE = "Tool/OCR/Selected Lines/Language";
+const char *const OPT_OCR_LINES_USE_REGION = "Tool/OCR/Selected Lines/Use Region";
+const char *const OPT_OCR_LINES_REGION_SET = "Tool/OCR/Selected Lines/Region/Set";
+const char *const OPT_OCR_LINES_REGION_X = "Tool/OCR/Selected Lines/Region/X";
+const char *const OPT_OCR_LINES_REGION_Y = "Tool/OCR/Selected Lines/Region/Y";
+const char *const OPT_OCR_LINES_REGION_WIDTH = "Tool/OCR/Selected Lines/Region/Width";
+const char *const OPT_OCR_LINES_REGION_HEIGHT = "Tool/OCR/Selected Lines/Region/Height";
+
+int ocr_option_int(char const *name, int min_value, int max_value, int fallback) {
+	auto const value = OPT_GET(name)->GetInt();
+	if (value < min_value || value > max_value)
+		return fallback;
+	return static_cast<int>(value);
+}
+
+int ocr_frame_mode_index(OcrLineFrameMode mode) {
+	switch (mode) {
+		case OcrLineFrameMode::First: return 0;
+		case OcrLineFrameMode::Last: return 2;
+		case OcrLineFrameMode::Middle:
+		default: return 1;
+	}
+}
+
+OcrLineFrameMode ocr_frame_mode_from_index(int index) {
+	switch (index) {
+		case 0: return OcrLineFrameMode::First;
+		case 2: return OcrLineFrameMode::Last;
+		default: return OcrLineFrameMode::Middle;
+	}
+}
+
+int ocr_insert_mode_index(OcrLineInsertMode mode) {
+	switch (mode) {
+		case OcrLineInsertMode::InsertBefore: return 0;
+		case OcrLineInsertMode::InsertAfter: return 1;
+		case OcrLineInsertMode::Replace:
+		default: return 2;
+	}
+}
+
+OcrLineInsertMode ocr_insert_mode_from_index(int index) {
+	switch (index) {
+		case 0: return OcrLineInsertMode::InsertBefore;
+		case 1: return OcrLineInsertMode::InsertAfter;
+		default: return OcrLineInsertMode::Replace;
+	}
+}
+
+int ocr_target_field_index(OcrLineTargetField target) {
+	switch (target) {
+		case OcrLineTargetField::Original: return 1;
+		case OcrLineTargetField::Text:
+		default: return 0;
+	}
+}
+
+OcrLineTargetField ocr_target_field_from_option(OcrLineTargetField fallback) {
+	switch (ocr_option_int(OPT_OCR_LINES_TARGET_FIELD, -1, 1, -1)) {
+		case 0: return OcrLineTargetField::Text;
+		case 1: return OcrLineTargetField::Original;
+		default: return fallback;
+	}
+}
+
+std::vector<std::string> read_ocr_language_codes(std::vector<std::string> const& supported_languages) {
+	std::vector<std::string> tokens;
+	boost::split(tokens, OPT_GET(OPT_OCR_LINES_LANGUAGE)->GetString(), boost::is_any_of(","));
+
+	std::vector<std::string> language_codes;
+	for (auto const& raw_token : tokens) {
+		auto token = std::string(agi::Trim(raw_token));
+		if (token.empty())
+			continue;
+
+		if (std::find(supported_languages.begin(), supported_languages.end(), token) == supported_languages.end())
+			continue;
+
+		if (std::find(language_codes.begin(), language_codes.end(), token) == language_codes.end())
+			language_codes.push_back(std::move(token));
+	}
+	return language_codes;
+}
+
+std::string join_ocr_language_codes(std::vector<std::string> const& language_codes) {
+	std::string value;
+	for (auto const& language : language_codes) {
+		if (!value.empty())
+			value += ",";
+		value += language;
+	}
+	return value;
+}
+
+OcrNormalizedRect read_ocr_roi() {
+	OcrNormalizedRect roi{
+		OPT_GET(OPT_OCR_LINES_REGION_X)->GetDouble(),
+		OPT_GET(OPT_OCR_LINES_REGION_Y)->GetDouble(),
+		OPT_GET(OPT_OCR_LINES_REGION_WIDTH)->GetDouble(),
+		OPT_GET(OPT_OCR_LINES_REGION_HEIGHT)->GetDouble()
+	};
+
+	if (!roi.IsValid() || roi.x < 0.0 || roi.y < 0.0 || roi.x >= 1.0 || roi.y >= 1.0)
+		return {0.0, 0.0, 0.0, 0.0};
+
+	roi.width = std::min(roi.width, 1.0 - roi.x);
+	roi.height = std::min(roi.height, 1.0 - roi.y);
+	if (!roi.IsValid())
+		return {0.0, 0.0, 0.0, 0.0};
+
+	return roi;
+}
+
 class OcrRoiPickerDialog final : public wxDialog {
 	enum class DragMode {
 		None,
@@ -609,11 +725,29 @@ class OcrRoiPickerDialog final : public wxDialog {
 		if (draw_rect.IsEmpty())
 			return;
 
-		wxImage scaled = image.Scale(draw_rect.width, draw_rect.height, wxIMAGE_QUALITY_HIGH);
-		dc.DrawBitmap(wxBitmap(scaled), draw_rect.x, draw_rect.y, false);
-
 		if (has_selection && !selection_image.IsEmpty()) {
 			wxRect selection_client = ImageToClient(selection_image);
+			wxImage scaled = image.Scale(draw_rect.width, draw_rect.height, wxIMAGE_QUALITY_HIGH);
+			wxRect selection_scaled(
+				selection_client.x - draw_rect.x,
+				selection_client.y - draw_rect.y,
+				selection_client.width,
+				selection_client.height);
+			unsigned char *data = scaled.GetData();
+			if (data) {
+				for (int y = 0; y < scaled.GetHeight(); ++y) {
+					for (int x = 0; x < scaled.GetWidth(); ++x) {
+						if (selection_scaled.Contains(x, y))
+							continue;
+						unsigned char *pixel = data + (y * scaled.GetWidth() + x) * 3;
+						pixel[0] = static_cast<unsigned char>(pixel[0] * 0.45);
+						pixel[1] = static_cast<unsigned char>(pixel[1] * 0.45);
+						pixel[2] = static_cast<unsigned char>(pixel[2] * 0.45);
+					}
+				}
+			}
+			dc.DrawBitmap(wxBitmap(scaled), draw_rect.x, draw_rect.y, false);
+
 			wxPen const guide_pen(wxColour(0, 160, 255), 2);
 			dc.SetPen(guide_pen);
 			dc.SetBrush(*wxTRANSPARENT_BRUSH);
@@ -622,6 +756,10 @@ class OcrRoiPickerDialog final : public wxDialog {
 			dc.DrawLine(selection_client.GetRight(), draw_rect.GetTop(), selection_client.GetRight(), draw_rect.GetBottom());
 			dc.DrawLine(draw_rect.GetLeft(), selection_client.GetTop(), draw_rect.GetRight(), selection_client.GetTop());
 			dc.DrawLine(draw_rect.GetLeft(), selection_client.GetBottom(), draw_rect.GetRight(), selection_client.GetBottom());
+		}
+		else {
+			wxImage scaled = image.Scale(draw_rect.width, draw_rect.height, wxIMAGE_QUALITY_HIGH);
+			dc.DrawBitmap(wxBitmap(scaled), draw_rect.x, draw_rect.y, false);
 		}
 	}
 
@@ -819,7 +957,7 @@ class OcrLanguageChoice final : public wxComboBox {
 	}
 
 public:
-	OcrLanguageChoice(wxWindow *parent, std::vector<std::string> languages)
+	OcrLanguageChoice(wxWindow *parent, std::vector<std::string> languages, std::vector<std::string> initial_language_codes)
 	: wxComboBox(parent, wxID_ANY, wxString(), wxDefaultPosition, wxDefaultSize,
 		wxArrayString(), wxCB_DROPDOWN | wxTE_PROCESS_ENTER)
 	, supported_languages(std::move(languages))
@@ -827,7 +965,7 @@ public:
 		Append(_("Auto"));
 		for (auto const& language : supported_languages)
 			Append(to_wx(language));
-		SetSelection(0);
+		SetLanguageCodes(initial_language_codes);
 
 		SetToolTip(_("Select languages to add or remove them, or type exact language codes separated by commas (for example: en-US,ja-JP)."));
 		Bind(wxEVT_KILL_FOCUS, [this](wxFocusEvent& event) {
@@ -964,6 +1102,15 @@ public:
 	, roi_preview_frame(context ? context->videoController->GetFrameN() : 0)
 	, supported_languages(std::move(languages))
 	{
+		int const saved_frame_mode = ocr_option_int(OPT_OCR_LINES_FRAME_MODE, 0, 2, 1);
+		int const saved_insert_mode = ocr_option_int(OPT_OCR_LINES_INSERT_MODE, 0, 2, 2);
+		auto const saved_target = ocr_target_field_from_option(default_target);
+		auto const saved_language_codes = read_ocr_language_codes(supported_languages);
+		auto const saved_roi = read_ocr_roi();
+		has_roi_selection = OPT_GET(OPT_OCR_LINES_REGION_SET)->GetBool() && saved_roi.IsValid();
+		if (has_roi_selection)
+			roi_selection = saved_roi;
+
 		auto *main_sizer = new wxBoxSizer(wxVERTICAL);
 		auto *grid = new wxFlexGridSizer(2, 6, 8);
 		grid->AddGrowableCol(1, 1);
@@ -974,7 +1121,7 @@ public:
 		frame_mode->Append(_("First frame of each line"));
 		frame_mode->Append(_("Middle frame of each line"));
 		frame_mode->Append(_("Last frame of each line"));
-		frame_mode->SetSelection(1);
+		frame_mode->SetSelection(saved_frame_mode);
 		grid->Add(frame_mode, 1, wxEXPAND);
 
 		grid->Add(new wxStaticText(this, wxID_ANY, _("Insert mode:")), 0, wxALIGN_CENTER_VERTICAL);
@@ -983,26 +1130,27 @@ public:
 		insert_mode->Append(_("Insert before"));
 		insert_mode->Append(_("Insert after"));
 		insert_mode->Append(_("Replace line text"));
-		insert_mode->SetSelection(2);
+		insert_mode->SetSelection(saved_insert_mode);
 		grid->Add(insert_mode, 1, wxEXPAND);
 
 		grid->Add(new wxStaticText(this, wxID_ANY, _("OCR target:")), 0, wxALIGN_CENTER_VERTICAL);
 		auto *target_box = new wxBoxSizer(wxHORIZONTAL);
 		target_text = new wxRadioButton(this, wxID_ANY, _("Text"), wxDefaultPosition, wxDefaultSize, wxRB_GROUP);
 		target_original = new wxRadioButton(this, wxID_ANY, _("Original"));
-		target_text->SetValue(default_target == OcrLineTargetField::Text);
-		target_original->SetValue(default_target == OcrLineTargetField::Original);
+		target_text->SetValue(saved_target == OcrLineTargetField::Text);
+		target_original->SetValue(saved_target == OcrLineTargetField::Original);
 		target_box->Add(target_text, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 16);
 		target_box->Add(target_original, 0, wxALIGN_CENTER_VERTICAL);
 		grid->Add(target_box, 1, wxEXPAND);
 
 		grid->Add(new wxStaticText(this, wxID_ANY, _("Language:")), 0, wxALIGN_CENTER_VERTICAL);
-		language_mode = new OcrLanguageChoice(this, supported_languages);
+		language_mode = new OcrLanguageChoice(this, supported_languages, saved_language_codes);
 		grid->Add(language_mode, 1, wxEXPAND);
 
 		grid->Add(new wxStaticText(this, wxID_ANY, _("OCR region:")), 0, wxALIGN_CENTER_VERTICAL);
 		auto *roi_box = new wxBoxSizer(wxHORIZONTAL);
 		use_roi = new wxCheckBox(this, wxID_ANY, _("Use OCR region"));
+		use_roi->SetValue(OPT_GET(OPT_OCR_LINES_USE_REGION)->GetBool() && has_roi_selection);
 		roi_box->Add(use_roi, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 8);
 		auto *pick_roi = new wxButton(this, wxID_ANY, _("Pick region..."));
 		roi_box->Add(pick_roi, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 8);
@@ -1032,19 +1180,11 @@ public:
 	}
 
 	OcrLineFrameMode GetFrameMode() const {
-		switch (frame_mode->GetSelection()) {
-			case 0: return OcrLineFrameMode::First;
-			case 2: return OcrLineFrameMode::Last;
-			default: return OcrLineFrameMode::Middle;
-		}
+		return ocr_frame_mode_from_index(frame_mode->GetSelection());
 	}
 
 	OcrLineInsertMode GetInsertMode() const {
-		switch (insert_mode->GetSelection()) {
-			case 0: return OcrLineInsertMode::InsertBefore;
-			case 1: return OcrLineInsertMode::InsertAfter;
-			default: return OcrLineInsertMode::Replace;
-		}
+		return ocr_insert_mode_from_index(insert_mode->GetSelection());
 	}
 
 	OcrLineTargetField GetTargetField() const {
@@ -1065,6 +1205,23 @@ public:
 
 	OcrNormalizedRect GetRoi() const {
 		return roi_selection;
+	}
+
+	void SaveOptions() const {
+		OPT_SET(OPT_OCR_LINES_FRAME_MODE)->SetInt(ocr_frame_mode_index(GetFrameMode()));
+		OPT_SET(OPT_OCR_LINES_INSERT_MODE)->SetInt(ocr_insert_mode_index(GetInsertMode()));
+		OPT_SET(OPT_OCR_LINES_TARGET_FIELD)->SetInt(ocr_target_field_index(GetTargetField()));
+		OPT_SET(OPT_OCR_LINES_LANGUAGE)->SetString(join_ocr_language_codes(GetLanguageCodes()));
+		OPT_SET(OPT_OCR_LINES_USE_REGION)->SetBool(use_roi && use_roi->GetValue());
+
+		bool const has_roi = has_roi_selection && roi_selection.IsValid();
+		OPT_SET(OPT_OCR_LINES_REGION_SET)->SetBool(has_roi);
+		if (has_roi) {
+			OPT_SET(OPT_OCR_LINES_REGION_X)->SetDouble(roi_selection.x);
+			OPT_SET(OPT_OCR_LINES_REGION_Y)->SetDouble(roi_selection.y);
+			OPT_SET(OPT_OCR_LINES_REGION_WIDTH)->SetDouble(roi_selection.width);
+			OPT_SET(OPT_OCR_LINES_REGION_HEIGHT)->SetDouble(roi_selection.height);
+		}
 	}
 };
 
@@ -1215,6 +1372,7 @@ struct video_ocr_selected_lines final : public validator_video_loaded {
 		OcrSelectedLinesDialog dialog(c->parent, c, osx::ocr::SupportedRecognitionLanguages(), default_target);
 		if (dialog.ShowModal() != wxID_OK)
 			return;
+		dialog.SaveOptions();
 
 		osx::ocr::Options ocr_options;
 		ocr_options.auto_detect_language = dialog.IsAutoLanguage();

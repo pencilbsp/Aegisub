@@ -25,6 +25,25 @@
 
 class wxMouseEvent;
 
+enum class VisualOcrRoiEdge {
+	None,
+	Left,
+	Right,
+	Top,
+	Bottom
+};
+
+struct VisualOcrRoi {
+	double x = 0.0;
+	double y = 0.0;
+	double width = 1.0;
+	double height = 1.0;
+
+	bool IsValid() const {
+		return width > 0.0 && height > 0.0;
+	}
+};
+
 class VisualToolOCR final : public VisualToolBase {
 	std::vector<osx::ocr::Region> regions;
 	std::vector<osx::ocr::Character> characters;
@@ -36,6 +55,11 @@ class VisualToolOCR final : public VisualToolBase {
 	bool drag_additive_selection = false;
 	int drag_anchor_character = -1;
 	int drag_focus_character = -1;
+	bool has_roi = false;
+	bool dragging_roi = false;
+	VisualOcrRoiEdge hovered_roi_edge = VisualOcrRoiEdge::None;
+	VisualOcrRoiEdge dragged_roi_edge = VisualOcrRoiEdge::None;
+	VisualOcrRoi roi;
 	std::string last_error;
 
 	enum class InsertMode {
@@ -45,6 +69,18 @@ class VisualToolOCR final : public VisualToolBase {
 	};
 
 	void RefreshOcrData();
+	void LoadPersistedRoi();
+	void SavePersistedRoi() const;
+	void ClearRoi();
+	bool IsInsideVideo(Vector2D pos) const;
+	Vector2D ClampToVideo(Vector2D pos) const;
+	VisualOcrRoi EditableRoi() const;
+	Vector2D RoiTopLeft(VisualOcrRoi const& draw_roi) const;
+	Vector2D RoiBottomRight(VisualOcrRoi const& draw_roi) const;
+	VisualOcrRoiEdge HitTestRoiEdge(Vector2D pos) const;
+	void AdjustRoiEdge(VisualOcrRoiEdge edge, Vector2D pos);
+	void FinishRoiDrag();
+	void DrawRoiOverlay(VisualOcrRoi const& draw_roi);
 	int HitTestRegion(Vector2D pos) const;
 	int HitTestCharacter(Vector2D pos) const;
 	std::vector<size_t> SortedCharacterIndicesForRegion(size_t region_index) const;

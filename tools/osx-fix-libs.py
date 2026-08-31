@@ -3,6 +3,7 @@
 import re
 import sys
 import os
+import glob
 import shutil
 import stat
 import subprocess
@@ -28,6 +29,21 @@ def find_missing_lib(lib, targetdir):
         if basename in files:
             return os.path.join(root, basename)
 
+    for prefix in ("/opt/homebrew", "/usr/local"):
+        opt_prefix = os.path.join(prefix, "opt") + os.sep
+        if not lib.startswith(opt_prefix):
+            continue
+
+        rest = lib[len(opt_prefix):]
+        formula, _, relative_path = rest.partition(os.sep)
+        if not formula or not relative_path:
+            continue
+
+        pattern = os.path.join(prefix, "Cellar", formula, "*", relative_path)
+        for candidate in sorted(glob.glob(pattern), reverse=True):
+            if os.path.exists(candidate):
+                return candidate
+
     return None
 
 
@@ -52,6 +68,18 @@ def get_rpath(lib):
 
     # yuck
     return [line.split()[1] for command in commands if "cmd LC_RPATH" in command for line in command if line.startswith("path")]
+
+
+def resolve_loader_path(lib, path):
+    if path.startswith("@loader_path/"):
+        return os.path.join(os.path.dirname(lib), path[len("@loader_path/"):])
+    return path
+
+
+def resolve_executable_path(targetdir, path):
+    if path.startswith("@executable_path/"):
+        return os.path.join(targetdir, path[len("@executable_path/"):])
+    return path
 
 
 def collectlibs(lib, masterlist, targetdir):
@@ -81,8 +109,8 @@ def collectlibs(lib, masterlist, targetdir):
             rpath_dir = rpath[0]
             for candidate_dir in rpath:
                 candidate = os.path.join(candidate_dir, l[len("@rpath/"):])
-                if candidate.startswith("@loader_path/"):
-                    candidate = os.path.join(os.path.dirname(lib), candidate[len("@loader_path/"):])
+                candidate = resolve_loader_path(lib, candidate)
+                candidate = resolve_executable_path(targetdir, candidate)
                 if os.path.exists(candidate):
                     rpath_dir = candidate_dir
                     break
@@ -91,8 +119,8 @@ def collectlibs(lib, masterlist, targetdir):
             if rpath_dir == "@loader_path/data":
                 copydir = os.path.join(targetdir, rpath_dir[len("@loader_path/"):])
 
-        if l.startswith("@loader_path/"):
-            l = os.path.join(os.path.dirname(lib), l[len("@loader_path/"):])
+        l = resolve_loader_path(lib, l)
+        l = resolve_executable_path(targetdir, l)
 
         if is_bad_lib(l):
             if l not in badlist:
@@ -116,13 +144,22 @@ def collectlibs(lib, masterlist, targetdir):
                     os.remove(target)
 
                 if os.path.isfile(check) and not os.path.islink(check):
+                    target_rel = os.path.relpath(target, targetdir)
+                    if os.path.exists(target) and os.path.samefile(check, target):
+                        print("    FILE %s ... already in target" % check)
+                        target_map[check] = target_rel
+                        change_map[l_orig] = target_rel
+                        if link_list:
+                            for link in link_list:
+                                link_map[link] = basename
+                        break
+
                     try:
                         shutil.copy(check, target)
                     except PermissionError:
                         print("    FILE %s ... skipped" % check)
                         break
                     print("    FILE %s ... copied to target" % check)
-                    target_rel = os.path.relpath(target, targetdir)
                     target_map[check] = target_rel
                     change_map[l_orig] = target_rel
                     if link_list:

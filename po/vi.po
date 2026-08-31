@@ -6354,6 +6354,43 @@ msgstr "sửa đổi văn bản"
 msgid "modify original"
 msgstr "sửa đổi gốc"
 
+#: ../src/visual_tool_ocr.cpp:294
+msgid "OCR region updated."
+msgstr "Đã cập nhật vùng OCR."
+
+#: ../src/visual_tool_ocr.cpp:374 ../src/command/video.cpp:1325
+#, c-format
+msgid "OCR failed: %s"
+msgstr "OCR thất bại: %s"
+
+#: ../src/visual_tool_ocr.cpp:551 ../src/visual_tool_ocr.cpp:564
+msgid "No OCR selection."
+msgstr "Chưa có lựa chọn OCR."
+
+#: ../src/visual_tool_ocr.cpp:557
+msgid "OCR text copied to clipboard."
+msgstr "Đã sao chép văn bản OCR vào bảng nhớ tạm."
+
+#: ../src/visual_tool_ocr.cpp:570
+msgid "No active subtitle line to insert into."
+msgstr "Không có dòng phụ đề hiện tại để chèn vào."
+
+#: ../src/visual_tool_ocr.cpp:587
+msgid "OCR text inserted."
+msgstr "Đã chèn văn bản OCR."
+
+#: ../src/visual_tool_ocr.cpp:616
+msgid "Dim outside OCR region"
+msgstr "Làm mờ ngoài vùng OCR"
+
+#: ../src/visual_tool_ocr.cpp:619
+msgid "Clear OCR region"
+msgstr "Xóa vùng OCR"
+
+#: ../src/visual_tool_ocr.cpp:658
+msgid "OCR region cleared."
+msgstr "Đã xóa vùng OCR."
+
 #: ../src/visual_tool_ocr.cpp:360
 msgid "Replace current text line"
 msgstr "Thay thế dòng văn bản hiện tại"
