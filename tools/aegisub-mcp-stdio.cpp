@@ -301,6 +301,14 @@ std::string socket_error() {
 }
 #endif
 
+std::string gai_error(int code) {
+#ifdef _WIN32
+	return gai_strerrorA(code);
+#else
+	return gai_strerror(code);
+#endif
+}
+
 class Socket {
 	socket_t socket_ = invalid_socket;
 
@@ -346,7 +354,7 @@ Socket connect_tcp(Endpoint const& endpoint) {
 	addrinfo *addresses = nullptr;
 	auto gai = getaddrinfo(endpoint.host.c_str(), endpoint.port.c_str(), &hints, &addresses);
 	if (gai != 0)
-		fail("Failed to resolve " + endpoint.host + ":" + endpoint.port + ": " + gai_strerror(gai));
+		fail("Failed to resolve " + endpoint.host + ":" + endpoint.port + ": " + gai_error(gai));
 
 	Socket connected;
 	for (auto addr = addresses; addr; addr = addr->ai_next) {
