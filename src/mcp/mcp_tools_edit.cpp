@@ -11,6 +11,7 @@
 #include "ass_dialogue.h"
 #include "ass_file.h"
 #include "ass_style.h"
+#include "compat.h"
 #include "include/aegisub/context.h"
 #include "search_replace_engine.h"
 
@@ -199,7 +200,7 @@ ToolResult ReplaceLines(json::Object const& args) {
 			}
 		}
 		if (replacement_count)
-			c->ass->Commit("MCP: replace", commit_type, -1,
+			c->ass->Commit(to_wx("MCP: replace"), commit_type, -1,
 				changed_rows.size() == 1 ? index[*changed_rows.begin()] : nullptr);
 	});
 	json::Object result;
@@ -230,7 +231,7 @@ ToolResult ShiftTimes(json::Object const& args) {
 			++shifted;
 		}
 		if (shifted)
-			c->ass->Commit("MCP: shift times", AssFile::COMMIT_DIAG_TIME, -1,
+			c->ass->Commit(to_wx("MCP: shift times"), AssFile::COMMIT_DIAG_TIME, -1,
 				shifted == 1 ? index[rows ? *rows->begin() : 0] : nullptr);
 	});
 	json::Object result;
@@ -379,7 +380,7 @@ ToolResult UpsertStyle(json::Object const& args) {
 		style->name = new_name;
 		style->UpdateData();
 		if (created) c->ass->Styles.push_back(*style);
-		c->ass->Commit("MCP: upsert style", AssFile::COMMIT_STYLES | (renamed ? AssFile::COMMIT_DIAG_FULL : 0));
+		c->ass->Commit(to_wx("MCP: upsert style"), AssFile::COMMIT_STYLES | (renamed ? AssFile::COMMIT_DIAG_FULL : 0));
 		result.emplace("style", StyleJson(*style));
 	});
 	result.emplace("created", created);
@@ -404,7 +405,7 @@ ToolResult DeleteStyle(json::Object const& args) {
 		else if (EditStyleReferences(c, style->name, std::nullopt))
 			throw ToolError("Style is in use; provide replacement to update its references before deletion");
 		delete style;
-		c->ass->Commit("MCP: delete style", AssFile::COMMIT_STYLES | (references_changed ? AssFile::COMMIT_DIAG_FULL : 0));
+		c->ass->Commit(to_wx("MCP: delete style"), AssFile::COMMIT_STYLES | (references_changed ? AssFile::COMMIT_DIAG_FULL : 0));
 	});
 	json::Object result;
 	result.emplace("deleted", name);

@@ -138,7 +138,7 @@ TEST(lagi_audio, save_audio_clip_stream_matches_file) {
 	std::ifstream file(path, std::ios::binary);
 	std::string file_bytes((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
 
-	std::ostringstream stream(std::ios::out | std::ios::binary);
+	std::ostringstream stream;
 	agi::SaveAudioClip(provider, stream, 250, 1250);
 	EXPECT_EQ(file_bytes, stream.str());
 

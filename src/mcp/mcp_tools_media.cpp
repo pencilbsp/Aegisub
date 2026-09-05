@@ -20,6 +20,7 @@
 #include <libaegisub/vfr.h>
 
 #include <algorithm>
+#include <cmath>
 #include <sstream>
 #include <vector>
 
@@ -31,6 +32,28 @@ using namespace agi::mcp;
 namespace {
 
 constexpr int max_clip_ms = 60 * 1000;
+
+const char *const OPT_OCR_VISUAL_TOOL_USE_REGION = "Tool/OCR/Visual Tool/Use Region";
+const char *const OPT_OCR_VISUAL_TOOL_REGION_SET = "Tool/OCR/Visual Tool/Region/Set";
+const char *const OPT_OCR_VISUAL_TOOL_REGION_X = "Tool/OCR/Visual Tool/Region/X";
+const char *const OPT_OCR_VISUAL_TOOL_REGION_Y = "Tool/OCR/Visual Tool/Region/Y";
+const char *const OPT_OCR_VISUAL_TOOL_REGION_WIDTH = "Tool/OCR/Visual Tool/Region/Width";
+const char *const OPT_OCR_VISUAL_TOOL_REGION_HEIGHT = "Tool/OCR/Visual Tool/Region/Height";
+
+struct FrameRoi {
+	double x = 0.0;
+	double y = 0.0;
+	double width = 1.0;
+	double height = 1.0;
+	int pixel_x = 0;
+	int pixel_y = 0;
+	int pixel_width = 0;
+	int pixel_height = 0;
+
+	bool IsValid() const {
+		return width > 0.0 && height > 0.0;
+	}
+};
 
 std::string EncodePng(wxImage const& image) {
 	wxMemoryOutputStream stream;
@@ -47,6 +70,65 @@ std::string RenderWav(agi::AudioProvider const& provider, int start_ms, int end_
 	return std::move(wav).str();
 }
 
+FrameRoi ClampRoi(FrameRoi roi, int image_width, int image_height) {
+	if (!roi.IsValid() || roi.x < 0.0 || roi.y < 0.0 || roi.x >= 1.0 || roi.y >= 1.0)
+		throw ToolError("ROI must have normalized x/y in [0, 1) and positive width/height");
+
+	roi.width = std::min(roi.width, 1.0 - roi.x);
+	roi.height = std::min(roi.height, 1.0 - roi.y);
+	if (!roi.IsValid())
+		throw ToolError("ROI is outside the video frame");
+
+	roi.pixel_x = std::clamp(static_cast<int>(std::lround(roi.x * image_width)), 0, image_width - 1);
+	roi.pixel_y = std::clamp(static_cast<int>(std::lround(roi.y * image_height)), 0, image_height - 1);
+	roi.pixel_width = std::clamp(static_cast<int>(std::lround(roi.width * image_width)), 1, image_width - roi.pixel_x);
+	roi.pixel_height = std::clamp(static_cast<int>(std::lround(roi.height * image_height)), 1, image_height - roi.pixel_y);
+	return roi;
+}
+
+FrameRoi ParseRoi(json::Object const& args) {
+	auto it = args.find("roi");
+	if (it == args.end())
+		throw ToolError("Missing required argument: roi");
+
+	json::Object const& roi = it->second;
+	return {
+		mcp::ArgDouble(roi, "x"),
+		mcp::ArgDouble(roi, "y"),
+		mcp::ArgDouble(roi, "width"),
+		mcp::ArgDouble(roi, "height")
+	};
+}
+
+FrameRoi ReadVisualToolRoi() {
+	FrameRoi roi{
+		OPT_GET(OPT_OCR_VISUAL_TOOL_REGION_X)->GetDouble(),
+		OPT_GET(OPT_OCR_VISUAL_TOOL_REGION_Y)->GetDouble(),
+		OPT_GET(OPT_OCR_VISUAL_TOOL_REGION_WIDTH)->GetDouble(),
+		OPT_GET(OPT_OCR_VISUAL_TOOL_REGION_HEIGHT)->GetDouble()
+	};
+
+	if (!OPT_GET(OPT_OCR_VISUAL_TOOL_USE_REGION)->GetBool()
+	 || !OPT_GET(OPT_OCR_VISUAL_TOOL_REGION_SET)->GetBool()
+	 || !roi.IsValid())
+		throw ToolError("No OCR ROI is enabled in this window");
+
+	return roi;
+}
+
+json::Object RoiJson(FrameRoi const& roi) {
+	json::Object result;
+	result.emplace("x", roi.x);
+	result.emplace("y", roi.y);
+	result.emplace("width", roi.width);
+	result.emplace("height", roi.height);
+	result.emplace("pixel_x", roi.pixel_x);
+	result.emplace("pixel_y", roi.pixel_y);
+	result.emplace("pixel_width", roi.pixel_width);
+	result.emplace("pixel_height", roi.pixel_height);
+	return result;
+}
+
 ToolResult GetVideoFrame(json::Object const& args) {
 	int window_id = mcp::ArgInt(args, "window_id");
 	bool has_row = mcp::HasArg(args, "row");
@@ -54,6 +136,10 @@ ToolResult GetVideoFrame(json::Object const& args) {
 	bool has_frame = mcp::HasArg(args, "frame");
 	if (static_cast<int>(has_row) + static_cast<int>(has_time) + static_cast<int>(has_frame) != 1)
 		throw ToolError("Specify exactly one of row, time_ms, or frame");
+	bool has_roi = mcp::HasArg(args, "roi");
+	bool use_ocr_roi = mcp::ArgBool(args, "use_ocr_roi", false);
+	if (has_roi && use_ocr_roi)
+		throw ToolError("Specify either roi or use_ocr_roi, not both");
 	bool has_max_width = mcp::HasArg(args, "max_width");
 	int max_width = mcp::ArgInt(args, "max_width", 0);
 	if (max_width < 0)
@@ -64,6 +150,8 @@ ToolResult GetVideoFrame(json::Object const& args) {
 	int time_ms = 0;
 	int source_width = 0;
 	int source_height = 0;
+	bool roi_applied = false;
+	FrameRoi applied_roi;
 	mcp::WithWindow(window_id, [&](FrameMain *, agi::Context *c) {
 		if (!has_max_width)
 			max_width = OPT_GET("MCP/Frame Max Width")->GetInt();
@@ -92,8 +180,15 @@ ToolResult GetVideoFrame(json::Object const& args) {
 		image = GetImage(*provider->GetFrame(frame, time_ms, false));
 		source_width = image.GetWidth();
 		source_height = image.GetHeight();
+		if (has_roi || use_ocr_roi) {
+			applied_roi = ClampRoi(has_roi ? ParseRoi(args) : ReadVisualToolRoi(), source_width, source_height);
+			image = image.GetSubImage(wxRect(applied_roi.pixel_x, applied_roi.pixel_y, applied_roi.pixel_width, applied_roi.pixel_height));
+			roi_applied = true;
+		}
 	});
 
+	int const crop_width = image.GetWidth();
+	int const crop_height = image.GetHeight();
 	if (max_width > 0 && image.GetWidth() > max_width) {
 		int height = static_cast<int>((static_cast<int64_t>(image.GetHeight()) * max_width) / image.GetWidth());
 		image = image.Scale(max_width, std::max(1, height), wxIMAGE_QUALITY_HIGH);
@@ -107,7 +202,12 @@ ToolResult GetVideoFrame(json::Object const& args) {
 	metadata.emplace("width", image.GetWidth());
 	metadata.emplace("height", image.GetHeight());
 	metadata.emplace("max_width", max_width);
-	metadata.emplace("scaled", image.GetWidth() != source_width || image.GetHeight() != source_height);
+	metadata.emplace("cropped", roi_applied);
+	metadata.emplace("crop_width", crop_width);
+	metadata.emplace("crop_height", crop_height);
+	metadata.emplace("scaled", image.GetWidth() != crop_width || image.GetHeight() != crop_height);
+	if (roi_applied)
+		metadata.emplace("roi", RoiJson(applied_roi));
 	ToolResult result;
 	result.content.emplace_back(ImageContent(EncodePng(image)));
 	result.content.emplace_back(TextContent(mcp::SerializeJson(metadata)));
@@ -207,8 +307,8 @@ namespace mcp {
 void RegisterMediaTools(agi::mcp::Dispatcher& d) {
 	d.RegisterTool({
 		"get_video_frame",
-		"Get a rendered PNG video frame, including visible subtitles, from one Aegisub window. Select it by subtitle row midpoint, time in milliseconds, or frame number (exactly one). Frames are downscaled to the Aegisub MCP preference by default to reduce image tokens. Returns image content plus JSON metadata.",
-		R"json({"type":"object","properties":{"window_id":{"type":"integer","description":"Window id from list_windows"},"row":{"type":"integer","description":"Subtitle row whose midpoint selects the frame"},"time_ms":{"type":"integer","description":"Video time in milliseconds"},"frame":{"type":"integer","description":"Zero-based video frame"},"max_width":{"type":"integer","description":"Override the Aegisub frame max-width preference for this request; 0 returns the original size"}},"required":["window_id"]})json",
+		"Get a rendered PNG video frame, including visible subtitles, from one Aegisub window. Select it by subtitle row midpoint, time in milliseconds, or frame number (exactly one). Optionally crop to a normalized ROI before downscaling, or use the persisted OCR visual-tool ROI. Frames are downscaled to the Aegisub MCP preference by default to reduce image tokens. Returns image content plus JSON metadata.",
+		R"json({"type":"object","properties":{"window_id":{"type":"integer","description":"Window id from list_windows"},"row":{"type":"integer","description":"Subtitle row whose midpoint selects the frame"},"time_ms":{"type":"integer","description":"Video time in milliseconds"},"frame":{"type":"integer","description":"Zero-based video frame"},"max_width":{"type":"integer","description":"Override the Aegisub frame max-width preference for this request; 0 returns the original size"},"roi":{"type":"object","description":"Optional normalized crop rectangle in source video coordinates, applied before max_width scaling","properties":{"x":{"type":"number","description":"Left edge, normalized 0..1"},"y":{"type":"number","description":"Top edge, normalized 0..1"},"width":{"type":"number","description":"Width, normalized 0..1"},"height":{"type":"number","description":"Height, normalized 0..1"}},"required":["x","y","width","height"]},"use_ocr_roi":{"type":"boolean","description":"When true, crop to the persisted OCR visual-tool ROI for this window. Mutually exclusive with roi."}},"required":["window_id"]})json",
 		GetVideoFrame,
 		false
 	});

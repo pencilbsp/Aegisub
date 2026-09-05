@@ -42,7 +42,7 @@ Save::Save(path const& file, bool binary)
 {
 	LOG_D("agi/io/save/file") << file;
 
-	fp = std::make_unique<std::ofstream>(tmp_name, binary ? std::ios::binary : std::ios::out);
+	fp = std::make_unique<std::ofstream>(tmp_name, std::ios::out | (binary ? std::ios::binary : std::ios::openmode{}));
 	if (!fp->good()) {
 		acs::CheckDirWrite(file.parent_path());
 		acs::CheckFileWrite(file);

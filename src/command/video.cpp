@@ -1037,6 +1037,7 @@ class OcrSelectedLinesDialog final : public wxDialog {
 
 		if (!has_roi_selection || !roi_selection.IsValid()) {
 			roi_summary->SetLabel(_("Full frame"));
+			roi_summary->InvalidateBestSize();
 			return;
 		}
 
@@ -1045,6 +1046,7 @@ class OcrSelectedLinesDialog final : public wxDialog {
 			roi_selection.y * 100.0,
 			roi_selection.width * 100.0,
 			roi_selection.height * 100.0));
+		roi_summary->InvalidateBestSize();
 	}
 
 	void OnPickRegion(wxCommandEvent&) {
@@ -1161,9 +1163,9 @@ public:
 		main_sizer->Add(grid, 1, wxEXPAND | wxALL, 10);
 		main_sizer->Add(CreateStdDialogButtonSizer(wxOK | wxCANCEL), 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
 
+		UpdateRoiSummary();
 		SetSizerAndFit(main_sizer);
 		CentreOnParent();
-		UpdateRoiSummary();
 
 		pick_roi->Bind(wxEVT_BUTTON, &OcrSelectedLinesDialog::OnPickRegion, this);
 		Bind(wxEVT_BUTTON, &OcrSelectedLinesDialog::OnOk, this, wxID_OK);
