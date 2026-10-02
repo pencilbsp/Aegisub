@@ -560,6 +560,9 @@ void Advanced_Video(wxTreebook *book, Preferences *parent) {
 	auto p = new OptionPage(book, parent, _("Video"), OptionPage::PAGE_SUB);
 
 	auto expert = p->PageSizer(_("Expert"));
+	auto auto_load_same_name = p->OptionAdd(expert, _("Automatically load video with the same name as the subtitle"), "Video/Auto Load Same Name");
+	p->EnableIfChecked(auto_load_same_name,
+		p->OptionAdd(expert, _("Prefer video with the same name over linked video"), "Video/Prefer Same Name"));
 
 	wxArrayString vp_choice = to_wx(VideoProviderFactory::GetClasses());
 	p->OptionChoice(expert, _("Video provider"), vp_choice, "Video/Provider");

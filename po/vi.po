@@ -5379,11 +5379,77 @@ msgstr "Độ dài:"
 msgid "Decoder:"
 msgstr "Bộ giải mã:"
 
-#: ../src/dialog_video_properties.cpp:44
+#: ../src/dialog_video_properties.cpp:161
+#, c-format
+msgid ""
+"The current subtitle file has no YCbCr Matrix set.\n"
+"\n"
+"If you plan to use this subtitle file on this newly loaded video file,\n"
+"you should set the subtitle file's YCbCr Matrix to the video's color space "
+"(\"%s\").\n"
+"\n"
+"If you plan to use a different video file, you may want to\n"
+"leave the YCbCr Matrix unset until you load the correct video file.\n"
+"\n"
+"This prompt can be configured in the preferences."
+msgstr ""
+"Tệp phụ đề hiện tại chưa được đặt ma trận YCbCr.\n"
+"\n"
+"Nếu bạn dự định dùng tệp phụ đề này cho tệp video vừa nạp,\n"
+"bạn nên đặt ma trận YCbCr của tệp phụ đề theo không gian màu của video "
+"(\"%s\").\n"
+"\n"
+"Nếu bạn dự định dùng một tệp video khác, bạn có thể\n"
+"để trống ma trận YCbCr cho đến khi nạp đúng tệp video đó.\n"
+"\n"
+"Hộp thoại này có thể được cấu hình trong phần tùy chọn."
+
+#: ../src/dialog_video_properties.cpp:166
+msgid "Set script's YCbCr Matrix?"
+msgstr "Đặt ma trận YCbCr của phụ đề?"
+
+#: ../src/dialog_video_properties.cpp:167
+msgid "Leave YCbCr Matrix unset"
+msgstr "Không đặt ma trận YCbCr"
+
+#: ../src/dialog_video_properties.cpp:167
+#: ../src/dialog_video_properties.cpp:226
+#, c-format
+msgid "Set script's YCbCr Matrix to the video's (\"%s\")"
+msgstr "Đặt ma trận YCbCr của phụ đề theo video (\"%s\")"
+
+#: ../src/dialog_video_properties.cpp:221
+#, c-format
+msgid ""
+"This video's recommended YCbCr Matrix (\"%s\") differs from the subtitle "
+"file's YCbCr Matrix (\"%s\").\n"
+"\n"
+"If this new video's colors look identical to the video the subtitle file was "
+"originally authored for,\n"
+"then the subtitle file's YCbCr Matrix should be set to the video's YCbCr "
+"Matrix."
+msgstr ""
+"Ma trận YCbCr được khuyến nghị của video này (\"%s\") khác với ma trận "
+"YCbCr của tệp phụ đề (\"%s\").\n"
+"\n"
+"Nếu màu sắc của video mới này trông giống hệt với video mà tệp phụ đề ban "
+"đầu được biên soạn,\n"
+"thì ma trận YCbCr của tệp phụ đề nên được đặt theo ma trận YCbCr của video."
+
+#: ../src/dialog_video_properties.cpp:225
+msgid "YCbCr Matrix mismatch"
+msgstr "Ma trận YCbCr không khớp"
+
+#: ../src/dialog_video_properties.cpp:226
+#, c-format
+msgid "Leave script's YCbCr Matrix as it is (\"%s\")"
+msgstr "Giữ nguyên ma trận YCbCr của phụ đề (\"%s\")"
+
+#: ../src/dialog_video_properties.cpp:257
 msgid "Resolution mismatch"
 msgstr "Độ phân giải không khớp"
 
-#: ../src/dialog_video_properties.cpp:47
+#: ../src/dialog_video_properties.cpp:260
 #, c-format
 msgid ""
 "The resolution of the loaded video and the resolution specified for the "
@@ -5401,9 +5467,10 @@ msgstr ""
 "\n"
 "Thay đổi độ phân giải của phụ đề để khớp với video?"
 
-#: ../src/dialog_video_properties.cpp:58 ../src/dialog_video_properties.cpp:67
-msgid "Set to video resolution"
-msgstr "Đặt tới độ phân giải của video"
+#: ../src/dialog_video_properties.cpp:271
+#: ../src/dialog_video_properties.cpp:280
+msgid "Leave resolution as it is"
+msgstr "Giữ nguyên độ phân giải"
 
 #: ../src/dialog_video_properties.cpp:59
 msgid "Resample script (stretch to new aspect ratio)"
@@ -5421,9 +5488,130 @@ msgstr "Lấy lại mẫu phụ đề (Xóa viền)"
 msgid "Resample script"
 msgstr "Lấy lại mẫu phụ đề"
 
-#: ../src/dialog_video_properties.cpp:168
+#: ../src/dialog_video_properties.cpp:389
+#, c-format
+msgid ""
+"The current subtitle file has no layout resolution set.\n"
+"\n"
+"If you plan to use this subtitle file on this newly loaded video file,\n"
+"you should set the subtitle file's layout resolution to the video's display "
+"resolution.\n"
+"\n"
+"If you plan to use a different video file, you may want to leave\n"
+"the layout resolution unset until you load the correct video file.\n"
+"\n"
+"If you are adapting an existing old subtitle file that does not yet have\n"
+"a layout resolution set, you should set its layout resolution to the "
+"resolution\n"
+"of the video the subtitle file was intended to be played back on.\n"
+"Often, this is the same as the file's script resolution. (%d × %d)\n"
+"\n"
+"This prompt can be configured in the preferences."
+msgstr ""
+"Tệp phụ đề hiện tại chưa được đặt độ phân giải bố cục.\n"
+"\n"
+"Nếu bạn dự định dùng tệp phụ đề này cho tệp video vừa nạp,\n"
+"bạn nên đặt độ phân giải bố cục của tệp phụ đề theo độ phân giải hiển thị "
+"của video.\n"
+"\n"
+"Nếu bạn dự định dùng một tệp video khác, bạn có thể để\n"
+"trống độ phân giải bố cục cho đến khi nạp đúng tệp video đó.\n"
+"\n"
+"Nếu bạn đang điều chỉnh một tệp phụ đề cũ chưa được đặt độ phân giải\n"
+"bố cục, bạn nên đặt độ phân giải bố cục theo độ phân giải của video\n"
+"mà tệp phụ đề vốn được dự định để phát trên đó.\n"
+"Thông thường, giá trị này trùng với độ phân giải của phụ đề. (%d × %d)\n"
+"\n"
+"Hộp thoại này có thể được cấu hình trong phần tùy chọn."
+
+#: ../src/dialog_video_properties.cpp:403
+msgid "Set script's layout resolution?"
+msgstr "Đặt độ phân giải bố cục của phụ đề?"
+
+#: ../src/dialog_video_properties.cpp:404
+msgid "Leave layout resolution unset"
+msgstr "Không đặt độ phân giải bố cục"
+
+#: ../src/dialog_video_properties.cpp:405
+#: ../src/dialog_video_properties.cpp:484
+#, c-format
+msgid "Set script's layout resolution to the video's (%d × %d)"
+msgstr "Đặt độ phân giải bố cục của phụ đề theo video (%d × %d)"
+
+#: ../src/dialog_video_properties.cpp:406
+#, c-format
+msgid "Set script's layout resolution to its script resolution (%d × %d)"
+msgstr "Đặt độ phân giải bố cục theo độ phân giải của phụ đề (%d × %d)"
+
+#: ../src/dialog_video_properties.cpp:464
+#, c-format
+msgid ""
+"The resolution of the loaded video and the layout resolution specified for "
+"the subtitles don't match.\n"
+"\n"
+"Video resolution:    %d × %d\n"
+"Subtitle layout resolution:    %d × %d\n"
+"\n"
+"Usually, this is not an issue, and you may leave the subtitle file's layout "
+"resolution as it is.\n"
+"If your subtitle file does not contain any significant formatting and you "
+"now intend to perform\n"
+"formatting on the newly loaded video, you may want to set the script's "
+"layout resolution\n"
+"to the video's display resolution."
+msgstr ""
+"Độ phân giải của video được nạp và độ phân giải bố cục được chỉ định cho "
+"phụ đề không khớp.\n"
+"\n"
+"Độ phân giải video:    %d × %d\n"
+"Độ phân giải bố cục phụ đề:    %d × %d\n"
+"\n"
+"Thông thường, đây không phải là vấn đề và bạn có thể giữ nguyên độ phân "
+"giải bố cục của tệp phụ đề.\n"
+"Nếu tệp phụ đề của bạn không chứa định dạng quan trọng nào và bạn dự định "
+"thực hiện\n"
+"định dạng trên video vừa nạp, bạn có thể muốn đặt độ phân giải bố cục\n"
+"của phụ đề theo độ phân giải hiển thị của video."
+
+#: ../src/dialog_video_properties.cpp:475
+#, c-format
+msgid ""
+"The resolution of the loaded video and the layout resolution specified for "
+"the subtitles differ in aspect ratios.\n"
+"\n"
+"Video resolution:    %d × %d\n"
+"Subtitle layout resolution:    %d × %d\n"
+"\n"
+"Change layout resolution of subtitles to match video?"
+msgstr ""
+"Độ phân giải của video được nạp và độ phân giải bố cục được chỉ định cho "
+"phụ đề có tỉ lệ khung hình khác nhau.\n"
+"\n"
+"Độ phân giải video:    %d × %d\n"
+"Độ phân giải bố cục phụ đề:    %d × %d\n"
+"\n"
+"Thay đổi độ phân giải bố cục của phụ đề để khớp với video?"
+
+#: ../src/dialog_video_properties.cpp:483
+msgid "Layout resolution mismatch"
+msgstr "Độ phân giải bố cục không khớp"
+
+#: ../src/dialog_video_properties.cpp:484
+#, c-format
+msgid "Leave layout resolution as it is (%d × %d)"
+msgstr "Giữ nguyên độ phân giải bố cục (%d × %d)"
+
+#: ../src/dialog_video_properties.cpp:509
+msgid "change ycbcr matrix"
+msgstr "thay đổi ma trận ycbcr"
+
+#: ../src/dialog_video_properties.cpp:512
 msgid "change script resolution"
 msgstr "thay đổi độ phân giải của phụ đề"
+
+#: ../src/dialog_video_properties.cpp:515
+msgid "change layout resolution"
+msgstr "thay đổi độ phân giải bố cục"
 
 #: ../src/export_fixstyle.cpp:46
 msgid "Fix Styles"
@@ -5971,57 +6159,47 @@ msgstr "Tự động mở âm thanh khi mở video"
 
 #: ../src/preferences.cpp:216
 msgid "Does nothing"
-msgstr ""
+msgstr "Không làm gì"
 
 #: ../src/preferences.cpp:216
-#, fuzzy
-#| msgid "Play video"
 msgid "Pans the video"
-msgstr "Phát video"
+msgstr "Di chuyển vùng xem video"
 
 #: ../src/preferences.cpp:216
 msgid "Pans the video (X/Y swapped)"
-msgstr ""
+msgstr "Di chuyển vùng xem video (đảo trục X/Y)"
 
 #: ../src/preferences.cpp:216
 msgid "Resizes the video box"
-msgstr ""
+msgstr "Thay đổi kích thước khung chứa video"
 
 #: ../src/preferences.cpp:216
 msgid "Resizes the video box (reversed)"
-msgstr ""
+msgstr "Thay đổi kích thước khung chứa video (đảo ngược)"
 
 #: ../src/preferences.cpp:216
-#, fuzzy
-#| msgid "Zoom video in"
 msgid "Zooms the video"
-msgstr "Phóng to video"
+msgstr "Thu phóng video"
 
 #: ../src/preferences.cpp:216
 msgid "Zooms the video (reversed)"
-msgstr ""
+msgstr "Thu phóng video (đảo ngược)"
 
 #: ../src/preferences.cpp:218
-#, fuzzy
-#| msgid "Scroll the audio display left"
 msgid "Scrolling on the video display"
-msgstr "Cuộn khung hiển thị âm thanh sang trái"
+msgstr "Cuộn chuột trên khung hiển thị video"
 
 #: ../src/preferences.cpp:219
-#, fuzzy
-#| msgid "Scroll the audio display left"
 msgid "Ctrl+Scrolling on the video display"
-msgstr "Cuộn khung hiển thị âm thanh sang trái"
+msgstr "Ctrl+Cuộn chuột trên khung hiển thị video"
 
 #: ../src/preferences.cpp:220
-#, fuzzy
-#| msgid "Scroll the audio display left"
 msgid "Shift+Scrolling on the video display"
-msgstr "Cuộn khung hiển thị âm thanh sang trái"
+msgstr "Shift+Cuộn chuột trên khung hiển thị video"
 
 #: ../src/preferences.cpp:224
 msgid "Default Zoom"
-msgstr "Thu phóng Mặc định"
+msgstr "Thu phóng mặc định"
 
 #: ../src/preferences.cpp:226
 msgid "Fast jump step in frames"
@@ -6051,13 +6229,54 @@ msgstr "Chiều cao mặc định"
 msgid "Always resample"
 msgstr "Luôn luôn lấy mẫu lại"
 
-#: ../src/preferences.cpp:240
-msgid "Always set"
-msgstr "Luôn luôn thiết đặt"
-
 #: ../src/preferences.cpp:242
 msgid "Match video resolution on open"
 msgstr "Khớp độ phân giải video khi mở"
+
+#: ../src/preferences.cpp:244
+msgid "Layout Resolution"
+msgstr "Độ phân giải bố cục"
+
+#: ../src/preferences.cpp:246 ../src/preferences.cpp:258
+#: ../src/preferences.cpp:262
+msgid "Always set"
+msgstr "Luôn luôn thiết đặt"
+
+#: ../src/preferences.cpp:246
+msgid "Always set from script resolution"
+msgstr "Luôn luôn đặt theo độ phân giải phụ đề"
+
+#: ../src/preferences.cpp:248
+msgid "Set layout resolution from video on open"
+msgstr "Đặt độ phân giải bố cục theo video khi mở"
+
+#: ../src/preferences.cpp:250
+msgid "When aspect ratio changes"
+msgstr "Khi tỉ lệ khung hình thay đổi"
+
+#: ../src/preferences.cpp:252
+msgid "Prompt on layout resolution mismatch"
+msgstr "Hỏi khi độ phân giải bố cục không khớp"
+
+#: ../src/preferences.cpp:254
+msgid "YCbCr Matrix"
+msgstr "Ma trận YCbCr"
+
+#: ../src/preferences.cpp:255
+msgid "Warn on untagged video color matrix"
+msgstr "Cảnh báo khi video không gắn thẻ ma trận màu"
+
+#: ../src/preferences.cpp:256
+msgid "Warn on HDR/WCG video"
+msgstr "Cảnh báo khi video là HDR/WCG"
+
+#: ../src/preferences.cpp:260
+msgid "Use video's YCbCr Matrix when script has no matrix set"
+msgstr "Dùng ma trận YCbCr của video khi phụ đề chưa đặt ma trận"
+
+#: ../src/preferences.cpp:264
+msgid "Match video's YCbCr Matrix on open"
+msgstr "Khớp ma trận YCbCr của video khi mở"
 
 #: ../src/preferences.cpp:249
 msgid "Interface"
@@ -6567,6 +6786,14 @@ msgstr "Độ trễ của bộ đệm"
 #: ../src/preferences.cpp:473
 msgid "Buffer length"
 msgstr "Độ dài của bộ đệm"
+
+#: ../src/preferences.cpp:563
+msgid "Automatically load video with the same name as the subtitle"
+msgstr "Tự động tải video có cùng tên với phụ đề"
+
+#: ../src/preferences.cpp:565
+msgid "Prefer video with the same name over linked video"
+msgstr "Ưu tiên video có cùng tên thay vì video được liên kết"
 
 #: ../src/preferences.cpp:486
 msgid "Video provider"

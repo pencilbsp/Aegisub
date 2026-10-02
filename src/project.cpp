@@ -47,6 +47,57 @@
 #include <boost/algorithm/string/case_conv.hpp>
 #include <wx/msgdlg.h>
 
+namespace {
+bool IsVideoFile(agi::fs::path const& path) {
+	// Keep this list sorted.
+	static const char *video_extensions[] = {
+		".asf",
+		".avi",
+		".avs",
+		".d2v",
+		".h264",
+		".hevc",
+		".m2ts",
+		".m4v",
+		".mkv",
+		".mov",
+		".mp4",
+		".mpeg",
+		".mpg",
+		".ogm",
+		".rm",
+		".rmvb",
+		".ts",
+		".webm",
+		".wmv",
+		".y4m",
+		".yuv"
+	};
+
+	auto extension = path.extension().string();
+	boost::to_lower(extension);
+	return std::binary_search(std::begin(video_extensions), std::end(video_extensions), extension.c_str(), [](const char *a, const char *b) {
+		return strcmp(a, b) < 0;
+	});
+}
+
+agi::fs::path FindVideoWithSameName(agi::fs::path const& subtitle) {
+	auto subtitle_path = subtitle.is_relative() ? agi::fs::Absolute(subtitle) : subtitle;
+	auto subtitle_stem = subtitle_path.stem().string();
+	boost::to_lower(subtitle_stem);
+
+	for (auto const& filename : agi::fs::DirectoryIterator(subtitle_path.parent_path(), "")) {
+		agi::fs::path candidate = subtitle_path.parent_path() / filename;
+		auto candidate_stem = candidate.stem().string();
+		boost::to_lower(candidate_stem);
+		if (candidate != subtitle_path && candidate_stem == subtitle_stem && IsVideoFile(candidate) && agi::fs::FileExists(candidate))
+			return candidate;
+	}
+
+	return {};
+}
+}
+
 Project::Project(agi::Context *c) : context(c) {
 	BindConnection(OPT_SUB("Audio/Cache/Type", &Project::ReloadAudio, this));
 	BindConnection(OPT_SUB("Audio/Provider", &Project::ReloadAudio, this));
@@ -161,10 +212,22 @@ void Project::LoadSubtitles(agi::fs::path path, std::string encoding, bool load_
 	if (!DoLoadSubtitles(path, encoding, properties))
 		return;
 
+	auto matching_video = OPT_GET("Video/Auto Load Same Name")->GetBool() ? FindVideoWithSameName(path) : agi::fs::path{};
+	if (!matching_video.empty() && OPT_GET("Video/Prefer Same Name")->GetBool()) {
+		LoadVideo(matching_video);
+		properties.video_file = matching_video.string();
+		if (!audio_file.empty())
+			properties.audio_file = audio_file.string();
+	}
+
 	if (load_linked)
 		LoadUnloadFiles(properties);
 	else
 		UpdateRelativePaths();
+
+	// Unless same-name videos are preferred, explicit video links take precedence.
+	if (properties.video_file.empty() && video_file.empty() && !matching_video.empty())
+		LoadVideo(matching_video);
 }
 
 void Project::SetSubtitlesFilename(agi::fs::path path) {
@@ -434,31 +497,6 @@ void Project::CloseKeyframes() {
 void Project::LoadList(std::vector<agi::fs::path> const& files) {
 	// Keep these lists sorted
 
-	// Video formats
-	const char *videoList[] = {
-		".asf",
-		".avi",
-		".avs",
-		".d2v",
-		".h264",
-		".hevc",
-		".m2ts",
-		".m4v",
-		".mkv",
-		".mov",
-		".mp4",
-		".mpeg",
-		".mpg",
-		".ogm",
-		".rm",
-		".rmvb",
-		".ts",
-		".webm",
-		".wmv",
-		".y4m",
-		".yuv"
-	};
-
 	// Subtitle formats
 	const char *subsList[] = {
 		".ass",
@@ -525,7 +563,7 @@ void Project::LoadList(std::vector<agi::fs::path> const& files) {
 
 		if (subs.empty() && search(std::begin(subsList), std::end(subsList), ext))
 			subs = file;
-		if (video.empty() && search(std::begin(videoList), std::end(videoList), ext))
+		if (video.empty() && IsVideoFile(file))
 			video = file;
 		if (audio.empty() && search(std::begin(audioList), std::end(audioList), ext))
 			audio = file;
@@ -536,6 +574,10 @@ void Project::LoadList(std::vector<agi::fs::path> const& files) {
 		if (!DoLoadSubtitles(subs, "", properties))
 			subs.clear();
 	}
+
+	bool prefer_matching_video = !subs.empty() && video.empty() && OPT_GET("Video/Auto Load Same Name")->GetBool() && OPT_GET("Video/Prefer Same Name")->GetBool();
+	if (prefer_matching_video)
+		video = FindVideoWithSameName(subs);
 
 	if (!video.empty() && DoLoadVideo(video)) {
 		double dar = video_provider->GetDAR();
@@ -559,6 +601,18 @@ void Project::LoadList(std::vector<agi::fs::path> const& files) {
 	else if (OPT_GET("Video/Open Audio")->GetBool() && audio_file != video_file)
 		DoLoadAudio(video_file, true);
 
-	if (!subs.empty())
+	if (!subs.empty()) {
+		if (prefer_matching_video && !video.empty()) {
+			properties.video_file = video.string();
+			if (!audio_file.empty())
+				properties.audio_file = audio_file.string();
+		}
 		LoadUnloadFiles(properties);
+	}
+
+	if (video_file.empty() && !subs.empty() && properties.video_file.empty() && OPT_GET("Video/Auto Load Same Name")->GetBool()) {
+		auto matching_video = FindVideoWithSameName(subs);
+		if (!matching_video.empty())
+			LoadVideo(matching_video);
+	}
 }
