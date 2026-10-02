@@ -1,4 +1,4 @@
-# Aegisub 3.2
+# Aegisub 3.5
 # Copyright (C) 2005-2014 Rodrigo Braz Monteiro, Niels Martin Hansen, Thomas Goyne et. al.
 # This file is distributed under the same license as the Aegisub package.
 # Niels Martin Hansen <nielsm@aegisub.org>, 2005-2014.
@@ -6,9 +6,9 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: Aegisub 3.2.0\n"
+"Project-Id-Version: Aegisub 3.5.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-02-16 22:57+0100\n"
+"POT-Creation-Date: 2026-07-26 14:45+0200\n"
 "PO-Revision-Date: 2005-2014-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -35,6 +35,7 @@ msgid "ANSI"
 msgstr ""
 
 #: ../src/ass_style.cpp:198 ../src/command/video.cpp:144
+#: default_hotkey.json:109
 msgid "Default"
 msgstr ""
 
@@ -118,7 +119,7 @@ msgstr ""
 msgid "Audio Volume"
 msgstr ""
 
-#: ../src/audio_display.cpp:718
+#: ../src/audio_display.cpp:719
 #, c-format
 msgid "%d%%, %d pixel/second"
 msgstr ""
@@ -168,35 +169,35 @@ msgstr ""
 msgid "karaoke timing"
 msgstr ""
 
-#: ../src/auto4_base.cpp:344
+#: ../src/auto4_base.cpp:346
 msgid ""
 "A script in the Automation autoload directory failed to load.\n"
 "Please review the errors, fix them and use the Rescan Autoload Dir button in "
 "Automation Manager to load the scripts again."
 msgstr ""
 
-#: ../src/auto4_base.cpp:347
+#: ../src/auto4_base.cpp:349
 msgid ""
 "Multiple scripts in the Automation autoload directory failed to load.\n"
 "Please review the errors, fix them and use the Rescan Autoload Dir button in "
 "Automation Manager to load the scripts again."
 msgstr ""
 
-#: ../src/auto4_base.cpp:350
+#: ../src/auto4_base.cpp:352
 msgid ""
 "A script in the Automation autoload directory loaded with warnings.\n"
 "Please review the warnings, fix them and use the Rescan Autoload Dir button "
 "in Automation Manager to load the scripts again."
 msgstr ""
 
-#: ../src/auto4_base.cpp:353
+#: ../src/auto4_base.cpp:355
 msgid ""
 "Multiple scripts in the Automation autoload directory loaded with warnings.\n"
 "Please review the warnings, fix them and use the Rescan Autoload Dir button "
 "in Automation Manager to load the scripts again."
 msgstr ""
 
-#: ../src/auto4_base.cpp:393
+#: ../src/auto4_base.cpp:394
 #, c-format
 msgid ""
 "Automation Script referenced with unknown location specifier character.\n"
@@ -204,46 +205,77 @@ msgid ""
 "Filename specified: %s"
 msgstr ""
 
-#: ../src/auto4_base.cpp:401
+#: ../src/auto4_base.cpp:412
+#, c-format
+msgid ""
+"The subtitle file you have opened contains local automation scripts. Do you "
+"want to load the associated automation scripts?\n"
+"\n"
+"List of scripts:\n"
+"\n"
+"%s\n"
+"\n"
+"You should only load associated automation scripts if you trust their "
+"authors! They are not required to view or edit the subtitle file."
+msgstr ""
+
+#: ../src/auto4_base.cpp:418
+#, c-format
+msgid "    %s (%s)"
+msgstr ""
+
+#: ../src/auto4_base.cpp:419
+msgid "Load associated automation scripts?"
+msgstr ""
+
+#: ../src/auto4_base.cpp:422
+msgid "No"
+msgstr ""
+
+#: ../src/auto4_base.cpp:422
+msgid "Trust the authors && load scripts"
+msgstr ""
+
+#: ../src/auto4_base.cpp:437
 #, c-format
 msgid ""
 "Automation Script referenced could not be found.\n"
-"Filename specified: %c%s\n"
+"Filename specified: %s\n"
 "Searched relative to: %s\n"
 "Resolved filename: %s"
 msgstr ""
 
-#: ../src/auto4_base.cpp:462
+#: ../src/auto4_base.cpp:498
 #, c-format
 msgid ""
 "Failed to load Automation script '%s':\n"
 "%s"
 msgstr ""
 
-#: ../src/auto4_base.cpp:465
+#: ../src/auto4_base.cpp:501
 #, c-format
 msgid ""
 "Warning when loading Automation script '%s':\n"
 "%s"
 msgstr ""
 
-#: ../src/auto4_base.cpp:472
+#: ../src/auto4_base.cpp:508
 #, c-format
 msgid "The file was not recognised as an Automation script: %s"
 msgstr ""
 
-#: ../src/auto4_base.cpp:501 ../src/command/audio.cpp:84
+#: ../src/auto4_base.cpp:537 ../src/command/audio.cpp:84
 #: ../src/command/keyframe.cpp:76 ../src/command/timecode.cpp:73
 #: ../src/command/timecode.cpp:93 ../src/command/video.cpp:592
 msgid "All Files"
 msgstr ""
 
-#: ../src/auto4_base.cpp:507 ../src/command/keyframe.cpp:74
+#: ../src/auto4_base.cpp:543 ../src/command/keyframe.cpp:74
 #: ../src/dialog_attachments.cpp:170 ../src/subtitle_format.cpp:318
 msgid "All Supported Formats"
 msgstr ""
 
-#: ../src/auto4_base.cpp:513
+#: ../src/auto4_base.cpp:549
 msgid "File was not recognized as a script"
 msgstr ""
 
@@ -254,11 +286,11 @@ msgid ""
 "%s"
 msgstr ""
 
-#: ../src/auto4_lua.cpp:460
+#: ../src/auto4_lua.cpp:464
 msgid "Could not initialize Lua state"
 msgstr ""
 
-#: ../src/auto4_lua.cpp:543
+#: ../src/auto4_lua.cpp:547
 #, c-format
 msgid ""
 "Error initialising Lua script \"%s\":\n"
@@ -266,42 +298,42 @@ msgid ""
 "%s"
 msgstr ""
 
-#: ../src/auto4_lua.cpp:553
+#: ../src/auto4_lua.cpp:557
 msgid ""
 "Attempted to load an Automation 3 script as an Automation 4 Lua script. "
 "Automation 3 is no longer supported."
 msgstr ""
 
-#: ../src/auto4_lua.cpp:827
+#: ../src/auto4_lua.cpp:831
 #, c-format
 msgid ""
 "Runtime error in Lua macro validation function:\n"
 "%s"
 msgstr ""
 
-#: ../src/auto4_lua.cpp:881
+#: ../src/auto4_lua.cpp:885
 #, c-format
 msgid "Active row %d is out of bounds (must be 1-%u)"
 msgstr ""
 
-#: ../src/auto4_lua.cpp:897
+#: ../src/auto4_lua.cpp:901
 #, c-format
 msgid "Selected row %d is out of bounds (must be 1-%u)"
 msgstr ""
 
-#: ../src/auto4_lua.cpp:903
+#: ../src/auto4_lua.cpp:907
 #, c-format
 msgid "Selected row %d is not a dialogue line"
 msgstr ""
 
-#: ../src/auto4_lua.cpp:969
+#: ../src/auto4_lua.cpp:973
 #, c-format
 msgid ""
 "Runtime error in Lua macro IsActive function:\n"
 "%s"
 msgstr ""
 
-#: ../src/auto4_lua.cpp:1075
+#: ../src/auto4_lua.cpp:1079
 #, c-format
 msgid ""
 "Runtime error in Lua config dialog function:\n"
@@ -436,9 +468,9 @@ msgstr ""
 msgid "&Options..."
 msgstr ""
 
-#: ../src/command/app.cpp:205 ../src/dialog_properties.cpp:151
-#: ../src/dialog_timing_processor.cpp:169 ../src/preferences.cpp:132
-#: ../src/preferences.cpp:172
+#: ../src/command/app.cpp:205 ../src/dialog_properties.cpp:182
+#: ../src/dialog_timing_processor.cpp:169 ../src/preferences.cpp:166
+#: ../src/preferences.cpp:206
 msgid "Options"
 msgstr ""
 
@@ -814,7 +846,7 @@ msgid "&Automation..."
 msgstr ""
 
 #: ../src/command/automation.cpp:74 ../src/command/automation.cpp:86
-#: ../src/preferences.cpp:342
+#: ../src/preferences.cpp:400
 msgid "Automation"
 msgstr ""
 
@@ -1195,7 +1227,7 @@ msgid "splitting"
 msgstr ""
 
 #: ../src/command/edit.cpp:1114 ../src/command/edit.cpp:1115
-#: ../src/subs_edit_ctrl.cpp:398
+#: ../src/subs_edit_ctrl.cpp:417
 msgid "Split at cursor (estimate times)"
 msgstr ""
 
@@ -1206,7 +1238,7 @@ msgid ""
 msgstr ""
 
 #: ../src/command/edit.cpp:1130 ../src/command/edit.cpp:1131
-#: ../src/subs_edit_ctrl.cpp:397
+#: ../src/subs_edit_ctrl.cpp:416
 msgid "Split at cursor (preserve times)"
 msgstr ""
 
@@ -1283,7 +1315,7 @@ msgid "revert line"
 msgstr ""
 
 #: ../src/command/edit.cpp:1223 ../src/command/edit.cpp:1224
-#: ../src/preferences.cpp:419
+#: ../src/preferences.cpp:477
 msgid "Clear"
 msgstr ""
 
@@ -1863,8 +1895,8 @@ msgstr ""
 #: ../src/dialog_kara_timing_copy.cpp:547 ../src/dialog_search_replace.cpp:143
 #: ../src/dialog_spellchecker.cpp:143 ../src/dialog_spellchecker.cpp:149
 #: ../src/dialog_style_manager.cpp:689 ../src/dialog_style_manager.cpp:695
-#: ../src/dialog_style_manager.cpp:698 ../src/main.cpp:195
-#: ../src/preferences.cpp:275 ../src/preferences.cpp:467
+#: ../src/dialog_style_manager.cpp:698 ../src/main.cpp:202
+#: ../src/preferences.cpp:333 ../src/preferences.cpp:525
 msgid "Error"
 msgstr ""
 
@@ -1898,7 +1930,7 @@ msgid "Save subtitles with another name"
 msgstr ""
 
 #: ../src/command/subtitle.cpp:395 ../src/dialog_export.cpp:127
-#: ../src/dialog_selected_choices.cpp:26 ../src/subs_edit_ctrl.cpp:392
+#: ../src/dialog_selected_choices.cpp:26 ../src/subs_edit_ctrl.cpp:411
 msgid "Select &All"
 msgstr ""
 
@@ -2197,7 +2229,7 @@ msgstr ""
 msgid "&Resample Resolution..."
 msgstr ""
 
-#: ../src/command/tool.cpp:94 ../src/dialog_resample.cpp:90
+#: ../src/command/tool.cpp:94 ../src/dialog_resample.cpp:114
 msgid "Resample Resolution"
 msgstr ""
 
@@ -2212,6 +2244,7 @@ msgid "St&yling Assistant..."
 msgstr ""
 
 #: ../src/command/tool.cpp:109 ../src/dialog_styling_assistant.cpp:54
+#: default_hotkey.json:223
 msgid "Styling Assistant"
 msgstr ""
 
@@ -2288,7 +2321,7 @@ msgid "&Translation Assistant..."
 msgstr ""
 
 #: ../src/command/tool.cpp:187 ../src/dialog_translation.cpp:65
-#: ../src/preferences.cpp:238
+#: ../src/preferences.cpp:294 default_hotkey.json:291
 msgid "Translation Assistant"
 msgstr ""
 
@@ -3013,7 +3046,7 @@ msgid "E&xtract"
 msgstr ""
 
 #: ../src/dialog_attachments.cpp:79 ../src/dialog_style_manager.cpp:205
-#: ../src/preferences.cpp:615
+#: ../src/preferences.cpp:692
 msgid "&Delete"
 msgstr ""
 
@@ -3098,7 +3131,7 @@ msgstr ""
 msgid "Filename"
 msgstr ""
 
-#: ../src/dialog_automation.cpp:136 ../src/preferences.cpp:635
+#: ../src/dialog_automation.cpp:136 ../src/preferences.cpp:712
 msgid "Description"
 msgstr ""
 
@@ -3175,7 +3208,7 @@ msgstr ""
 msgid "Open autosave file"
 msgstr ""
 
-#: ../src/dialog_autosave.cpp:71 ../src/preferences.cpp:79
+#: ../src/dialog_autosave.cpp:71 ../src/preferences.cpp:113
 msgid "Files"
 msgstr ""
 
@@ -3197,79 +3230,79 @@ msgstr ""
 msgid "%s [RECOVERED]"
 msgstr ""
 
-#: ../src/dialog_colorpicker.cpp:552
+#: ../src/dialog_colorpicker.cpp:527
 msgid "Select Color"
 msgstr ""
 
-#: ../src/dialog_colorpicker.cpp:566
+#: ../src/dialog_colorpicker.cpp:541
 msgid "Color spectrum"
 msgstr ""
 
-#: ../src/dialog_colorpicker.cpp:572
+#: ../src/dialog_colorpicker.cpp:547
 msgid "HSL/L"
 msgstr ""
 
-#: ../src/dialog_colorpicker.cpp:572
+#: ../src/dialog_colorpicker.cpp:547
 msgid "HSV/H"
 msgstr ""
 
-#: ../src/dialog_colorpicker.cpp:572
+#: ../src/dialog_colorpicker.cpp:547
 msgid "RGB/B"
 msgstr ""
 
-#: ../src/dialog_colorpicker.cpp:572
+#: ../src/dialog_colorpicker.cpp:547
 msgid "RGB/G"
 msgstr ""
 
-#: ../src/dialog_colorpicker.cpp:572
+#: ../src/dialog_colorpicker.cpp:547
 msgid "RGB/R"
 msgstr ""
 
-#: ../src/dialog_colorpicker.cpp:575
+#: ../src/dialog_colorpicker.cpp:550
 msgid "RGB color"
 msgstr ""
 
-#: ../src/dialog_colorpicker.cpp:576
+#: ../src/dialog_colorpicker.cpp:551
 msgid "HSL color"
 msgstr ""
 
-#: ../src/dialog_colorpicker.cpp:577
+#: ../src/dialog_colorpicker.cpp:552
 msgid "HSV color"
 msgstr ""
 
-#: ../src/dialog_colorpicker.cpp:614
+#: ../src/dialog_colorpicker.cpp:589
 msgid "Spectrum mode:"
 msgstr ""
 
-#: ../src/dialog_colorpicker.cpp:631
+#: ../src/dialog_colorpicker.cpp:606
 msgid "Blue:"
 msgstr ""
 
-#: ../src/dialog_colorpicker.cpp:631
+#: ../src/dialog_colorpicker.cpp:606
 msgid "Green:"
 msgstr ""
 
-#: ../src/dialog_colorpicker.cpp:631
+#: ../src/dialog_colorpicker.cpp:606
 msgid "Red:"
 msgstr ""
 
-#: ../src/dialog_colorpicker.cpp:634
+#: ../src/dialog_colorpicker.cpp:609
 msgid "Alpha:"
 msgstr ""
 
-#: ../src/dialog_colorpicker.cpp:641 ../src/dialog_colorpicker.cpp:644
+#: ../src/dialog_colorpicker.cpp:616 ../src/dialog_colorpicker.cpp:619
 msgid "Hue:"
 msgstr ""
 
-#: ../src/dialog_colorpicker.cpp:641
+#: ../src/dialog_colorpicker.cpp:616
 msgid "Lum.:"
 msgstr ""
 
-#: ../src/dialog_colorpicker.cpp:641 ../src/dialog_colorpicker.cpp:644
+#: ../src/dialog_colorpicker.cpp:616 ../src/dialog_colorpicker.cpp:619
 msgid "Sat.:"
 msgstr ""
 
-#: ../src/dialog_colorpicker.cpp:644
+#: ../src/dialog_colorpicker.cpp:619
 msgid "Value:"
 msgstr ""
 
@@ -3330,8 +3363,9 @@ msgstr ""
 msgid "Dummy video options"
 msgstr ""
 
-#: ../src/dialog_dummy_video.cpp:110 ../src/dialog_properties.cpp:136
-#: ../src/dialog_resample.cpp:175 ../src/dialog_resample.cpp:188
+#: ../src/dialog_dummy_video.cpp:110 ../src/dialog_properties.cpp:150
+#: ../src/dialog_properties.cpp:162 ../src/dialog_resample.cpp:195
+#: ../src/dialog_resample.cpp:208
 msgid "×"
 msgstr ""
 
@@ -3824,131 +3858,143 @@ msgstr ""
 msgid "Cancelling..."
 msgstr ""
 
-#: ../src/dialog_properties.cpp:91
+#: ../src/dialog_properties.cpp:98
 msgid "Script Properties"
 msgstr ""
 
-#: ../src/dialog_properties.cpp:105
+#: ../src/dialog_properties.cpp:112
 msgid "Script"
 msgstr ""
 
-#: ../src/dialog_properties.cpp:109
+#: ../src/dialog_properties.cpp:116
 msgid "Title:"
 msgstr ""
 
-#: ../src/dialog_properties.cpp:110
+#: ../src/dialog_properties.cpp:117
 msgid "Original script:"
 msgstr ""
 
-#: ../src/dialog_properties.cpp:111
+#: ../src/dialog_properties.cpp:118
 msgid "Translation:"
 msgstr ""
 
-#: ../src/dialog_properties.cpp:112
+#: ../src/dialog_properties.cpp:119
 msgid "Editing:"
 msgstr ""
 
-#: ../src/dialog_properties.cpp:113
+#: ../src/dialog_properties.cpp:120
 msgid "Timing:"
 msgstr ""
 
-#: ../src/dialog_properties.cpp:114
+#: ../src/dialog_properties.cpp:121
 msgid "Synch point:"
 msgstr ""
 
-#: ../src/dialog_properties.cpp:115
+#: ../src/dialog_properties.cpp:122
 msgid "Updated by:"
 msgstr ""
 
-#: ../src/dialog_properties.cpp:116
+#: ../src/dialog_properties.cpp:123
 msgid "Update details:"
 msgstr ""
 
-#: ../src/dialog_properties.cpp:122
+#: ../src/dialog_properties.cpp:129
 msgid "Resolution"
 msgstr ""
 
-#: ../src/dialog_properties.cpp:128 ../src/dialog_resample.cpp:150
+#: ../src/dialog_properties.cpp:138 ../src/dialog_resample.cpp:170
 #: ../src/export_framerate.cpp:70
 msgid "From &video"
 msgstr ""
 
-#: ../src/dialog_properties.cpp:144 ../src/dialog_resample.cpp:180
-#: ../src/dialog_resample.cpp:193
+#: ../src/dialog_properties.cpp:148
+msgid "Script: "
+msgstr ""
+
+#: ../src/dialog_properties.cpp:154 ../src/dialog_properties.cpp:169
+msgid "From video"
+msgstr ""
+
+#: ../src/dialog_properties.cpp:160
+msgid "Layout: "
+msgstr ""
+
+#: ../src/dialog_properties.cpp:175 ../src/dialog_resample.cpp:200
+#: ../src/dialog_resample.cpp:213
 msgid "YCbCr Matrix:"
 msgstr ""
 
-#: ../src/dialog_properties.cpp:155
+#: ../src/dialog_properties.cpp:186
 msgid "0: Smart wrapping, top line is wider"
 msgstr ""
 
-#: ../src/dialog_properties.cpp:156
+#: ../src/dialog_properties.cpp:187
 msgid "1: End-of-line word wrapping, only \\N breaks"
 msgstr ""
 
-#: ../src/dialog_properties.cpp:157
+#: ../src/dialog_properties.cpp:188
 msgid "2: No word wrapping, both \\n and \\N break"
 msgstr ""
 
-#: ../src/dialog_properties.cpp:158
+#: ../src/dialog_properties.cpp:189
 msgid "3: Smart wrapping, bottom line is wider"
 msgstr ""
 
-#: ../src/dialog_properties.cpp:162
+#: ../src/dialog_properties.cpp:193
 msgid "Wrap Style: "
 msgstr ""
 
-#: ../src/dialog_properties.cpp:165
+#: ../src/dialog_properties.cpp:196
 msgid "Scale Border and Shadow"
 msgstr ""
 
-#: ../src/dialog_properties.cpp:166
+#: ../src/dialog_properties.cpp:197
 msgid ""
 "Scale border and shadow together with script/render resolution. If this is "
 "unchecked, relative border and shadow size will depend on renderer."
 msgstr ""
 
-#: ../src/dialog_properties.cpp:202
+#: ../src/dialog_properties.cpp:235
 msgid "property changes"
 msgstr ""
 
-#: ../src/dialog_resample.cpp:114
+#: ../src/dialog_resample.cpp:136
 msgid "Source Resolution"
 msgstr ""
 
-#: ../src/dialog_resample.cpp:115
+#: ../src/dialog_resample.cpp:137
 msgid "Destination Resolution"
 msgstr ""
 
-#: ../src/dialog_resample.cpp:116
+#: ../src/dialog_resample.cpp:138
 msgid "Margin offset"
 msgstr ""
 
-#: ../src/dialog_resample.cpp:128
+#: ../src/dialog_resample.cpp:150
 msgid "&Symmetrical"
 msgstr ""
 
-#: ../src/dialog_resample.cpp:152
+#: ../src/dialog_resample.cpp:172
 msgid "From s&cript"
 msgstr ""
 
-#: ../src/dialog_resample.cpp:155
+#: ../src/dialog_resample.cpp:175
 msgid "Add borders"
 msgstr ""
 
-#: ../src/dialog_resample.cpp:155
+#: ../src/dialog_resample.cpp:175
 msgid "Manual"
 msgstr ""
 
-#: ../src/dialog_resample.cpp:155
+#: ../src/dialog_resample.cpp:175
 msgid "Remove borders"
 msgstr ""
 
-#: ../src/dialog_resample.cpp:155
+#: ../src/dialog_resample.cpp:175
 msgid "Stretch"
 msgstr ""
 
-#: ../src/dialog_resample.cpp:156
+#: ../src/dialog_resample.cpp:176
 msgid "Aspect Ratio Handling"
 msgstr ""
 
@@ -4338,7 +4384,7 @@ msgstr ""
 msgid "Font"
 msgstr ""
 
-#: ../src/dialog_style_editor.cpp:182 ../src/preferences.cpp:246
+#: ../src/dialog_style_editor.cpp:182 ../src/preferences.cpp:302
 msgid "Colors"
 msgstr ""
 
@@ -4538,7 +4584,7 @@ msgstr ""
 msgid "Update script?"
 msgstr ""
 
-#: ../src/dialog_style_editor.cpp:471 ../src/subs_edit_box.cpp:604
+#: ../src/dialog_style_editor.cpp:471 ../src/subs_edit_box.cpp:605
 msgid "style change"
 msgstr ""
 
@@ -4562,15 +4608,16 @@ msgstr ""
 msgid "Sort styles alphabetically"
 msgstr ""
 
-#: ../src/dialog_style_manager.cpp:202 ../src/preferences.cpp:613
+#: ../src/dialog_style_manager.cpp:202 ../src/preferences.cpp:690
 msgid "&New"
 msgstr ""
 
-#: ../src/dialog_style_manager.cpp:203 ../src/preferences.cpp:614
+#: ../src/dialog_style_manager.cpp:203 ../src/preferences.cpp:691
+#: default_menu.json:0
 msgid "&Edit"
 msgstr ""
 
-#: ../src/dialog_style_manager.cpp:204 ../src/subs_edit_ctrl.cpp:389
+#: ../src/dialog_style_manager.cpp:204 ../src/subs_edit_ctrl.cpp:408
 #: ../src/timeedit_ctrl.cpp:209
 msgid "&Copy"
 msgstr ""
@@ -4608,7 +4655,7 @@ msgstr ""
 msgid "Current script"
 msgstr ""
 
-#: ../src/dialog_style_manager.cpp:283
+#: ../src/dialog_style_manager.cpp:283 default_menu.json:0
 msgid "New"
 msgstr ""
 
@@ -5065,8 +5112,8 @@ msgstr ""
 msgid "Video Details"
 msgstr ""
 
-#: ../src/dialog_video_details.cpp:55 ../src/preferences.cpp:170
-#: ../src/preferences.cpp:447
+#: ../src/dialog_video_details.cpp:55 ../src/preferences.cpp:204
+#: ../src/preferences.cpp:505 default_hotkey.json:315
 msgid "Video"
 msgstr ""
 
@@ -5094,14 +5141,109 @@ msgid "Length:"
 msgstr ""
 
 #: ../src/dialog_video_details.cpp:68
+msgid "Actual color matrix:"
+msgstr ""
+
+#: ../src/dialog_video_details.cpp:69
+msgid "Forced color matrix:"
+msgstr ""
+
+#: ../src/dialog_video_details.cpp:70
+msgid "Actual color range:"
+msgstr ""
+
+#: ../src/dialog_video_details.cpp:71
+msgid "Forced color range:"
+msgstr ""
+
+#: ../src/dialog_video_details.cpp:72
 msgid "Decoder:"
 msgstr ""
 
-#: ../src/dialog_video_properties.cpp:44
+#: ../src/dialog_video_properties.cpp:135
+#, c-format
+msgid ""
+"The video you have loaded has no specified color matrix. Aegisub will guess "
+"the color matrix to be %s, but there is no guarantee that other programs "
+"will guess the same matrix. This may make the video appear with different "
+"colors in different media players and can prevent subtitle colors from "
+"matching video colors.\n"
+" \n"
+"Consider tagging your video with a color matrix to ensure that your video "
+"displays consistently in all players and that subtitle colors can reliably "
+"match video colors."
+msgstr ""
+
+#: ../src/dialog_video_properties.cpp:140
+msgid "Untagged video"
+msgstr ""
+
+#: ../src/dialog_video_properties.cpp:145
+msgid ""
+"The video you have loaded has HDR and/or WCG colors. While ordinary dialogue "
+"subtitles will work fine on such videos, matching video colors using "
+"subtitles will not be possible on HDR and/or WCG footage."
+msgstr ""
+
+#: ../src/dialog_video_properties.cpp:148
+msgid "HDR and/or WCG video"
+msgstr ""
+
+#: ../src/dialog_video_properties.cpp:161
+#, c-format
+msgid ""
+"The current subtitle file has no YCbCr Matrix set.\n"
+"\n"
+"If you plan to use this subtitle file on this newly loaded video file,\n"
+"you should set the subtitle file's YCbCr Matrix to the video's color space "
+"(\"%s\").\n"
+"\n"
+"If you plan to use a different video file, you may want to\n"
+"leave the YCbCr Matrix unset until you load the correct video file.\n"
+"\n"
+"This prompt can be configured in the preferences."
+msgstr ""
+
+#: ../src/dialog_video_properties.cpp:166
+msgid "Set script's YCbCr Matrix?"
+msgstr ""
+
+#: ../src/dialog_video_properties.cpp:167
+msgid "Leave YCbCr Matrix unset"
+msgstr ""
+
+#: ../src/dialog_video_properties.cpp:167
+#: ../src/dialog_video_properties.cpp:226
+#, c-format
+msgid "Set script's YCbCr Matrix to the video's (\"%s\")"
+msgstr ""
+
+#: ../src/dialog_video_properties.cpp:221
+#, c-format
+msgid ""
+"This video's recommended YCbCr Matrix (\"%s\") differs from the subtitle "
+"file's YCbCr Matrix (\"%s\").\n"
+"\n"
+"If this new video's colors look identical to the video the subtitle file was "
+"originally authored for,\n"
+"then the subtitle file's YCbCr Matrix should be set to the video's YCbCr "
+"Matrix."
+msgstr ""
+
+#: ../src/dialog_video_properties.cpp:225
+msgid "YCbCr Matrix mismatch"
+msgstr ""
+
+#: ../src/dialog_video_properties.cpp:226
+#, c-format
+msgid "Leave script's YCbCr Matrix as it is (\"%s\")"
+msgstr ""
+
+#: ../src/dialog_video_properties.cpp:257
 msgid "Resolution mismatch"
 msgstr ""
 
-#: ../src/dialog_video_properties.cpp:47
+#: ../src/dialog_video_properties.cpp:260
 #, c-format
 msgid ""
 "The resolution of the loaded video and the resolution specified for the "
@@ -5113,28 +5255,116 @@ msgid ""
 "Change subtitles resolution to match video?"
 msgstr ""
 
-#: ../src/dialog_video_properties.cpp:58 ../src/dialog_video_properties.cpp:67
-msgid "Set to video resolution"
+#: ../src/dialog_video_properties.cpp:271
+#: ../src/dialog_video_properties.cpp:280
+msgid "Leave resolution as it is"
 msgstr ""
 
-#: ../src/dialog_video_properties.cpp:59
+#: ../src/dialog_video_properties.cpp:272
 msgid "Resample script (stretch to new aspect ratio)"
 msgstr ""
 
-#: ../src/dialog_video_properties.cpp:60
+#: ../src/dialog_video_properties.cpp:273
 msgid "Resample script (add borders)"
 msgstr ""
 
-#: ../src/dialog_video_properties.cpp:61
+#: ../src/dialog_video_properties.cpp:274
 msgid "Resample script (remove borders)"
 msgstr ""
 
-#: ../src/dialog_video_properties.cpp:68
+#: ../src/dialog_video_properties.cpp:281
 msgid "Resample script"
 msgstr ""
 
-#: ../src/dialog_video_properties.cpp:168
+#: ../src/dialog_video_properties.cpp:389
+#, c-format
+msgid ""
+"The current subtitle file has no layout resolution set.\n"
+"\n"
+"If you plan to use this subtitle file on this newly loaded video file,\n"
+"you should set the subtitle file's layout resolution to the video's display "
+"resolution.\n"
+"\n"
+"If you plan to use a different video file, you may want to leave\n"
+"the layout resolution unset until you load the correct video file.\n"
+"\n"
+"If you are adapting an existing old subtitle file that does not yet have\n"
+"a layout resolution set, you should set its layout resolution to the "
+"resolution\n"
+"of the video the subtitle file was intended to be played back on.\n"
+"Often, this is the same as the file's script resolution. (%d × %d)\n"
+"\n"
+"This prompt can be configured in the preferences."
+msgstr ""
+
+#: ../src/dialog_video_properties.cpp:403
+msgid "Set script's layout resolution?"
+msgstr ""
+
+#: ../src/dialog_video_properties.cpp:404
+msgid "Leave layout resolution unset"
+msgstr ""
+
+#: ../src/dialog_video_properties.cpp:405
+#: ../src/dialog_video_properties.cpp:484
+#, c-format
+msgid "Set script's layout resolution to the video's (%d × %d)"
+msgstr ""
+
+#: ../src/dialog_video_properties.cpp:406
+#, c-format
+msgid "Set script's layout resolution to its script resolution (%d × %d)"
+msgstr ""
+
+#: ../src/dialog_video_properties.cpp:464
+#, c-format
+msgid ""
+"The resolution of the loaded video and the layout resolution specified for "
+"the subtitles don't match.\n"
+"\n"
+"Video resolution:    %d × %d\n"
+"Subtitle layout resolution:    %d × %d\n"
+"\n"
+"Usually, this is not an issue, and you may leave the subtitle file's layout "
+"resolution as it is.\n"
+"If your subtitle file does not contain any significant formatting and you "
+"now intend to perform\n"
+"formatting on the newly loaded video, you may want to set the script's "
+"layout resolution\n"
+"to the video's display resolution."
+msgstr ""
+
+#: ../src/dialog_video_properties.cpp:475
+#, c-format
+msgid ""
+"The resolution of the loaded video and the layout resolution specified for "
+"the subtitles differ in aspect ratios.\n"
+"\n"
+"Video resolution:    %d × %d\n"
+"Subtitle layout resolution:    %d × %d\n"
+"\n"
+"Change layout resolution of subtitles to match video?"
+msgstr ""
+
+#: ../src/dialog_video_properties.cpp:483
+msgid "Layout resolution mismatch"
+msgstr ""
+
+#: ../src/dialog_video_properties.cpp:484
+#, c-format
+msgid "Leave layout resolution as it is (%d × %d)"
+msgstr ""
+
+#: ../src/dialog_video_properties.cpp:509
+msgid "change ycbcr matrix"
+msgstr ""
+
+#: ../src/dialog_video_properties.cpp:512
 msgid "change script resolution"
+msgstr ""
+
+#: ../src/dialog_video_properties.cpp:515
+msgid "change layout resolution"
 msgstr ""
 
 #: ../src/export_fixstyle.cpp:46
@@ -5344,14 +5574,14 @@ msgstr ""
 msgid "Invalid command name for hotkey"
 msgstr ""
 
-#: ../src/main.cpp:195
+#: ../src/main.cpp:202
 #, c-format
 msgid ""
 "Configuration file is invalid. Error reported:\n"
 "%s"
 msgstr ""
 
-#: ../src/main.cpp:259
+#: ../src/main.cpp:266
 #, c-format
 msgid ""
 "Oops, Aegisub has crashed!\n"
@@ -5363,33 +5593,33 @@ msgid ""
 "Aegisub will now close."
 msgstr ""
 
-#: ../src/main.cpp:288
+#: ../src/main.cpp:295
 msgid "Check for updates?"
 msgstr ""
 
-#: ../src/main.cpp:288
+#: ../src/main.cpp:295
 msgid ""
 "Do you want Aegisub to check for updates whenever it starts? You can still "
 "do it manually via the Help menu."
 msgstr ""
 
-#: ../src/main.cpp:294
+#: ../src/main.cpp:301
 msgid "Error saving config file"
 msgstr ""
 
-#: ../src/main.cpp:310 ../src/main.cpp:314 ../src/main.cpp:319
+#: ../src/main.cpp:317 ../src/main.cpp:321 ../src/main.cpp:326
 msgid "Fatal error while initializing"
 msgstr ""
 
-#: ../src/main.cpp:319
+#: ../src/main.cpp:326
 msgid "Unhandled exception"
 msgstr ""
 
-#: ../src/main.cpp:407 ../src/main.cpp:410
+#: ../src/main.cpp:414 ../src/main.cpp:417
 msgid "Program error"
 msgstr ""
 
-#: ../src/main.cpp:410
+#: ../src/main.cpp:417
 #, c-format
 msgid ""
 "Aegisub has crashed while starting up!\n"
@@ -5397,7 +5627,7 @@ msgid ""
 "The last startup step attempted was: %s."
 msgstr ""
 
-#: ../src/main.cpp:424
+#: ../src/main.cpp:431
 #, c-format
 msgid ""
 "An unexpected error has occurred. Please save your work and restart "
@@ -5406,7 +5636,7 @@ msgid ""
 "Error Message: %s"
 msgstr ""
 
-#: ../src/main.cpp:425
+#: ../src/main.cpp:432
 msgid "Exception in event handler"
 msgstr ""
 
@@ -5418,84 +5648,88 @@ msgstr ""
 msgid "&Recent"
 msgstr ""
 
-#: ../src/menu.cpp:466
+#: ../src/menu.cpp:467
 msgid "No Automation macros loaded"
 msgstr ""
 
-#: ../src/mkv_wrap.cpp:241
+#: ../src/mkv_wrap.cpp:246
 msgid "Choose which track to read:"
 msgstr ""
 
-#: ../src/mkv_wrap.cpp:241
+#: ../src/mkv_wrap.cpp:246
 msgid "Multiple subtitle tracks found"
 msgstr ""
 
-#: ../src/mkv_wrap.cpp:286
+#: ../src/mkv_wrap.cpp:291
 msgid "Parsing Matroska"
 msgstr ""
 
-#: ../src/mkv_wrap.cpp:286
+#: ../src/mkv_wrap.cpp:291
 msgid "Reading subtitles from Matroska file."
 msgstr ""
 
-#: ../src/preferences.cpp:64 ../src/preferences.cpp:66
-#: ../src/preferences.cpp:344 ../src/preferences.cpp:365
+#: ../src/preferences.cpp:98 ../src/preferences.cpp:100
+#: ../src/preferences.cpp:402 ../src/preferences.cpp:423
 msgid "General"
 msgstr ""
 
-#: ../src/preferences.cpp:67
+#: ../src/preferences.cpp:101
 msgid "Check for updates on startup"
 msgstr ""
 
-#: ../src/preferences.cpp:68
+#: ../src/preferences.cpp:102
 msgid "Show main toolbar"
 msgstr ""
 
-#: ../src/preferences.cpp:69
+#: ../src/preferences.cpp:103
 msgid "Save UI state in subtitles files"
 msgstr ""
 
-#: ../src/preferences.cpp:72
+#: ../src/preferences.cpp:106
 msgid "Toolbar Icon Size"
 msgstr ""
 
-#: ../src/preferences.cpp:73
+#: ../src/preferences.cpp:107 ../src/preferences.cpp:250 default_hotkey.json:2
 msgid "Always"
 msgstr ""
 
-#: ../src/preferences.cpp:73 ../src/preferences.cpp:206
+#: ../src/preferences.cpp:107 ../src/preferences.cpp:240
+#: ../src/preferences.cpp:246 ../src/preferences.cpp:258
+#: ../src/preferences.cpp:262
 msgid "Ask"
 msgstr ""
 
-#: ../src/preferences.cpp:73 ../src/preferences.cpp:206
+#: ../src/preferences.cpp:107 ../src/preferences.cpp:240
+#: ../src/preferences.cpp:246 ../src/preferences.cpp:250
+#: ../src/preferences.cpp:258 ../src/preferences.cpp:262
 msgid "Never"
 msgstr ""
 
-#: ../src/preferences.cpp:75
+#: ../src/preferences.cpp:109
 msgid "Automatically load linked files"
 msgstr ""
 
-#: ../src/preferences.cpp:76
+#: ../src/preferences.cpp:110
 msgid "Undo Levels"
 msgstr ""
 
-#: ../src/preferences.cpp:78
+#: ../src/preferences.cpp:112
 msgid "Recently Used Lists"
 msgstr ""
 
-#: ../src/preferences.cpp:80
+#: ../src/preferences.cpp:114
 msgid "Find/Replace"
 msgstr ""
 
-#: ../src/preferences.cpp:86
+#: ../src/preferences.cpp:120
 msgid "Default styles"
 msgstr ""
 
-#: ../src/preferences.cpp:88
+#: ../src/preferences.cpp:122
 msgid "Default style catalogs"
 msgstr ""
 
-#: ../src/preferences.cpp:92
+#: ../src/preferences.cpp:126
 msgid ""
 "The chosen style catalogs will be loaded when you start a new file or import "
 "files in the various formats.\n"
@@ -5503,580 +5737,629 @@ msgid ""
 "You can set up style catalogs in the Style Manager."
 msgstr ""
 
-#: ../src/preferences.cpp:119
+#: ../src/preferences.cpp:153
 msgid "New files"
 msgstr ""
 
-#: ../src/preferences.cpp:120
+#: ../src/preferences.cpp:154
 msgid "MicroDVD import"
 msgstr ""
 
-#: ../src/preferences.cpp:121
+#: ../src/preferences.cpp:155
 msgid "SRT import"
 msgstr ""
 
-#: ../src/preferences.cpp:122
+#: ../src/preferences.cpp:156
 msgid "TTXT import"
 msgstr ""
 
-#: ../src/preferences.cpp:123
+#: ../src/preferences.cpp:157
 msgid "Plain text import"
 msgstr ""
 
-#: ../src/preferences.cpp:130 ../src/preferences.cpp:380
+#: ../src/preferences.cpp:164 ../src/preferences.cpp:438 default_hotkey.json:37
 msgid "Audio"
 msgstr ""
 
-#: ../src/preferences.cpp:133
+#: ../src/preferences.cpp:167
 msgid "Default mouse wheel to zoom"
 msgstr ""
 
-#: ../src/preferences.cpp:134
+#: ../src/preferences.cpp:168
 msgid "Lock scroll on cursor"
 msgstr ""
 
-#: ../src/preferences.cpp:135
+#: ../src/preferences.cpp:169
 msgid "Snap markers by default"
 msgstr ""
 
-#: ../src/preferences.cpp:136
+#: ../src/preferences.cpp:170
 msgid "Auto-focus on mouse over"
 msgstr ""
 
-#: ../src/preferences.cpp:137
+#: ../src/preferences.cpp:171
 msgid "Play audio when stepping in video"
 msgstr ""
 
-#: ../src/preferences.cpp:138
+#: ../src/preferences.cpp:172
 msgid "Left-click-drag moves end marker"
 msgstr ""
 
-#: ../src/preferences.cpp:139
+#: ../src/preferences.cpp:173
 msgid "Default timing length (ms)"
 msgstr ""
 
-#: ../src/preferences.cpp:140
+#: ../src/preferences.cpp:174
 msgid "Default lead-in length (ms)"
 msgstr ""
 
-#: ../src/preferences.cpp:141
+#: ../src/preferences.cpp:175
 msgid "Default lead-out length (ms)"
 msgstr ""
 
-#: ../src/preferences.cpp:143
+#: ../src/preferences.cpp:177
 msgid "Marker drag-start sensitivity (px)"
 msgstr ""
 
-#: ../src/preferences.cpp:144
+#: ../src/preferences.cpp:178
 msgid "Line boundary thickness (px)"
 msgstr ""
 
-#: ../src/preferences.cpp:145
+#: ../src/preferences.cpp:179
 msgid "Maximum snap distance (px)"
 msgstr ""
 
-#: ../src/preferences.cpp:147
+#: ../src/preferences.cpp:181
 msgid "Don't show"
 msgstr ""
 
-#: ../src/preferences.cpp:147
+#: ../src/preferences.cpp:181
 msgid "Show all"
 msgstr ""
 
-#: ../src/preferences.cpp:147
+#: ../src/preferences.cpp:181
 msgid "Show previous"
 msgstr ""
 
-#: ../src/preferences.cpp:147
+#: ../src/preferences.cpp:181
 msgid "Show previous and next"
 msgstr ""
 
-#: ../src/preferences.cpp:149
+#: ../src/preferences.cpp:183
 msgid "Show inactive lines"
 msgstr ""
 
-#: ../src/preferences.cpp:151
+#: ../src/preferences.cpp:185
 msgid "Include commented inactive lines"
 msgstr ""
 
-#: ../src/preferences.cpp:153
+#: ../src/preferences.cpp:187
 msgid "Display Visual Options"
 msgstr ""
 
-#: ../src/preferences.cpp:154
+#: ../src/preferences.cpp:188
 msgid "Keyframes in dialogue mode"
 msgstr ""
 
-#: ../src/preferences.cpp:155
+#: ../src/preferences.cpp:189
 msgid "Keyframes in karaoke mode"
 msgstr ""
 
-#: ../src/preferences.cpp:156
+#: ../src/preferences.cpp:190
 msgid "Cursor time"
 msgstr ""
 
-#: ../src/preferences.cpp:157
+#: ../src/preferences.cpp:191
 msgid "Video position"
 msgstr ""
 
-#: ../src/preferences.cpp:158 ../src/preferences.cpp:260
+#: ../src/preferences.cpp:192 ../src/preferences.cpp:318
 msgid "Seconds boundaries"
 msgstr ""
 
-#: ../src/preferences.cpp:160
+#: ../src/preferences.cpp:194
 msgid "Waveform Style"
 msgstr ""
 
-#: ../src/preferences.cpp:162
+#: ../src/preferences.cpp:196
 msgid "Audio labels"
 msgstr ""
 
-#: ../src/preferences.cpp:173
+#: ../src/preferences.cpp:207
 msgid "Show keyframes in slider"
 msgstr ""
 
-#: ../src/preferences.cpp:175
+#: ../src/preferences.cpp:209
 msgid "Only show visual tools when mouse is over video"
 msgstr ""
 
-#: ../src/preferences.cpp:177
+#: ../src/preferences.cpp:211
 msgid "Seek video to line start on selection change"
 msgstr ""
 
-#: ../src/preferences.cpp:179
+#: ../src/preferences.cpp:213
 msgid "Automatically open audio when opening video"
 msgstr ""
 
-#: ../src/preferences.cpp:182
+#: ../src/preferences.cpp:216
 msgid "Does nothing"
 msgstr ""
 
-#: ../src/preferences.cpp:182
+#: ../src/preferences.cpp:216
 msgid "Pans the video"
 msgstr ""
 
-#: ../src/preferences.cpp:182
+#: ../src/preferences.cpp:216
 msgid "Pans the video (X/Y swapped)"
 msgstr ""
 
-#: ../src/preferences.cpp:182
+#: ../src/preferences.cpp:216
 msgid "Resizes the video box"
 msgstr ""
 
-#: ../src/preferences.cpp:182
+#: ../src/preferences.cpp:216
 msgid "Resizes the video box (reversed)"
 msgstr ""
 
-#: ../src/preferences.cpp:182
+#: ../src/preferences.cpp:216
 msgid "Zooms the video"
 msgstr ""
 
-#: ../src/preferences.cpp:182
+#: ../src/preferences.cpp:216
 msgid "Zooms the video (reversed)"
 msgstr ""
 
-#: ../src/preferences.cpp:184
+#: ../src/preferences.cpp:218
 msgid "Scrolling on the video display"
 msgstr ""
 
-#: ../src/preferences.cpp:185
+#: ../src/preferences.cpp:219
 msgid "Ctrl+Scrolling on the video display"
 msgstr ""
 
-#: ../src/preferences.cpp:186
+#: ../src/preferences.cpp:220
 msgid "Shift+Scrolling on the video display"
 msgstr ""
 
-#: ../src/preferences.cpp:190
+#: ../src/preferences.cpp:224
 msgid "Default Zoom"
 msgstr ""
 
-#: ../src/preferences.cpp:192
+#: ../src/preferences.cpp:226
 msgid "Fast jump step in frames"
 msgstr ""
 
-#: ../src/preferences.cpp:196
+#: ../src/preferences.cpp:230
 msgid "Screenshot save path"
 msgstr ""
 
-#: ../src/preferences.cpp:198
+#: ../src/preferences.cpp:232
 msgid "Script Resolution"
 msgstr ""
 
-#: ../src/preferences.cpp:199
+#: ../src/preferences.cpp:233
 msgid "Use resolution of first video opened"
 msgstr ""
 
-#: ../src/preferences.cpp:202
+#: ../src/preferences.cpp:236
 msgid "Default width"
 msgstr ""
 
-#: ../src/preferences.cpp:204
+#: ../src/preferences.cpp:238
 msgid "Default height"
 msgstr ""
 
-#: ../src/preferences.cpp:206
+#: ../src/preferences.cpp:240
 msgid "Always resample"
 msgstr ""
 
-#: ../src/preferences.cpp:206
-msgid "Always set"
-msgstr ""
-
-#: ../src/preferences.cpp:208
+#: ../src/preferences.cpp:242
 msgid "Match video resolution on open"
 msgstr ""
 
-#: ../src/preferences.cpp:215
-msgid "Interface"
+#: ../src/preferences.cpp:244
+msgid "Layout Resolution"
 msgstr ""
 
-#: ../src/preferences.cpp:217
-msgid "Edit Box"
+#: ../src/preferences.cpp:246 ../src/preferences.cpp:258
+#: ../src/preferences.cpp:262
+msgid "Always set"
 msgstr ""
 
-#: ../src/preferences.cpp:218
-msgid "Enable call tips"
+#: ../src/preferences.cpp:246
+msgid "Always set from script resolution"
 msgstr ""
 
-#: ../src/preferences.cpp:219
-msgid "Overwrite in time boxes"
+#: ../src/preferences.cpp:248
+msgid "Set layout resolution from video on open"
 msgstr ""
 
-#: ../src/preferences.cpp:220
-msgid "Shift+Enter adds \\n"
+#: ../src/preferences.cpp:250
+msgid "When aspect ratio changes"
 msgstr ""
 
-#: ../src/preferences.cpp:221
-msgid "Enable syntax highlighting"
-msgstr ""
-
-#: ../src/preferences.cpp:222
-msgid "Dictionaries path"
-msgstr ""
-
-#: ../src/preferences.cpp:225
-msgid "Character Counter"
-msgstr ""
-
-#: ../src/preferences.cpp:226
-msgid "Maximum characters per line"
-msgstr ""
-
-#: ../src/preferences.cpp:227
-msgid "Characters Per Second Warning Threshold"
-msgstr ""
-
-#: ../src/preferences.cpp:228
-msgid "Characters Per Second Error Threshold"
-msgstr ""
-
-#: ../src/preferences.cpp:229
-msgid "Ignore whitespace"
-msgstr ""
-
-#: ../src/preferences.cpp:230
-msgid "Ignore punctuation"
-msgstr ""
-
-#: ../src/preferences.cpp:232
-msgid "Grid"
-msgstr ""
-
-#: ../src/preferences.cpp:233
-msgid "Focus grid on click"
-msgstr ""
-
-#: ../src/preferences.cpp:234
-msgid "Highlight visible subtitles"
-msgstr ""
-
-#: ../src/preferences.cpp:235
-msgid "Hide overrides symbol"
-msgstr ""
-
-#: ../src/preferences.cpp:239
-msgid "Skip over whitespace"
+#: ../src/preferences.cpp:252
+msgid "Prompt on layout resolution mismatch"
 msgstr ""
 
 #: ../src/preferences.cpp:254
-msgid "Audio Display"
+msgid "YCbCr Matrix"
 msgstr ""
 
 #: ../src/preferences.cpp:255
-msgid "Play cursor"
+msgid "Warn on untagged video color matrix"
 msgstr ""
 
 #: ../src/preferences.cpp:256
-msgid "Line boundary start"
+msgid "Warn on HDR/WCG video"
 msgstr ""
 
-#: ../src/preferences.cpp:257
-msgid "Line boundary end"
-msgstr ""
-
-#: ../src/preferences.cpp:258
-msgid "Line boundary inactive line"
-msgstr ""
-
-#: ../src/preferences.cpp:259
-msgid "Syllable boundaries"
-msgstr ""
-
-#: ../src/preferences.cpp:262
-msgid "Syntax Highlighting"
-msgstr ""
-
-#: ../src/preferences.cpp:263
-msgid "Background"
+#: ../src/preferences.cpp:260
+msgid "Use video's YCbCr Matrix when script has no matrix set"
 msgstr ""
 
 #: ../src/preferences.cpp:264
-msgid "Normal"
-msgstr ""
-
-#: ../src/preferences.cpp:265
-msgid "Comments"
-msgstr ""
-
-#: ../src/preferences.cpp:266
-msgid "Drawing Commands"
-msgstr ""
-
-#: ../src/preferences.cpp:267
-msgid "Drawing X Coords"
-msgstr ""
-
-#: ../src/preferences.cpp:268
-msgid "Drawing Y Coords"
-msgstr ""
-
-#: ../src/preferences.cpp:269
-msgid "Underline Spline Endpoints"
+msgid "Match video's YCbCr Matrix on open"
 msgstr ""
 
 #: ../src/preferences.cpp:271
-msgid "Brackets"
-msgstr ""
-
-#: ../src/preferences.cpp:272
-msgid "Slashes and Parentheses"
+msgid "Interface"
 msgstr ""
 
 #: ../src/preferences.cpp:273
-msgid "Tags"
+msgid "Edit Box"
 msgstr ""
 
 #: ../src/preferences.cpp:274
-msgid "Parameters"
+msgid "Enable call tips"
+msgstr ""
+
+#: ../src/preferences.cpp:275
+msgid "Overwrite in time boxes"
 msgstr ""
 
 #: ../src/preferences.cpp:276
-msgid "Error Background"
+msgid "Shift+Enter adds \\n"
 msgstr ""
 
 #: ../src/preferences.cpp:277
-msgid "Line Break"
+msgid "Enable syntax highlighting"
 msgstr ""
 
 #: ../src/preferences.cpp:278
-msgid "Karaoke templates"
+msgid "Dictionaries path"
 msgstr ""
 
-#: ../src/preferences.cpp:279
-msgid "Karaoke variables"
+#: ../src/preferences.cpp:281
+msgid "Character Counter"
+msgstr ""
+
+#: ../src/preferences.cpp:282
+msgid "Maximum characters per line"
+msgstr ""
+
+#: ../src/preferences.cpp:283
+msgid "Characters Per Second Warning Threshold"
+msgstr ""
+
+#: ../src/preferences.cpp:284
+msgid "Characters Per Second Error Threshold"
 msgstr ""
 
 #: ../src/preferences.cpp:285
-msgid "Audio Color Schemes"
+msgid "Ignore whitespace"
 msgstr ""
 
-#: ../src/preferences.cpp:287 ../src/preferences.cpp:396
-msgid "Spectrum"
+#: ../src/preferences.cpp:286
+msgid "Ignore punctuation"
 msgstr ""
 
 #: ../src/preferences.cpp:288
-msgid "Waveform"
+msgid "Grid"
+msgstr ""
+
+#: ../src/preferences.cpp:289
+msgid "Focus grid on click"
 msgstr ""
 
 #: ../src/preferences.cpp:290
-msgid "Subtitle Grid"
+msgid "Highlight visible subtitles"
 msgstr ""
 
 #: ../src/preferences.cpp:291
-msgid "Standard foreground"
-msgstr ""
-
-#: ../src/preferences.cpp:292
-msgid "Standard background"
-msgstr ""
-
-#: ../src/preferences.cpp:293
-msgid "Selection foreground"
-msgstr ""
-
-#: ../src/preferences.cpp:294
-msgid "Selection background"
+msgid "Hide overrides symbol"
 msgstr ""
 
 #: ../src/preferences.cpp:295
-msgid "Collision foreground"
+msgid "Skip over whitespace"
 msgstr ""
 
-#: ../src/preferences.cpp:296
-msgid "In frame background"
+#: ../src/preferences.cpp:310
+msgid "Audio Display"
 msgstr ""
 
-#: ../src/preferences.cpp:297
-msgid "Comment background"
-msgstr ""
-
-#: ../src/preferences.cpp:298
-msgid "Selected comment background"
-msgstr ""
-
-#: ../src/preferences.cpp:299
-msgid "Header background"
-msgstr ""
-
-#: ../src/preferences.cpp:300
-msgid "Left Column"
-msgstr ""
-
-#: ../src/preferences.cpp:301
-msgid "Active Line Border"
-msgstr ""
-
-#: ../src/preferences.cpp:302
-msgid "Lines"
-msgstr ""
-
-#: ../src/preferences.cpp:303
-msgid "CPS Error"
-msgstr ""
-
-#: ../src/preferences.cpp:305
-msgid "Visual Typesetting Tools"
-msgstr ""
-
-#: ../src/preferences.cpp:306
-msgid "Primary Lines"
-msgstr ""
-
-#: ../src/preferences.cpp:307
-msgid "Secondary Lines"
-msgstr ""
-
-#: ../src/preferences.cpp:308
-msgid "Primary Highlight"
-msgstr ""
-
-#: ../src/preferences.cpp:309
-msgid "Secondary Highlight"
+#: ../src/preferences.cpp:311
+msgid "Play cursor"
 msgstr ""
 
 #: ../src/preferences.cpp:312
-msgid "Visual Typesetting Tools Alpha"
+msgid "Current frame range"
 msgstr ""
 
 #: ../src/preferences.cpp:313
-msgid "Shaded Area"
+msgid "Previous frame range"
+msgstr ""
+
+#: ../src/preferences.cpp:314
+msgid "Line boundary start"
+msgstr ""
+
+#: ../src/preferences.cpp:315
+msgid "Line boundary end"
+msgstr ""
+
+#: ../src/preferences.cpp:316
+msgid "Line boundary inactive line"
+msgstr ""
+
+#: ../src/preferences.cpp:317
+msgid "Syllable boundaries"
+msgstr ""
+
+#: ../src/preferences.cpp:320
+msgid "Syntax Highlighting"
+msgstr ""
+
+#: ../src/preferences.cpp:321
+msgid "Background"
 msgstr ""
 
 #: ../src/preferences.cpp:322
-msgid "Backup"
+msgid "Normal"
+msgstr ""
+
+#: ../src/preferences.cpp:323
+msgid "Comments"
 msgstr ""
 
 #: ../src/preferences.cpp:324
-msgid "Automatic Save"
+msgid "Drawing Commands"
 msgstr ""
 
-#: ../src/preferences.cpp:325 ../src/preferences.cpp:333
-msgid "Enable"
+#: ../src/preferences.cpp:325
+msgid "Drawing X Coords"
 msgstr ""
 
-#: ../src/preferences.cpp:328
-msgid "Interval in seconds"
+#: ../src/preferences.cpp:326
+msgid "Drawing Y Coords"
 msgstr ""
 
-#: ../src/preferences.cpp:329 ../src/preferences.cpp:335
-#: ../src/preferences.cpp:394
-msgid "Path"
+#: ../src/preferences.cpp:327
+msgid "Underline Spline Endpoints"
+msgstr ""
+
+#: ../src/preferences.cpp:329
+msgid "Brackets"
 msgstr ""
 
 #: ../src/preferences.cpp:330
-msgid "Autosave after every change"
+msgid "Slashes and Parentheses"
+msgstr ""
+
+#: ../src/preferences.cpp:331
+msgid "Tags"
 msgstr ""
 
 #: ../src/preferences.cpp:332
-msgid "Automatic Backup"
+msgid "Parameters"
+msgstr ""
+
+#: ../src/preferences.cpp:334
+msgid "Error Background"
+msgstr ""
+
+#: ../src/preferences.cpp:335
+msgid "Line Break"
+msgstr ""
+
+#: ../src/preferences.cpp:336
+msgid "Karaoke templates"
+msgstr ""
+
+#: ../src/preferences.cpp:337
+msgid "Karaoke variables"
+msgstr ""
+
+#: ../src/preferences.cpp:343
+msgid "Audio Color Schemes"
+msgstr ""
+
+#: ../src/preferences.cpp:345 ../src/preferences.cpp:454
+msgid "Spectrum"
 msgstr ""
 
 #: ../src/preferences.cpp:346
-msgid "Base path"
+msgid "Waveform"
 msgstr ""
 
-#: ../src/preferences.cpp:347
-msgid "Include path"
+#: ../src/preferences.cpp:348 default_hotkey.json:262
+msgid "Subtitle Grid"
 msgstr ""
 
-#: ../src/preferences.cpp:348
-msgid "Auto-load path"
-msgstr ""
-
-#: ../src/preferences.cpp:350
-msgid "0: Fatal"
+#: ../src/preferences.cpp:349
+msgid "Standard foreground"
 msgstr ""
 
 #: ../src/preferences.cpp:350
-msgid "1: Error"
+msgid "Standard background"
 msgstr ""
 
-#: ../src/preferences.cpp:350
-msgid "2: Warning"
-msgstr ""
-
-#: ../src/preferences.cpp:350
-msgid "3: Hint"
-msgstr ""
-
-#: ../src/preferences.cpp:350
-msgid "4: Debug"
-msgstr ""
-
-#: ../src/preferences.cpp:350
-msgid "5: Trace"
+#: ../src/preferences.cpp:351
+msgid "Selection foreground"
 msgstr ""
 
 #: ../src/preferences.cpp:352
-msgid "Trace level"
+msgid "Selection background"
+msgstr ""
+
+#: ../src/preferences.cpp:353
+msgid "Collision foreground"
 msgstr ""
 
 #: ../src/preferences.cpp:354
-msgid "All scripts"
+msgid "In frame background"
 msgstr ""
 
-#: ../src/preferences.cpp:354
-msgid "Global autoload scripts"
-msgstr ""
-
-#: ../src/preferences.cpp:354
-msgid "No scripts"
-msgstr ""
-
-#: ../src/preferences.cpp:354
-msgid "Subtitle-local scripts"
+#: ../src/preferences.cpp:355
+msgid "Comment background"
 msgstr ""
 
 #: ../src/preferences.cpp:356
-msgid "Autoreload on Export"
+msgid "Selected comment background"
+msgstr ""
+
+#: ../src/preferences.cpp:357
+msgid "Header background"
+msgstr ""
+
+#: ../src/preferences.cpp:358
+msgid "Left Column"
+msgstr ""
+
+#: ../src/preferences.cpp:359
+msgid "Active Line Border"
+msgstr ""
+
+#: ../src/preferences.cpp:360
+msgid "Lines"
+msgstr ""
+
+#: ../src/preferences.cpp:361
+msgid "CPS Error"
 msgstr ""
 
 #: ../src/preferences.cpp:363
-msgid "Advanced"
+msgid "Visual Typesetting Tools"
+msgstr ""
+
+#: ../src/preferences.cpp:364
+msgid "Primary Lines"
+msgstr ""
+
+#: ../src/preferences.cpp:365
+msgid "Secondary Lines"
+msgstr ""
+
+#: ../src/preferences.cpp:366
+msgid "Primary Highlight"
 msgstr ""
 
 #: ../src/preferences.cpp:367
+msgid "Secondary Highlight"
+msgstr ""
+
+#: ../src/preferences.cpp:370
+msgid "Visual Typesetting Tools Alpha"
+msgstr ""
+
+#: ../src/preferences.cpp:371
+msgid "Shaded Area"
+msgstr ""
+
+#: ../src/preferences.cpp:380
+msgid "Backup"
+msgstr ""
+
+#: ../src/preferences.cpp:382
+msgid "Automatic Save"
+msgstr ""
+
+#: ../src/preferences.cpp:383 ../src/preferences.cpp:391
+msgid "Enable"
+msgstr ""
+
+#: ../src/preferences.cpp:386
+msgid "Interval in seconds"
+msgstr ""
+
+#: ../src/preferences.cpp:387 ../src/preferences.cpp:393
+#: ../src/preferences.cpp:452
+msgid "Path"
+msgstr ""
+
+#: ../src/preferences.cpp:388
+msgid "Autosave after every change"
+msgstr ""
+
+#: ../src/preferences.cpp:390
+msgid "Automatic Backup"
+msgstr ""
+
+#: ../src/preferences.cpp:404
+msgid "Base path"
+msgstr ""
+
+#: ../src/preferences.cpp:405
+msgid "Include path"
+msgstr ""
+
+#: ../src/preferences.cpp:406
+msgid "Auto-load path"
+msgstr ""
+
+#: ../src/preferences.cpp:408
+msgid "0: Fatal"
+msgstr ""
+
+#: ../src/preferences.cpp:408
+msgid "1: Error"
+msgstr ""
+
+#: ../src/preferences.cpp:408
+msgid "2: Warning"
+msgstr ""
+
+#: ../src/preferences.cpp:408
+msgid "3: Hint"
+msgstr ""
+
+#: ../src/preferences.cpp:408
+msgid "4: Debug"
+msgstr ""
+
+#: ../src/preferences.cpp:408
+msgid "5: Trace"
+msgstr ""
+
+#: ../src/preferences.cpp:410
+msgid "Trace level"
+msgstr ""
+
+#: ../src/preferences.cpp:412
+msgid "All scripts"
+msgstr ""
+
+#: ../src/preferences.cpp:412
+msgid "Global autoload scripts"
+msgstr ""
+
+#: ../src/preferences.cpp:412
+msgid "No scripts"
+msgstr ""
+
+#: ../src/preferences.cpp:412
+msgid "Subtitle-local scripts"
+msgstr ""
+
+#: ../src/preferences.cpp:414
+msgid "Autoreload on Export"
+msgstr ""
+
+#: ../src/preferences.cpp:421
+msgid "Advanced"
+msgstr ""
+
+#: ../src/preferences.cpp:425
 msgid ""
 "Changing these settings might result in bugs and/or crashes. Do not touch "
 "these unless you know what you're doing."
@@ -6110,213 +6393,213 @@ msgstr ""
 msgid "Expert"
 msgstr ""
 
-#: ../src/preferences.cpp:385
+#: ../src/preferences.cpp:443
 msgid "Audio provider"
 msgstr ""
 
-#: ../src/preferences.cpp:388
+#: ../src/preferences.cpp:446
 msgid "Audio player"
 msgstr ""
 
-#: ../src/preferences.cpp:390
+#: ../src/preferences.cpp:448
 msgid "Cache"
 msgstr ""
 
-#: ../src/preferences.cpp:391
+#: ../src/preferences.cpp:449
 msgid "Hard Disk"
 msgstr ""
 
-#: ../src/preferences.cpp:391
+#: ../src/preferences.cpp:449
 msgid "None (NOT RECOMMENDED)"
 msgstr ""
 
-#: ../src/preferences.cpp:391
+#: ../src/preferences.cpp:449
 msgid "RAM"
 msgstr ""
 
-#: ../src/preferences.cpp:393
+#: ../src/preferences.cpp:451
 msgid "Cache type"
 msgstr ""
 
-#: ../src/preferences.cpp:398
+#: ../src/preferences.cpp:456
 msgid "Better quality"
 msgstr ""
 
-#: ../src/preferences.cpp:398
+#: ../src/preferences.cpp:456
 msgid "High quality"
 msgstr ""
 
-#: ../src/preferences.cpp:398
+#: ../src/preferences.cpp:456
 msgid "Insane quality"
 msgstr ""
 
-#: ../src/preferences.cpp:398
+#: ../src/preferences.cpp:456
 msgid "Regular quality"
 msgstr ""
 
-#: ../src/preferences.cpp:400
+#: ../src/preferences.cpp:458
 msgid "Quality"
 msgstr ""
 
-#: ../src/preferences.cpp:402
+#: ../src/preferences.cpp:460
 msgid "Compressed"
 msgstr ""
 
-#: ../src/preferences.cpp:402
+#: ../src/preferences.cpp:460
 msgid "Extended"
 msgstr ""
 
-#: ../src/preferences.cpp:402
+#: ../src/preferences.cpp:460
 msgid "Linear"
 msgstr ""
 
-#: ../src/preferences.cpp:402
+#: ../src/preferences.cpp:460
 msgid "Logarithmic"
 msgstr ""
 
-#: ../src/preferences.cpp:402
+#: ../src/preferences.cpp:460
 msgid "Medium"
 msgstr ""
 
-#: ../src/preferences.cpp:404
+#: ../src/preferences.cpp:462
 msgid "Frequency mapping"
 msgstr ""
 
-#: ../src/preferences.cpp:406
+#: ../src/preferences.cpp:464
 msgid "Cache memory max (MB)"
 msgstr ""
 
-#: ../src/preferences.cpp:412
+#: ../src/preferences.cpp:470
 msgid "Avisynth down-mixer"
 msgstr ""
 
-#: ../src/preferences.cpp:413
+#: ../src/preferences.cpp:471
 msgid "Force sample rate"
 msgstr ""
 
-#: ../src/preferences.cpp:419
+#: ../src/preferences.cpp:477
 msgid "Abort"
 msgstr ""
 
-#: ../src/preferences.cpp:419
+#: ../src/preferences.cpp:477
 msgid "Ignore"
 msgstr ""
 
-#: ../src/preferences.cpp:419
+#: ../src/preferences.cpp:477
 msgid "Stop"
 msgstr ""
 
-#: ../src/preferences.cpp:421
+#: ../src/preferences.cpp:479
 msgid "Audio indexing error handling mode"
 msgstr ""
 
-#: ../src/preferences.cpp:423
+#: ../src/preferences.cpp:481
 msgid "Always index all audio tracks"
 msgstr ""
 
-#: ../src/preferences.cpp:428
+#: ../src/preferences.cpp:486
 msgid "Portaudio device"
 msgstr ""
 
-#: ../src/preferences.cpp:433
+#: ../src/preferences.cpp:491
 msgid "OSS Device"
 msgstr ""
 
-#: ../src/preferences.cpp:438
+#: ../src/preferences.cpp:496
 msgid "Buffer latency"
 msgstr ""
 
-#: ../src/preferences.cpp:439
+#: ../src/preferences.cpp:497
 msgid "Buffer length"
 msgstr ""
 
-#: ../src/preferences.cpp:452
+#: ../src/preferences.cpp:510
 msgid "Video provider"
 msgstr ""
 
-#: ../src/preferences.cpp:455
+#: ../src/preferences.cpp:513
 msgid "Subtitles provider"
 msgstr ""
 
-#: ../src/preferences.cpp:459
+#: ../src/preferences.cpp:517
 msgid "Allow pre-2.56a Avisynth"
 msgstr ""
 
-#: ../src/preferences.cpp:461
+#: ../src/preferences.cpp:519
 msgid "Avisynth memory limit"
 msgstr ""
 
-#: ../src/preferences.cpp:467
+#: ../src/preferences.cpp:525
 msgid "Debug"
 msgstr ""
 
-#: ../src/preferences.cpp:467
+#: ../src/preferences.cpp:525
 msgid "Fatal"
 msgstr ""
 
-#: ../src/preferences.cpp:467
+#: ../src/preferences.cpp:525
 msgid "Info"
 msgstr ""
 
-#: ../src/preferences.cpp:467
+#: ../src/preferences.cpp:525
 msgid "Panic"
 msgstr ""
 
-#: ../src/preferences.cpp:467
+#: ../src/preferences.cpp:525
 msgid "Quiet"
 msgstr ""
 
-#: ../src/preferences.cpp:467
+#: ../src/preferences.cpp:525
 msgid "Verbose"
 msgstr ""
 
-#: ../src/preferences.cpp:467 ../src/project.cpp:318
+#: ../src/preferences.cpp:525 ../src/project.cpp:330
 msgid "Warning"
 msgstr ""
 
-#: ../src/preferences.cpp:469
+#: ../src/preferences.cpp:527
 msgid "Debug log verbosity"
 msgstr ""
 
-#: ../src/preferences.cpp:471
+#: ../src/preferences.cpp:529
 msgid "Decoding threads"
 msgstr ""
 
-#: ../src/preferences.cpp:472
+#: ../src/preferences.cpp:530
 msgid "Enable unsafe seeking"
 msgstr ""
 
-#: ../src/preferences.cpp:607
+#: ../src/preferences.cpp:684
 msgid "Hotkeys"
 msgstr ""
 
-#: ../src/preferences.cpp:611
+#: ../src/preferences.cpp:688
 msgid "Search"
 msgstr ""
 
-#: ../src/preferences.cpp:627 ../src/preferences.cpp:630
+#: ../src/preferences.cpp:704 ../src/preferences.cpp:707
 msgid "Hotkey"
 msgstr ""
 
-#: ../src/preferences.cpp:628 ../src/preferences.cpp:633
+#: ../src/preferences.cpp:705 ../src/preferences.cpp:710
 msgid "Command"
 msgstr ""
 
-#: ../src/preferences.cpp:707
+#: ../src/preferences.cpp:784
 msgid ""
 "Are you sure that you want to restore the defaults? All your settings will "
 "be overridden."
 msgstr ""
 
-#: ../src/preferences.cpp:707
+#: ../src/preferences.cpp:784
 msgid "Restore defaults?"
 msgstr ""
 
-#: ../src/preferences.cpp:725
+#: ../src/preferences.cpp:802
 msgid "Preferences"
 msgstr ""
 
-#: ../src/preferences.cpp:753
+#: ../src/preferences.cpp:830
 msgid "&Restore Defaults"
 msgstr ""
 
@@ -6345,55 +6628,55 @@ msgstr ""
 msgid "%s not found."
 msgstr ""
 
-#: ../src/project.cpp:186
+#: ../src/project.cpp:199
 msgid "Do you want to load/unload the associated files?"
 msgstr ""
 
-#: ../src/project.cpp:197
+#: ../src/project.cpp:210
 #, c-format
 msgid "Load audio file: %s"
 msgstr ""
 
-#: ../src/project.cpp:197
+#: ../src/project.cpp:210
 msgid "Unload audio"
 msgstr ""
 
-#: ../src/project.cpp:199
+#: ../src/project.cpp:212
 #, c-format
 msgid "Load video file: %s"
 msgstr ""
 
-#: ../src/project.cpp:199
+#: ../src/project.cpp:212
 msgid "Unload video"
 msgstr ""
 
-#: ../src/project.cpp:201
+#: ../src/project.cpp:214
 #, c-format
 msgid "Load timecodes file: %s"
 msgstr ""
 
-#: ../src/project.cpp:201
+#: ../src/project.cpp:214
 msgid "Unload timecodes"
 msgstr ""
 
-#: ../src/project.cpp:203
+#: ../src/project.cpp:216
 #, c-format
 msgid "Load keyframes file: %s"
 msgstr ""
 
-#: ../src/project.cpp:203
+#: ../src/project.cpp:216
 msgid "Unload keyframes"
 msgstr ""
 
-#: ../src/project.cpp:205
+#: ../src/project.cpp:218
 msgid "(Un)Load files?"
 msgstr ""
 
-#: ../src/project.cpp:254
+#: ../src/project.cpp:267
 msgid "The audio file was not found: "
 msgstr ""
 
-#: ../src/project.cpp:262
+#: ../src/project.cpp:275
 msgid ""
 "None of the available audio providers recognised the selected file as "
 "containing audio data.\n"
@@ -6401,7 +6684,7 @@ msgid ""
 "The following providers were tried:\n"
 msgstr ""
 
-#: ../src/project.cpp:265
+#: ../src/project.cpp:278
 msgid ""
 "None of the available audio providers have a codec available to handle the "
 "selected file.\n"
@@ -6409,19 +6692,19 @@ msgid ""
 "The following providers were tried:\n"
 msgstr ""
 
-#: ../src/project.cpp:368
+#: ../src/project.cpp:380
 msgid "Failed to parse timecodes file: "
 msgstr ""
 
-#: ../src/project.cpp:394
+#: ../src/project.cpp:406
 msgid "Failed to parse keyframes file: "
 msgstr ""
 
-#: ../src/project.cpp:398
+#: ../src/project.cpp:410
 msgid "Keyframes file in unknown format: "
 msgstr ""
 
-#: ../src/resolution_resampler.cpp:301
+#: ../src/resolution_resampler.cpp:241
 msgid "resolution resampling"
 msgstr ""
 
@@ -6569,79 +6852,79 @@ msgid ""
 "subtitles into another language."
 msgstr ""
 
-#: ../src/subs_edit_box.cpp:445
+#: ../src/subs_edit_box.cpp:446
 msgid "modify text"
 msgstr ""
 
-#: ../src/subs_edit_box.cpp:523
+#: ../src/subs_edit_box.cpp:524
 msgid "modify times"
 msgstr ""
 
-#: ../src/subs_edit_box.cpp:610
+#: ../src/subs_edit_box.cpp:611
 msgid "actor change"
 msgstr ""
 
-#: ../src/subs_edit_box.cpp:615
+#: ../src/subs_edit_box.cpp:616
 msgid "layer change"
 msgstr ""
 
-#: ../src/subs_edit_box.cpp:620
+#: ../src/subs_edit_box.cpp:621
 msgid "effect change"
 msgstr ""
 
-#: ../src/subs_edit_box.cpp:625
+#: ../src/subs_edit_box.cpp:626
 msgid "comment change"
 msgstr ""
 
-#: ../src/subs_edit_ctrl.cpp:378
+#: ../src/subs_edit_ctrl.cpp:397
 msgid "Spell checker language"
 msgstr ""
 
-#: ../src/subs_edit_ctrl.cpp:388
+#: ../src/subs_edit_ctrl.cpp:407
 msgid "Cu&t"
 msgstr ""
 
-#: ../src/subs_edit_ctrl.cpp:390 ../src/timeedit_ctrl.cpp:210
+#: ../src/subs_edit_ctrl.cpp:409 ../src/timeedit_ctrl.cpp:210
 msgid "&Paste"
 msgstr ""
 
-#: ../src/subs_edit_ctrl.cpp:425
+#: ../src/subs_edit_ctrl.cpp:444
 #, c-format
 msgid "Remove \"%s\" from dictionary"
 msgstr ""
 
-#: ../src/subs_edit_ctrl.cpp:430
+#: ../src/subs_edit_ctrl.cpp:449
 msgid "No spell checker suggestions"
 msgstr ""
 
-#: ../src/subs_edit_ctrl.cpp:436
+#: ../src/subs_edit_ctrl.cpp:455
 #, c-format
 msgid "Spell checker suggestions for \"%s\""
 msgstr ""
 
-#: ../src/subs_edit_ctrl.cpp:441
+#: ../src/subs_edit_ctrl.cpp:460
 msgid "No correction suggestions"
 msgstr ""
 
-#: ../src/subs_edit_ctrl.cpp:447
+#: ../src/subs_edit_ctrl.cpp:466
 #, c-format
 msgid "Add \"%s\" to dictionary"
 msgstr ""
 
-#: ../src/subs_edit_ctrl.cpp:482
+#: ../src/subs_edit_ctrl.cpp:501
 #, c-format
 msgid "Thesaurus suggestions for \"%s\""
 msgstr ""
 
-#: ../src/subs_edit_ctrl.cpp:485
+#: ../src/subs_edit_ctrl.cpp:504
 msgid "No thesaurus suggestions"
 msgstr ""
 
-#: ../src/subs_edit_ctrl.cpp:488
+#: ../src/subs_edit_ctrl.cpp:507
 msgid "Thesaurus language"
 msgstr ""
 
-#: ../src/subs_edit_ctrl.cpp:497
+#: ../src/subs_edit_ctrl.cpp:516
 msgid "Disable"
 msgstr ""
 
@@ -6759,7 +7042,7 @@ msgid ""
 "Error message reported: %s"
 msgstr ""
 
-#: ../src/video_display.cpp:201
+#: ../src/video_display.cpp:203
 #, c-format
 msgid ""
 "Failed to initialize video display. Closing other running programs and "
@@ -6767,14 +7050,14 @@ msgid ""
 "Error message reported: %s"
 msgstr ""
 
-#: ../src/video_display.cpp:208
+#: ../src/video_display.cpp:210
 #, c-format
 msgid ""
 "Could not upload video frame to graphics card.\n"
 "Error message reported: %s"
 msgstr ""
 
-#: ../src/video_display.cpp:253
+#: ../src/video_display.cpp:252
 #, c-format
 msgid ""
 "An error occurred trying to render the video frame on the screen.\n"
@@ -6793,7 +7076,7 @@ msgstr ""
 msgid "Could not open "
 msgstr ""
 
-#: ../src/visual_tool.cpp:119
+#: ../src/visual_tool.cpp:123
 msgid "visual typesetting"
 msgstr ""
 
@@ -6858,7 +7141,72 @@ msgid "Override &AR"
 msgstr ""
 
 #: default_menu.json:0
+msgctxt "Menu bar"
 msgid "&File"
+msgstr ""
+
+#: default_menu.json:0
+msgctxt "Menu bar"
+msgid "&Edit"
+msgstr ""
+
+#: default_menu.json:0
+msgctxt "Menu bar"
+msgid "&Subtitle"
+msgstr ""
+
+#: default_menu.json:0
+msgctxt "Menu bar"
+msgid "&Timing"
+msgstr ""
+
+#: default_menu.json:0
+msgctxt "Menu bar"
+msgid "&Video"
+msgstr ""
+
+#: default_menu.json:0
+msgctxt "Menu bar"
+msgid "&Audio"
+msgstr ""
+
+#: default_menu.json:0
+msgctxt "Menu bar"
+msgid "A&utomation"
+msgstr ""
+
+#: default_menu.json:0
+msgctxt "Menu bar"
+msgid "Vie&w"
+msgstr ""
+
+#: default_menu.json:0
+msgctxt "Menu bar"
+msgid "&Help"
+msgstr ""
+
+#: default_menu.json:0
+msgid "&Insert Lines"
+msgstr ""
+
+#: default_menu.json:0
+msgid "Join Lines"
+msgstr ""
+
+#: default_menu.json:0
+msgid "Sort All Lines"
+msgstr ""
+
+#: default_menu.json:0
+msgid "Sort Selected Lines"
+msgstr ""
+
+#: default_menu.json:0
+msgid "&File"
+msgstr ""
+
+#: default_menu.json:0
+msgid "Vie&w"
 msgstr ""
 
 #: default_menu.json:0
@@ -6882,31 +7230,11 @@ msgid "A&utomation"
 msgstr ""
 
 #: default_menu.json:0
-msgid "Vie&w"
+msgid "Window"
 msgstr ""
 
 #: default_menu.json:0
 msgid "&Help"
-msgstr ""
-
-#: default_menu.json:0
-msgid "&Insert Lines"
-msgstr ""
-
-#: default_menu.json:0
-msgid "Join Lines"
-msgstr ""
-
-#: default_menu.json:0
-msgid "Sort All Lines"
-msgstr ""
-
-#: default_menu.json:0
-msgid "Sort Selected Lines"
-msgstr ""
-
-#: default_menu.json:0
-msgid "Window"
 msgstr ""
 
 #: default_menu.json:0
@@ -6929,7 +7257,7 @@ msgstr ""
 msgid "Export As..."
 msgstr ""
 
-#: default_hotkey.json:244:
+#: default_hotkey.json:244
 msgid "Subtitle Edit Box"
 msgstr ""
 
@@ -7002,6 +7330,7 @@ msgid ""
 msgstr ""
 
 #: ../automation/autoload/macro-2-mkfullwitdh.lua:77
+#: ../automation/autoload/macro-2-mkfullwitdh.lua:80
 msgid "Make fullwidth"
 msgstr ""
 
@@ -7027,6 +7356,31 @@ msgstr ""
 
 #: ../automation/autoload/strip-tags.lua:28
 msgid "strip tags"
+msgstr ""
+
+#: packages/win_installer/fragment_strings.iss:1
+msgid "Installing runtime libraries..."
+msgstr ""
+
+#: packages/win_installer/fragment_strings.iss:1
+msgid "Create a start menu icon"
+msgstr ""
+
+#: packages/win_installer/fragment_strings.iss:1
+msgid "Automatically check for new versions of Aegisub"
+msgstr ""
+
+#: packages/win_installer/fragment_strings.iss:1
+msgid "Update Checker:"
+msgstr ""
+
+#: packages/win_installer/fragment_strings.iss:1
+msgid ""
+"This will install Aegisub {#BUILD_GIT_VERSION_STRING} on your computer."
+"%n%nAegisub is covered by the GNU General Public License version 2. This "
+"means you may use the application for any purpose without charge, but that "
+"no warranties of any kind are given either.%n%nSee the Aegisub website for "
+"information on obtaining the source code."
 msgstr ""
 
 #: ../packages/desktop/aegisub.desktop.in.in:4

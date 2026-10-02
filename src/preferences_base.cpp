@@ -127,7 +127,7 @@ void OptionPage::CellSkip(PageSection section) {
 	section.sizer->AddStretchSpacer();
 }
 
-wxControl *OptionPage::OptionAdd(PageSection section, const wxString &name, const char *opt_name, double min, double max, double inc) {
+wxControl *OptionPage::OptionAdd(PageSection section, const wxString &name, const char *opt_name, OptionAddArgs kwargs) {
 	parent->AddChangeableOption(opt_name);
 	const auto opt = OPT_GET(opt_name);
 
@@ -141,14 +141,14 @@ wxControl *OptionPage::OptionAdd(PageSection section, const wxString &name, cons
 		}
 
 		case agi::OptionType::Int: {
-			auto sc = new wxSpinCtrl(section.box, -1, std::to_wstring((int)opt->GetInt()), wxDefaultPosition, wxDefaultSize, wxSP_ARROW_KEYS, min, max, opt->GetInt());
+			auto sc = new wxSpinCtrl(section.box, -1, std::to_wstring((int)opt->GetInt()), wxDefaultPosition, wxDefaultSize, wxSP_ARROW_KEYS, kwargs.min, kwargs.max, opt->GetInt());
 			sc->Bind(wxEVT_SPINCTRL, IntUpdater(opt_name, parent));
 			Add(section, name, sc);
 			return sc;
 		}
 
 		case agi::OptionType::Double: {
-			auto scd = new wxSpinCtrlDouble(section.box, -1, std::to_wstring(opt->GetDouble()), wxDefaultPosition, wxDefaultSize, wxSP_ARROW_KEYS, min, max, opt->GetDouble(), inc);
+			auto scd = new wxSpinCtrlDouble(section.box, -1, std::to_wstring(opt->GetDouble()), wxDefaultPosition, wxDefaultSize, wxSP_ARROW_KEYS, kwargs.min, kwargs.max, opt->GetDouble(), kwargs.inc);
 			scd->Bind(wxEVT_SPINCTRLDOUBLE, DoubleUpdater(opt_name, parent));
 			Add(section, name, scd);
 			return scd;
@@ -162,7 +162,7 @@ wxControl *OptionPage::OptionAdd(PageSection section, const wxString &name, cons
 		}
 
 		case agi::OptionType::Color: {
-			auto cb = new ColourButton(section.box, wxSize(40,10), false, opt->GetColor());
+			auto cb = new ColourButton(section.box, wxSize(40,10), kwargs.alpha, opt->GetColor());
 			cb->Bind(EVT_COLOR, ColourUpdater(opt_name, parent));
 			Add(section, name, cb);
 			return cb;
@@ -236,8 +236,8 @@ void OptionPage::OptionBrowse(PageSection section, const wxString &name, const c
 	browse->Bind(wxEVT_BUTTON, std::bind(browse_button, text));
 
 	auto button_sizer = new wxBoxSizer(wxHORIZONTAL);
-	button_sizer->Add(text, wxSizerFlags(1).Expand());
-	button_sizer->Add(browse, wxSizerFlags().Expand());
+	button_sizer->Add(text, wxSizerFlags(1).CenterVertical());
+	button_sizer->Add(browse, wxSizerFlags().CenterVertical());
 
 	Add(section, name, button_sizer);
 
@@ -272,8 +272,8 @@ void OptionPage::OptionFont(PageSection section, std::string opt_prefix) {
 	pick_btn->Bind(wxEVT_BUTTON, std::bind(font_button, parent, font_name, font_size));
 
 	auto button_sizer = new wxBoxSizer(wxHORIZONTAL);
-	button_sizer->Add(font_name, wxSizerFlags(1).Expand());
-	button_sizer->Add(pick_btn, wxSizerFlags().Expand());
+	button_sizer->Add(font_name, wxSizerFlags(1).CenterVertical());
+	button_sizer->Add(pick_btn, wxSizerFlags().CenterVertical());
 
 	Add(section, _("Font Face"), button_sizer);
 	Add(section, _("Font Size"), font_size);

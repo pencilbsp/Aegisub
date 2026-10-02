@@ -59,12 +59,26 @@ When compiling on Apple Silicon, replace `/usr/local` with `/opt/homebrew`.
 
 Once the dependencies are installed, build Aegisub with `meson build && meson compile -C build`.
 
-#### Build dmg
+#### Build a local DMG
+
+Homebrew bottles target the macOS release they were built for, which may be
+newer than Aegisub's default deployment target. For a local package, target
+the current macOS major release and explicitly request an ad-hoc signature.
+The resulting DMG is for development and personal use on that macOS release;
+release packages use CI's source-built dependencies and the
+[macOS release-signing process](docs/developer_docs.md#macos-release-signing).
 
 ```bash
-meson build_static -Ddefault_library=static -Dbuildtype=debugoptimized -Dbuild_osx_bundle=true -Dlocal_boost=true
+deployment_target="$(sw_vers -productVersion)"
+meson setup build_static \
+  -Ddefault_library=static \
+  -Dbuildtype=debugoptimized \
+  -Dbuild_osx_bundle=true \
+  -Dmacos_deployment_target="${deployment_target}" \
+  --force-fallback-for=boost
 meson compile -C build_static
 meson test -C build_static --verbose
+export AEGISUB_BUNDLE_SIGNATURE=-
 meson compile osx-bundle -C build_static
 meson compile osx-build-dmg -C build_static
 ```
@@ -136,26 +150,8 @@ meson compile -C builddir
 meson install -C builddir --skip-subprojects luajit
 ```
 
-## Updating Moonscript
-
-From within the Moonscript repository, run `bin/moon bin/splat.moon -l moonscript moonscript/ > bin/moonscript.lua`.
-Open the newly created `bin/moonscript.lua`, and within it make the following changes:
-
-1. Prepend the final line of the file, `package.preload["moonscript"]()`, with a `return`, producing `return package.preload["moonscript"]()`.
-2. Within the function at `package.preload['moonscript.base']`, remove references to `moon_loader`, `insert_loader`, and `remove_loader`. This means removing their declarations, definitions, and entries in the returned table.
-3. Within the function at `package.preload['moonscript']`, remove the line `_with_0.insert_loader()`.
-
-The file is now ready for use, to be placed in `automation/include` within the Aegisub repo.
-
-## Running Doxygen
-
-You can run Doxygen with the following command:
-
-```bash
-doxygen docs/doxygen.cfg
-```
-
-This will generate API documentation in `docs/generated/api/html/`.
+## Developer Documenation
+Some documentation for developers is available in [docs/developer_docs.md](docs/developer_docs.md).
 
 ## License
 

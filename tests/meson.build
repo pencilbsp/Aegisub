@@ -44,10 +44,12 @@ tests_src = [
     'tests/thesaurus.cpp',
     'tests/time.cpp',
     'tests/type_name.cpp',
+    'tests/unicode.cpp',
     'tests/util.cpp',
     'tests/uuencode.cpp',
     'tests/vfr.cpp',
     'tests/word_split.cpp',
+    'tests/ycbcr.cpp',
 ]
 
 tests_inc = include_directories('support')

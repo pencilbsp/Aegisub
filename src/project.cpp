@@ -158,8 +158,18 @@ bool Project::DoLoadSubtitles(agi::fs::path const& path, std::string encoding, P
 
 void Project::LoadSubtitles(agi::fs::path path, std::string encoding, bool load_linked) {
 	ProjectProperties properties;
-	if (DoLoadSubtitles(path, encoding, properties) && load_linked)
+	if (!DoLoadSubtitles(path, encoding, properties))
+		return;
+
+	if (load_linked)
 		LoadUnloadFiles(properties);
+	else
+		UpdateRelativePaths();
+}
+
+void Project::SetSubtitlesFilename(agi::fs::path path) {
+	context->path->SetToken("?script", path.parent_path());
+	UpdateRelativePaths();
 }
 
 void Project::CloseSubtitles() {
@@ -179,23 +189,26 @@ void Project::LoadUnloadFiles(ProjectProperties properties) {
 	auto timecodes = context->path->MakeAbsolute(properties.timecodes_file, "?script");
 	auto keyframes = context->path->MakeAbsolute(properties.keyframes_file, "?script");
 
-	// There are TOCTOU races here but they should not cause any actual harm.
-	if (!agi::fs::Exists(audio) && !context->path->IsDummyPath(audio))
-		audio = "";
-
-	if (!agi::fs::Exists(video) && !context->path->IsDummyPath(video))
-		video = "";
-
-	if (!agi::fs::Exists(timecodes))
-		timecodes = "";
-
-	if (!agi::fs::Exists(keyframes))
-		keyframes = "";
-
 	if (video == video_file && audio == audio_file && keyframes == keyframes_file && timecodes == timecodes_file)
 		return;
 
 	if (load_linked == 2) {
+		// There are TOCTOU races here but they should not cause any actual harm.
+		if (!agi::fs::Exists(audio) && !context->path->IsDummyPath(audio))
+			audio = "";
+
+		if (!agi::fs::Exists(video) && !context->path->IsDummyPath(video))
+			video = "";
+
+		if (!agi::fs::Exists(timecodes))
+			timecodes = "";
+
+		if (!agi::fs::Exists(keyframes))
+			keyframes = "";
+
+		if (video == video_file && audio == audio_file && keyframes == keyframes_file && timecodes == timecodes_file)
+			return;
+
 		wxString str = _("Do you want to load/unload the associated files?");
 		str += "\n";
 
@@ -300,8 +313,7 @@ bool Project::DoLoadVideo(agi::fs::path const& path) {
 		progress = new DialogProgress(context->parent);
 
 	try {
-		auto old_matrix = context->ass->GetScriptInfo("YCbCr Matrix");
-		video_provider = std::make_unique<AsyncVideoProvider>(path, old_matrix, context->videoController.get(), progress);
+		video_provider = std::make_unique<AsyncVideoProvider>(path, context->ass->GetYCbCrMatrix(), context->videoController.get(), progress);
 	}
 	catch (agi::UserCancelException const&) { return false; }
 	catch (agi::fs::FileSystemError const& err) {

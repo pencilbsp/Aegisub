@@ -174,7 +174,7 @@ SubsEditBox::SubsEditBox(wxWindow *parent, agi::Context *context)
 	effect_box = new Placeholder<wxComboBox>(this, _("Effect"), wxSize(80,-1), wxCB_DROPDOWN | wxTE_PROCESS_ENTER, _("Effect for this line. This can be used to store extra information for karaoke scripts, or for the effects supported by the renderer."));
 	Bind(wxEVT_TEXT, &SubsEditBox::OnEffectChange, this, effect_box->GetId());
 	Bind(wxEVT_COMBOBOX, &SubsEditBox::OnEffectChange, this, effect_box->GetId());
-	top_sizer->Add(effect_box, 3, wxALIGN_CENTER, 5);
+	top_sizer->Add(effect_box, 3, wxALIGN_CENTER, 0);
 
 	char_count = new wxTextCtrl(this, -1, "0", wxDefaultPosition, wxDefaultSize, wxTE_READONLY | wxTE_CENTER);
 	char_count->SetInitialSize(char_count->GetSizeFromText(wxS("000")));
