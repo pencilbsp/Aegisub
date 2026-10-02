@@ -2,10 +2,9 @@ name: Meson CI
 
 on:
   push:
-    branches: [master]
+    branches: ["**"]
     tags: ["v*"]
   pull_request:
-    branches: [master]
   workflow_dispatch:
 
 jobs:
@@ -61,32 +60,45 @@ jobs:
               asset_platform: source,
               args: -Db_pch=false,
             }
-          # - {
-          #   name: macOS x86_64 Debug,
-          #   os: macos-15-intel,
-          #   buildtype: debugoptimized,
-          #   args: -Ddefault_library=static -Dbuild_osx_bundle=true -Dlocal_boost=true --force-fallback-for=ffms2
-          # }
-          - {
-              name: macOS x86_64 Release,
-              os: macos-15-intel,
-              buildtype: release,
-              asset_platform: macos-x86_64,
-              args: -Ddefault_library=static -Dbuild_osx_bundle=true -Dlocal_boost=true --force-fallback-for=ffms2,
-            }
-          # - {
-          #   name: macOS arm64 Debug,
-          #   os: macos-15,
-          #   buildtype: debugoptimized,
-          #   args: -Ddefault_library=static -Dbuild_osx_bundle=true -Dlocal_boost=true --force-fallback-for=ffms2
-          # }
-          - {
-              name: macOS arm64 Release,
-              os: macos-15,
-              buildtype: release,
-              asset_platform: macos-arm64,
-              args: -Ddefault_library=static -Dbuild_osx_bundle=true -Dlocal_boost=true --force-fallback-for=ffms2,
-            }
+          - name: macOS x86_64 Release
+            os: macos-15
+            cross_args: --cross-file tools/macos-release.ini --cross-file tools/macos-x86_64.ini
+            buildtype: release
+            asset_platform: macos-x86_64
+            args: &macos_source_args >-
+              -Ddefault_library=static
+              -Dbuild_osx_bundle=true
+              -Dfftw3=disabled
+              -Dlibpulse=disabled
+              -Dopenal=enabled
+              -Dlibass:fontconfig=disabled
+              -Dlibass:libunibreak=disabled
+              -Dfreetype2:bzip2=disabled
+              -Dfreetype2:brotli=disabled
+              -Dfreetype2:hvf=disabled
+              -Dfribidi:bin=false
+              -Dfribidi:docs=false
+              -Dfribidi:tests=false
+              -Dharfbuzz:gpu=disabled
+              -Dharfbuzz:raster=disabled
+              -Dharfbuzz:subset=disabled
+              -Dharfbuzz:tests=disabled
+              -Dharfbuzz:utilities=disabled
+              -Dharfbuzz:vector=disabled
+              -Dffmpeg:bzlib=disabled
+              -Dffmpeg:lzma=disabled
+              -Dffmpeg:programs=disabled
+              -Dffmpeg:tests=disabled
+              -Ddav1d:enable_tests=false
+              -Ddav1d:enable_tools=false
+              -Dzlib:tests=disabled
+              --force-fallback-for=boost,wxWidgets,libass,zlib,freetype2,fribidi,harfbuzz,ffms2,libavformat,libavcodec,libswscale,libavutil,libswresample,dav1d,hunspell,uchardet,icu-uc,icu-i18n,libcurl
+          - name: macOS arm64 Release
+            os: macos-15
+            native_args: --native-file tools/macos-release.ini
+            buildtype: release
+            asset_platform: macos-arm64
+            args: *macos_source_args
 
     steps:
       - uses: actions/checkout@v6
@@ -147,27 +159,38 @@ jobs:
       - name: Install dependencies (macOS Debug)
         if: startsWith(matrix.config.os, 'macos-') && matrix.config.buildtype == 'debugoptimized'
         run: |
-          # GitHub's Intel macOS runners can include a stale HashiCorp tap whose
-          # vagrant formula fails to import during brew update/install.
-          brew untap hashicorp/tap || true
-          brew update
+          brew install ninja pkg-config libass boost zlib ffms2 fftw hunspell uchardet icu4c wxwidgets
 
-          # Uninstall system wxWidgets to force building the subproject with our patched files
-          for pkg in wxmac wxwidgets; do
-            if brew ls --versions $pkg > /dev/null; then
-              brew uninstall --ignore-dependencies $pkg
-            fi
-          done
+          echo "PKG_CONFIG_PATH=$(brew --prefix icu4c)/lib/pkgconfig:$(brew --prefix zlib)/lib/pkgconfig" >> "${GITHUB_ENV}"
 
-          brew install ninja
-          brew install libass zlib ffms2 fftw hunspell
-          # NO OpenAL in github CI. Intel runners can report a failed openssl@3
-          # postinstall after pulseaudio has been installed, so accept an
-          # already-installed pulseaudio after one repair attempt.
-          brew install pulseaudio || {
-            brew postinstall openssl@3 || true
-            brew install pulseaudio || brew list --versions pulseaudio
-          }
+      - name: Install build tools (macOS source dependencies)
+        if: startsWith(matrix.config.os, 'macos-') && matrix.config.buildtype == 'release'
+        run: |
+          brew install ninja nasm
+
+      - name: Check Rosetta (macOS cross builds)
+        if: matrix.config.cross_args
+        run: |
+          if ! /usr/bin/arch -x86_64 /usr/bin/true; then
+            sudo softwareupdate --install-rosetta --agree-to-license
+          fi
+          /usr/bin/arch -x86_64 /usr/bin/true
+
+      - name: Install test dependencies (macOS)
+        if: startsWith(matrix.config.os, 'macos-')
+        env:
+          CROSS_ARGS: ${{ matrix.config.cross_args }}
+        run: |
+          # LuaJIT is Lua 5.1 to luarocks.
+          brew install luajit luarocks
+          if test -n "${CROSS_ARGS}"; then
+            # Busted's native modules are loaded by the Intel test executable.
+            luarocks --lua-dir="$(brew --prefix luajit)" --lua-version=5.1 install busted \
+              CC='/usr/bin/clang -arch x86_64' \
+              LD='/usr/bin/clang -arch x86_64'
+          else
+            luarocks --lua-dir="$(brew --prefix luajit)" --lua-version=5.1 install busted
+          fi
 
       - name: Install dependencies (Linux)
         if: startsWith(matrix.config.os, 'ubuntu-')
@@ -286,15 +309,14 @@ jobs:
         run: |
           meson compile osx-bundle -C build
 
-          # Run osx-build-dmg but retry up to 10 times if it fails since hdiutil can be unreliable
-          # See: https://github.com/actions/runner-images/issues/7522
-          max_tries=10
+      - name: Build dmg
+        if: startsWith(matrix.config.os, 'macos-') && matrix.config.buildtype == 'release'
+        env:
+          AEGISUB_BUNDLE_SIGNATURE: '-'
+        run: |
           i=0
-          until meson compile osx-build-dmg -C build ; do
-            if [ $i -eq $max_tries ]; then
-              echo "Error: osx-build-dmg failed after ${max_tries} tries."
-              exit 1
-            fi
+          while [ $i -lt 5 ]; do
+            tools/osx-dmg.sh build/Aegisub.app build && break
             i=$((i+1))
           done
 
