@@ -1,5 +1,6 @@
 #include <wx/wx.h>
 #include <wx/combobox.h>
+#include <wx/stc/stc.h>
 
 #import <AppKit/AppKit.h>
 #import <objc/runtime.h>
@@ -130,6 +131,12 @@ public:
 		auto native = new wxComboBox(panel, wxID_ANY, "50%", wxDefaultPosition, wxSize(220, 44), choices, wxCB_DROPDOWN | wxTE_PROCESS_ENTER);
 		native->SetMinSize(wxSize(220, 44));
 		root->Add(native, 0, wxLEFT | wxRIGHT | wxTOP, 20);
+
+		root->Add(new wxStaticText(panel, wxID_ANY, "wxStyledTextCtrl IME/Text Replacement test"), 0, wxLEFT | wxRIGHT | wxTOP, 20);
+		auto stc = new wxStyledTextCtrl(panel, wxID_ANY, wxDefaultPosition, wxSize(-1, 100));
+		stc->SetText("Type a macOS text replacement abbreviation here, then press space.");
+		stc->SetCurrentPos(stc->GetTextLength());
+		root->Add(stc, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 20);
 
 		root->Add(new wxStaticText(panel, wxID_ANY, "Centered custom wxComboBox"), 0, wxLEFT | wxRIGHT | wxTOP, 20);
 		root->Add(new CenteredComboBox(panel, "50%", choices, wxCB_DROPDOWN | wxTE_PROCESS_ENTER), 0, wxLEFT | wxRIGHT | wxTOP, 20);

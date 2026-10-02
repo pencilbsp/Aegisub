@@ -968,11 +968,26 @@ static void SetDrawingEnabledIfFrozenRecursive(wxWidgetCocoaImpl *impl, bool ena
 
 @implementation wxNSView(TextInput)
 
+// Scintilla uses an NSScrollView whose document view receives the Cocoa text
+// input callbacks. That document view is not always the object registered in
+// wxWidgetImpl's lookup table, so resolve the owner by walking up the view
+// hierarchy before falling back to the direct lookup.
+static wxWidgetCocoaImpl* wxTextInputImpl(NSView* view)
+{
+    for (NSView* candidate = view; candidate; candidate = [candidate superview])
+    {
+        if (auto* impl = (wxWidgetCocoaImpl*) wxWidgetImpl::FindFromWXWidget(candidate))
+            return impl;
+    }
+
+    return nullptr;
+}
+
 void wxOSX_insertText(NSView* self, SEL _cmd, NSString* text);
 
 - (void)insertText:(id)aString replacementRange:(NSRange)replacementRange
 {
-    wxWidgetCocoaImpl* impl = (wxWidgetCocoaImpl* ) wxWidgetImpl::FindFromWXWidget( self );
+    wxWidgetCocoaImpl* impl = wxTextInputImpl(self);
     if (impl)
         impl->insertTextFromIME(aString, replacementRange, self);
     else
@@ -988,14 +1003,14 @@ void wxOSX_insertText(NSView* self, SEL _cmd, NSString* text);
 
 - (void)setMarkedText:(id)aString selectedRange:(NSRange)selectedRange replacementRange:(NSRange)replacementRange
 {
-    wxWidgetCocoaImpl* impl = (wxWidgetCocoaImpl* ) wxWidgetImpl::FindFromWXWidget( self );
+    wxWidgetCocoaImpl* impl = wxTextInputImpl(self);
     if (impl)
         impl->setMarkedText(aString, selectedRange, replacementRange, self);
 }
 
 - (void)unmarkText
 {
-    wxWidgetCocoaImpl* impl = (wxWidgetCocoaImpl* ) wxWidgetImpl::FindFromWXWidget( self );
+    wxWidgetCocoaImpl* impl = wxTextInputImpl(self);
     if (impl)
         impl->unmarkText(self);
 }
@@ -2549,6 +2564,63 @@ void wxWidgetCocoaImpl::insertTextFromIME(id aString, NSRange replacementRange, 
     wxWindowMac* peer = GetWXPeer();
     if ( !peer )
         return;
+
+    // NSTextView applies macOS user text replacements internally. Scintilla is
+    // a custom NSTextInputClient, so AppKit delivers the abbreviation and the
+    // terminating space verbatim instead. Apply the same global replacement
+    // table when the input is a plain whitespace commit.
+    if ( [str length] == 1 && [[NSCharacterSet whitespaceAndNewlineCharacterSet] characterIsMember:[str characterAtIndex:0]] && !wxIsValidIMEIndexRange(replacementRange) && !hasMarkedText() )
+    {
+        long from = 0, to = 0;
+        if ( wxGetEditorSelectionInEditorUnits(peer, &from, &to) && from == to )
+        {
+            wxString value;
+            if ( auto stc = wxDynamicCast(peer, wxStyledTextCtrl) )
+                value = stc->GetTextRange(0, static_cast<int>(from));
+            else if ( auto entry = dynamic_cast<wxTextEntryBase*>(peer) )
+                value = entry->GetValue().Left(from);
+
+            const auto wordStart = value.find_last_of(wxString::FromUTF8(" \t\r\n"));
+            const size_t start = wordStart == wxString::npos ? 0 : wordStart + 1;
+            const wxString word = value.Mid(start);
+            if ( !word.empty() )
+            {
+                NSArray* items = [[NSUserDefaults standardUserDefaults] persistentDomainForName:NSGlobalDomain][@"NSUserDictionaryReplacementItems"];
+                for (NSDictionary* item in items)
+                {
+                    wxCFStringRef wordString(word);
+                    if (![item[@"on"] boolValue] || ![item[@"replace"] isEqualToString:wordString.AsNSString()])
+                        continue;
+
+                    wxString replacement = wxCFStringRef::AsString(item[@"with"]);
+                    long replaceStart = static_cast<long>(start);
+                    long cursor = replaceStart;
+                    if ( auto stc = wxDynamicCast(peer, wxStyledTextCtrl) )
+                    {
+                        // wxStyledTextCtrl positions are UTF-8 byte offsets,
+                        // while wxString::find/Mid use character offsets.
+                        replaceStart = stc->PositionRelative(0, static_cast<int>(start));
+                        cursor = replaceStart + static_cast<long>(replacement.utf8_string().length());
+                    }
+                    wxReplaceEditorRangeInEditorUnits(peer, replaceStart, from, replacement);
+                    wxReplaceEditorRangeInEditorUnits(peer, cursor, cursor, wxCFStringRef::AsString(str));
+                    long afterWhitespace = cursor + 1;
+                    if ( auto stc = wxDynamicCast(peer, wxStyledTextCtrl) )
+                    {
+                        afterWhitespace = stc->PositionRelative(cursor, 1);
+                        // SetAnchor/SetCurrentPos avoids Scintilla retaining the
+                        // target range as a selection after ReplaceTarget().
+                        stc->SetSelection(static_cast<int>(afterWhitespace), static_cast<int>(afterWhitespace));
+                        stc->SetAnchor(static_cast<int>(afterWhitespace));
+                        stc->SetCurrentPos(static_cast<int>(afterWhitespace));
+                    }
+                    else
+                        wxSetEditorSelectionInEditorUnits(peer, afterWhitespace, afterWhitespace);
+                    return;
+                }
+            }
+        }
+    }
 
     long replaceFrom = 0;
     long replaceTo = 0;
