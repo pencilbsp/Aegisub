@@ -84,6 +84,18 @@ void bring_to_front() {
 	[NSApp arrangeInFront:nil];
 }
 
+void hide_application() {
+    [NSApp hide:nil];
+}
+
+void hide_other_applications() {
+    [NSApp hideOtherApplications:nil];
+}
+
+void show_all_applications() {
+    [NSApp unhideAllApplications:nil];
+}
+
 void set_vertical_scrollbar(wxWindow *win, bool visible) {
 	if (!win)
 		return;

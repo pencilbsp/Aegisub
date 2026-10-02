@@ -15,8 +15,13 @@
 // Aegisub Project http://www.aegisub.org/
 
 #include <optional>
+#include <string>
+#include <vector>
 
 #include <libaegisub/ycbcr.h>
+
+/// Return the YCbCr matrix header values shown by the legacy dialogs.
+std::vector<std::string> MatrixNames();
 
 class AssFile;
 

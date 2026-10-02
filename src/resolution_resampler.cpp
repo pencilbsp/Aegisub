@@ -31,6 +31,13 @@
 #include <cmath>
 #include <wx/intl.h>
 
+std::vector<std::string> MatrixNames() {
+	std::vector<std::string> names;
+	for (auto value : agi::ycbcr::valid_header_strings)
+		names.emplace_back(value);
+	return names;
+}
+
 enum {
 	LEFT = 0,
 	RIGHT = 1,

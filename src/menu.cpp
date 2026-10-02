@@ -270,8 +270,8 @@ public:
 #endif
 	}
 
-	int AddCommand(cmd::Command *co, wxMenu *parent, std::string const& text = "") {
-		return AddCommand(co, parent, text.empty() ? co->StrMenu(context) : wxGetTranslation(to_wx(text)));
+	int AddCommand(cmd::Command *co, wxMenu *parent, std::string const& text = "", std::string const& tl_context = "") {
+		return AddCommand(co, parent, text.empty() ? co->StrMenu(context) : wxGetTranslation(to_wx(text), {}, to_wx(tl_context)));
 	}
 
 	// because wxString doesn't have a move constructor

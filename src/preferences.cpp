@@ -64,6 +64,40 @@
 #include <wx/treebook.h>
 
 namespace {
+#ifdef __APPLE__
+wxArrayString get_registered_command_choices() {
+	wxArrayString commands = to_wx(cmd::get_registered_commands());
+	commands.Sort();
+	return commands;
+}
+
+void add_current_hotkey_commands(wxArrayString& commands, HotkeyDataViewModel *model, wxDataViewItem const& parent) {
+	wxDataViewItemArray children;
+	model->GetChildren(parent, children);
+
+	for (auto const& child : children) {
+		wxVariant value;
+		model->GetValue(value, child, 1);
+		wxString command = value.GetString();
+		if (commands.Index(command) == wxNOT_FOUND)
+			commands.Add(command);
+
+		if (model->IsContainer(child))
+			add_current_hotkey_commands(commands, model, child);
+	}
+}
+
+wxArrayString get_hotkey_command_choices(HotkeyDataViewModel *model) {
+	wxArrayString commands = get_registered_command_choices();
+	if (commands.Index("") == wxNOT_FOUND)
+		commands.Add("");
+
+	add_current_hotkey_commands(commands, model, wxDataViewItem(nullptr));
+	commands.Sort();
+	return commands;
+}
+#endif
+
 wxString McpStdioPath() {
 	auto executable = wxFileName(wxStandardPaths::Get().GetExecutablePath());
 #ifdef __WXMSW__
@@ -435,10 +469,10 @@ void Advanced_MCP(wxTreebook *book, Preferences *parent) {
 	auto general = p->PageSizer(_("General"));
 	p->OptionAdd(general, _("Enabled"), "MCP/Enabled");
 	p->CellSkip(general);
-	p->OptionAdd(general, _("Port"), "MCP/Port", 1024, 65535);
+	p->OptionAdd(general, _("Port"), "MCP/Port", {.min = 1024, .max = 65535});
 	p->OptionAdd(general, _("Read only"), "MCP/Read Only");
 	p->CellSkip(general);
-	p->OptionAdd(general, _("Frame max width (0 = original)"), "MCP/Frame Max Width", 0, 8192);
+	p->OptionAdd(general, _("Frame max width (0 = original)"), "MCP/Frame Max Width", {.min = 0, .max = 8192});
 
 	auto bridge_path = McpStdioPath();
 	auto path = new wxTextCtrl(general.box, -1, bridge_path, wxDefaultPosition, wxSize(280, -1), wxTE_READONLY);
@@ -574,7 +608,7 @@ class CommandRenderer final : public wxDataViewCustomRenderer {
 public:
 	CommandRenderer()
 	: wxDataViewCustomRenderer("string", wxDATAVIEW_CELL_EDITABLE)
-	, autocomplete(get_registered_commands())
+	, autocomplete(get_registered_command_choices())
 	{
 	}
 

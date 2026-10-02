@@ -195,6 +195,13 @@ if not use_bundled_wx
 else
     message('Using bundled wxWidgets')
 
+    wx_libpng = 'sys'
+    if libass_dep.type_name() == 'internal'
+        # The bundled text stack has PNG support disabled, so wx can own the
+        # only libpng copy without bridging another Meson dependency to CMake.
+        wx_libpng = 'builtin'
+    endif
+
     build_shared = true
     if get_option('default_library') == 'static'
         build_shared = false
