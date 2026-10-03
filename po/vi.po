@@ -6795,6 +6795,10 @@ msgstr "Tự động tải video có cùng tên với phụ đề"
 msgid "Prefer video with the same name over linked video"
 msgstr "Ưu tiên video có cùng tên thay vì video được liên kết"
 
+#: ../src/preferences.cpp:568
+msgid "Same-name video folder"
+msgstr "Thư mục tìm video cùng tên"
+
 #: ../src/preferences.cpp:486
 msgid "Video provider"
 msgstr "Trình cung cấp video"

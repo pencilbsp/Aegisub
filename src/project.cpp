@@ -86,9 +86,16 @@ agi::fs::path FindVideoWithSameName(agi::fs::path const& subtitle) {
 	auto subtitle_path = subtitle.is_relative() ? agi::fs::Absolute(subtitle) : subtitle;
 	auto subtitle_stem = subtitle_path.stem().string();
 	boost::to_lower(subtitle_stem);
+	auto const& configured_directory = OPT_GET("Video/Same Name Search Path")->GetString();
+	auto video_directory = configured_directory.empty()
+		? subtitle_path.parent_path()
+		: config::path->Decode(configured_directory);
 
-	for (auto const& filename : agi::fs::DirectoryIterator(subtitle_path.parent_path(), "")) {
-		agi::fs::path candidate = subtitle_path.parent_path() / filename;
+	if (!agi::fs::DirectoryExists(video_directory))
+		return {};
+
+	for (auto const& filename : agi::fs::DirectoryIterator(video_directory, "")) {
+		agi::fs::path candidate = video_directory / filename;
 		auto candidate_stem = candidate.stem().string();
 		boost::to_lower(candidate_stem);
 		if (candidate != subtitle_path && candidate_stem == subtitle_stem && IsVideoFile(candidate) && agi::fs::FileExists(candidate))

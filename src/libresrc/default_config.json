@@ -649,6 +649,7 @@
 	"Video" : {
 		"Auto Load Same Name" : false,
 		"Prefer Same Name" : false,
+		"Same Name Search Path" : "",
 		"Default Zoom" : 7,
 		"Scroll Action": 0,
 		"Ctrl Scroll Action": 2,
