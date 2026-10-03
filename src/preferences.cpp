@@ -64,13 +64,13 @@
 #include <wx/treebook.h>
 
 namespace {
-#ifdef __APPLE__
 wxArrayString get_registered_command_choices() {
 	wxArrayString commands = to_wx(cmd::get_registered_commands());
 	commands.Sort();
 	return commands;
 }
 
+#ifdef __APPLE__
 void add_current_hotkey_commands(wxArrayString& commands, HotkeyDataViewModel *model, wxDataViewItem const& parent) {
 	wxDataViewItemArray children;
 	model->GetChildren(parent, children);
