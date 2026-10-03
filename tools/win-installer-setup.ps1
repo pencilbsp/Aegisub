@@ -15,6 +15,13 @@ param (
 )
 
 $ErrorActionPreference = 'Stop'
+$ProgressPreference = 'SilentlyContinue'
+
+try {
+	[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
+} catch {
+	[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+}
 
 $InstallerDir = Join-Path $SourceRoot "packages\win_installer" | Resolve-Path
 $DepsDir = Join-Path $BuildRoot "installer-deps"
@@ -28,6 +35,72 @@ $Env:SOURCE_ROOT = $SourceRoot
 $GitHeaders = @{}
 if (Test-Path 'Env:GITHUB_TOKEN') {
 	$GitHeaders = @{ 'Authorization' = 'Bearer ' + $Env:GITHUB_TOKEN }
+}
+
+function Download-FileWithRetry {
+	param(
+		[Parameter(Mandatory = $true)][string]$Url,
+		[Parameter(Mandatory = $true)][string]$OutFile,
+		[hashtable]$Headers = @{},
+		[int]$MaxRetries = 5,
+		[int]$DelaySeconds = 3
+	)
+
+	$curl = Get-Command "curl.exe" -ErrorAction SilentlyContinue
+	if ($curl) {
+		$curlArgs = @("-fsSL", "--retry", "$MaxRetries", "--retry-delay", "$DelaySeconds", "-o", $OutFile)
+		foreach ($key in $Headers.Keys) {
+			$curlArgs += "-H"
+			$curlArgs += "$key`: $($Headers[$key])"
+		}
+		$curlArgs += $Url
+		& $curl.Source @curlArgs
+		if ($LASTEXITCODE -eq 0 -and (Test-Path $OutFile)) {
+			return
+		}
+		Write-Warning "curl.exe failed with exit code $LASTEXITCODE, falling back to Invoke-WebRequest..."
+	}
+
+	for ($i = 1; $i -le $MaxRetries; $i++) {
+		try {
+			if ($Headers.Count -gt 0) {
+				Invoke-WebRequest $Url -OutFile $OutFile -Headers $Headers -UseBasicParsing
+			} else {
+				Invoke-WebRequest $Url -OutFile $OutFile -UseBasicParsing
+			}
+			return
+		} catch {
+			if ($i -eq $MaxRetries) {
+				throw
+			}
+			Write-Warning "Download from $Url failed (attempt $i/$MaxRetries): $_. Retrying in $DelaySeconds seconds..."
+			Start-Sleep -Seconds $DelaySeconds
+		}
+	}
+}
+
+function Fetch-JsonWithRetry {
+	param(
+		[Parameter(Mandatory = $true)][string]$Url,
+		[hashtable]$Headers = @{},
+		[int]$MaxRetries = 5,
+		[int]$DelaySeconds = 3
+	)
+	for ($i = 1; $i -le $MaxRetries; $i++) {
+		try {
+			if ($Headers.Count -gt 0) {
+				return (Invoke-WebRequest $Url -Headers $Headers -UseBasicParsing | ConvertFrom-Json)
+			} else {
+				return (Invoke-WebRequest $Url -UseBasicParsing | ConvertFrom-Json)
+			}
+		} catch {
+			if ($i -eq $MaxRetries) {
+				throw
+			}
+			Write-Warning "Request to $Url failed (attempt $i/$MaxRetries): $_. Retrying in $DelaySeconds seconds..."
+			Start-Sleep -Seconds $DelaySeconds
+		}
+	}
 }
 
 # DependencyControl
@@ -54,7 +127,7 @@ if ((Get-CachedDepCtrlVersion $DepCtrlDir) -ne $DepCtrlVersion) {
 
 	try {
 		New-Item -ItemType Directory -Path $depCtrlStagingDir | Out-Null
-		Invoke-WebRequest $depCtrlUrl -OutFile $depCtrlZip -UseBasicParsing
+		Download-FileWithRetry -Url $depCtrlUrl -OutFile $depCtrlZip
 		7z x $depCtrlZip "-o$depCtrlStagingDir"
 		if ($LASTEXITCODE -ne 0) {
 			throw "Failed to extract DependencyControl (7z exited with code $LASTEXITCODE)"
@@ -86,10 +159,10 @@ if ((Get-CachedDepCtrlVersion $DepCtrlDir) -ne $DepCtrlVersion) {
 # Avisynth
 # $AviSynthDir = Join-Path $DepsDir "AviSynthPlus64"
 # if (!(Test-Path $AviSynthDir)) {
-# 	$avsReleases = Invoke-WebRequest "https://api.github.com/repos/AviSynth/AviSynthPlus/releases/latest" -Headers $GitHeaders -UseBasicParsing | ConvertFrom-Json
+# 	$avsReleases = Fetch-JsonWithRetry -Url "https://api.github.com/repos/AviSynth/AviSynthPlus/releases/latest" -Headers $GitHeaders
 # 	$avsUrl = $avsReleases.assets[0].browser_download_url
 # 	$avsArchive = Join-Path $DepsDir "AviSynthPlus.7z"
-# 	Invoke-WebRequest $avsUrl -OutFile $avsArchive -UseBasicParsing
+# 	Download-FileWithRetry -Url $avsUrl -OutFile $avsArchive
 # 	7z x $avsArchive "-o$DepsDir"
 # 	Rename-Item (Join-Path $DepsDir (Get-ChildItem -Path $DepsDir -Filter "AviSynthPlus_*" -Directory).Name) $AviSynthDir
 # 	Remove-Item $avsArchive
@@ -97,14 +170,34 @@ if ((Get-CachedDepCtrlVersion $DepCtrlDir) -ne $DepCtrlVersion) {
 
 # VSFilter
 $VSFilterDir = Join-Path $DepsDir "VSFilter"
-if ($Architecture -eq 'x64' -and !(Test-Path $VSFilterDir)) {
-	New-Item -ItemType Directory -Path $VSFilterDir | Out-Null
-	$vsFilterReleases = Invoke-WebRequest "https://api.github.com/repos/pinterf/xy-VSFilter/releases/latest" -Headers $GitHeaders -UseBasicParsing | ConvertFrom-Json
-	$vsFilterUrl = $vsFilterReleases.assets[0].browser_download_url
-	$vsFilterArchive = Join-Path $VSFilterDir "VSFilter.7z"
-	Invoke-WebRequest $vsFilterUrl -OutFile $vsFilterArchive -UseBasicParsing
-	7z x $vsFilterArchive "-o$VSFilterDir"
-	Remove-Item $vsFilterArchive
+$VSFilterDll = Join-Path $VSFilterDir "x64\VSFilter.dll"
+if ($Architecture -eq 'x64' -and !(Test-Path $VSFilterDll)) {
+	$vsFilterStagingDir = Join-Path $DepsDir ("VSFilter-{0}" -f [guid]::NewGuid().ToString("N"))
+	$vsFilterArchive = Join-Path $vsFilterStagingDir "VSFilter.7z"
+	try {
+		New-Item -ItemType Directory -Path $vsFilterStagingDir | Out-Null
+		$vsFilterReleases = Fetch-JsonWithRetry -Url "https://api.github.com/repos/pinterf/xy-VSFilter/releases/latest" -Headers $GitHeaders
+		$vsFilterAsset = $vsFilterReleases.assets | Where-Object { $_.name -like "*.7z" } | Select-Object -First 1
+		if (!$vsFilterAsset) {
+			$vsFilterAsset = $vsFilterReleases.assets[0]
+		}
+		$vsFilterUrl = $vsFilterAsset.browser_download_url
+		Download-FileWithRetry -Url $vsFilterUrl -OutFile $vsFilterArchive
+		7z x $vsFilterArchive "-o$vsFilterStagingDir"
+		if ($LASTEXITCODE -ne 0) {
+			throw "Failed to extract VSFilter (7z exited with code $LASTEXITCODE)"
+		}
+		Remove-Item -LiteralPath $vsFilterArchive -Force
+		if (Test-Path -LiteralPath $VSFilterDir) {
+			Remove-Item -LiteralPath $VSFilterDir -Recurse -Force
+		}
+		Rename-Item -LiteralPath $vsFilterStagingDir -NewName (Split-Path $VSFilterDir -Leaf)
+		Write-Host "VSFilter has been downloaded and extracted to $VSFilterDir"
+	} finally {
+		if (Test-Path -LiteralPath $vsFilterStagingDir) {
+			Remove-Item -LiteralPath $vsFilterStagingDir -Recurse -Force -ErrorAction SilentlyContinue
+		}
+	}
 }
 
 # VC++ redistributable
@@ -113,15 +206,15 @@ $RedistName = "VC_redist.$Architecture.exe"
 $RedistPath = Join-Path $RedistDir $RedistName
 if (!(Test-Path $RedistPath)) {
 	New-Item -ItemType Directory -Path $RedistDir -Force | Out-Null
-	Invoke-WebRequest "https://aka.ms/vs/17/release/$RedistName" -OutFile $RedistPath -UseBasicParsing
+	Download-FileWithRetry -Url "https://aka.ms/vs/17/release/$RedistName" -OutFile $RedistPath
 }
 
 # Dictionaries
 $DictionariesDir = Join-Path $DepsDir "dictionaries"
 if (!(Test-Path $DictionariesDir)) {
 	New-Item -ItemType Directory -Path $DictionariesDir | Out-Null
-	Invoke-WebRequest https://raw.githubusercontent.com/TypesettingTools/Aegisub-dictionaries/master/dicts/en_US.aff -OutFile (Join-Path $DictionariesDir "en_US.aff") -UseBasicParsing
-	Invoke-WebRequest https://raw.githubusercontent.com/TypesettingTools/Aegisub-dictionaries/master/dicts/en_US.dic -OutFile (Join-Path $DictionariesDir "en_US.dic") -UseBasicParsing
+	Download-FileWithRetry -Url "https://raw.githubusercontent.com/TypesettingTools/Aegisub-dictionaries/master/dicts/en_US.aff" -OutFile (Join-Path $DictionariesDir "en_US.aff")
+	Download-FileWithRetry -Url "https://raw.githubusercontent.com/TypesettingTools/Aegisub-dictionaries/master/dicts/en_US.dic" -OutFile (Join-Path $DictionariesDir "en_US.dic")
 }
 
 # Installer localization
@@ -134,7 +227,7 @@ if (!(Test-Path $LangsDir)) {
 		'SerbianCyrillic', 'SerbianLatin', 'ChineseSimplified', 'ChineseTraditional'
 	)
 	foreach ($lang in $Languages) {
-		Invoke-WebRequest "$LangBaseUrl/$lang.isl" -OutFile (Join-Path $LangsDir "$lang.isl") -UseBasicParsing
+		Download-FileWithRetry -Url "$LangBaseUrl/$lang.isl" -OutFile (Join-Path $LangsDir "$lang.isl")
 	}
 }
 
