@@ -206,7 +206,7 @@ elif host_machine.system() == 'windows'
         'bitmaps/windows/eyedropper.cur',
     )
     windows = import('windows')
-    if wx_dep.type_name() != 'not-found' # system wx
+    if not use_bundled_wx # system wx
         raw_wx_windres_args = wx_dep.get_variable(configtool: 'rescomp').split()
         wx_windres_args = []
         foreach arg: raw_wx_windres_args

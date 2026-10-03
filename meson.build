@@ -180,13 +180,12 @@ endif
 zlib_dep = dependency('zlib')
 deps += zlib_dep
 
-use_bundled_wx = host_machine.system() == 'darwin' and get_option('build_osx_bundle')
-
-wx_dep = dependency('', required: false)
+use_bundled_wx = force_all_fallbacks or force_fallback_for.contains('wxWidgets')
 if not use_bundled_wx
     wx_dep = dependency('wxWidgets', version: '>=' + get_option('wx_version'),
                         required: false,
                         modules: ['std', 'stc', 'gl'])
+    use_bundled_wx = not wx_dep.found()
 endif
 
 if not use_bundled_wx
