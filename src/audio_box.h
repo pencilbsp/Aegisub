@@ -106,6 +106,9 @@ class AudioBox final : public wxSashWindow, private agi::signal::ConnectionScope
 public:
 	AudioBox(wxWindow *parent, agi::Context *context);
 
+	/// Restore the height saved after the user last resized the audio display.
+	void RestoreHeight();
+
 	void ShowKaraokeBar(bool show);
 
 	/// @brief Scroll the audio display

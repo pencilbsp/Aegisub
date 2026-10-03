@@ -282,6 +282,8 @@ void FrameMain::SetDisplayMode(int video, int audio) {
 
 	TopSizer->Show(videoBox, showVideo, true);
 	ToolsSizer->Show(audioBox, showAudio, true);
+	if (showAudio)
+		audioBox->RestoreHeight();
 
 	MainSizer->Layout();
 	Layout();

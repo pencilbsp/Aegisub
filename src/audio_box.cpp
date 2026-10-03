@@ -125,10 +125,8 @@ AudioBox::AudioBox(wxWindow *parent, agi::Context *context)
 	audioSashSizer->Add(panel, 1, wxEXPAND);
 	SetSizerAndFit(audioSashSizer);
 	int minimum_height = panel->GetBestSize().GetHeight();
-	int display_height = static_cast<int>(OPT_GET("Audio/Display Height")->GetInt());
-	int default_height = 190;
 	SetMinimumSizeY(minimum_height);
-	SetMinSize(wxSize(-1, std::max({minimum_height, display_height, default_height})));
+	RestoreHeight();
 
 	audioDisplay->EnableTouchEvents(wxTOUCH_ZOOM_GESTURE);
 	audioDisplay->Bind(wxEVT_MOUSEWHEEL, &AudioBox::OnMouseWheel, this);
@@ -183,6 +181,14 @@ void AudioBox::OnGestureZoom(wxZoomGestureEvent &event) {
 
 	double target_zoom_factor = audioDisplay->GetZoomLevelFactor(zoom_gesture_start_level) * event.GetZoomFactor();
 	SetHorizontalZoomAt(GetClosestZoomLevel(target_zoom_factor), zoom_gesture_anchor_x, zoom_gesture_anchor_time);
+}
+
+void AudioBox::RestoreHeight() {
+	// The sizer discards the previous dimensions while this control is hidden.
+	// Reapply the saved minimum when it is shown so that it is allocated the
+	// height the user selected rather than its default best size.
+	int saved_height = static_cast<int>(OPT_GET("Audio/Display Height")->GetInt());
+	SetMinSize(wxSize(-1, std::max(GetMinimumSizeY(), saved_height)));
 }
 
 void AudioBox::ApplyAudioHeight(int new_height) {
