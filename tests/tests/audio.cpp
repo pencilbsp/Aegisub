@@ -135,8 +135,11 @@ TEST(lagi_audio, save_audio_clip_stream_matches_file) {
 	TestAudioProvider<> provider(2);
 
 	agi::SaveAudioClip(provider, path, 250, 1250);
-	std::ifstream file(path, std::ios::binary);
-	std::string file_bytes((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+	std::string file_bytes;
+	{
+		std::ifstream file(path, std::ios::binary);
+		file_bytes.assign((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+	}
 
 	std::ostringstream stream;
 	agi::SaveAudioClip(provider, stream, 250, 1250);
