@@ -279,7 +279,7 @@ jobs:
           if (-not $installer) { throw "Windows installer was not produced" }
           Move-Item $installer.FullName "$assetDir/Aegisub-$version-${{ matrix.config.asset_platform }}.exe" -Force
 
-          $portable = Get-ChildItem "build/aegisub-portable-*.zip" | Select-Object -First 1
+          $portable = Get-ChildItem "build/Aegisub-*-portable.zip" | Select-Object -First 1
           if (-not $portable) { throw "Windows portable package was not produced" }
           Move-Item $portable.FullName "$assetDir/Aegisub-$version-${{ matrix.config.asset_platform }}-portable.zip" -Force
 

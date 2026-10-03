@@ -59,6 +59,9 @@ if ($LASTEXITCODE -ne 0) { throw "meson install failed (exit $LASTEXITCODE)" }
 
 Write-Step 'Copying executable'
 Copy-ToDirectory $InstallerDir\bin\aegisub.exe  $PortableOutputDir
+if (Test-Path "$InstallerDir\bin\aegisub-mcp-stdio.exe") {
+    Copy-ToDirectory "$InstallerDir\bin\aegisub-mcp-stdio.exe"  $PortableOutputDir
+}
 
 Write-Step 'Copying translations'
 Copy-ToDirectory "$InstallerDir\share\locale\*"  "$PortableOutputDir\locale" -Recurse
@@ -66,12 +69,6 @@ Copy-ToDirectory "$InstallerDir\share\locale\*"  "$PortableOutputDir\locale" -Re
 Write-Step 'Copying dictionaries'
 Copy-ToDirectory $InstallerDepsDir\dictionaries\en_US.aff  $PortableOutputDir\dictionaries
 Copy-ToDirectory $InstallerDepsDir\dictionaries\en_US.dic  $PortableOutputDir\dictionaries
-
-Write-Output 'Make install'
-meson install --no-rebuild --destdir $InstallerDir
-Write-Output 'Gathering files'
-Copy-New-Item $InstallerDir\bin\aegisub.exe  $PortableOutputDir
-Copy-New-Item $InstallerDir\bin\aegisub-mcp-stdio.exe  $PortableOutputDir
 
 Write-Step 'Copying VSFilter'
 if ($Architecture -eq 'x64') {
