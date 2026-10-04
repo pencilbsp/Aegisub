@@ -136,7 +136,12 @@ int prompt_choice_dialog(const wxString& message, const wxString& caption, const
 	d.Bind(wxEVT_BUTTON, [&](wxCommandEvent&) { d.EndModal(-1); }, wxID_CANCEL);
 	d.Bind(wxEVT_BUTTON, [&](wxCommandEvent&) { HelpButton::OpenPage("Resolution and Matrix"); }, wxID_HELP);
 
-	return d.ShowModal();
+	// wxDialog may return wxID_CANCEL (rather than the -1 supplied by our
+	// handler) when the platform's standard Cancel handling runs first. Only a
+	// list index is an affirmative choice; normalize every other result to
+	// Cancel so it can never be interpreted as the selected list item.
+	auto result = d.ShowModal();
+	return result >= 0 && result < static_cast<int>(choices.size()) ? result : -1;
 }
 
 
@@ -288,7 +293,7 @@ bool update_play_res(AssFile *file, const AsyncVideoProvider *new_provider, wxWi
 	auto [vx, vy] = new_provider->GetDisplayResolution();
 
 	// If the script resolution hasn't been set at all just force it to the
-	// video resolution
+	// video resolution.
 	if (sx == 0 && sy == 0) {
 		file->SetScriptInfo("PlayResX", std::to_string(vx));
 		file->SetScriptInfo("PlayResY", std::to_string(vy));
@@ -521,4 +526,20 @@ void UpdateVideoProperties(AssFile *file, const AsyncVideoProvider *new_provider
 
 	if (update_layout_res(file, new_provider, parent))
 		file->Commit(_("change layout resolution"), AssFile::COMMIT_SCRIPTINFO);
+}
+
+void SetVideoPropertiesSilently(AssFile *file, const AsyncVideoProvider *new_provider) {
+	// Formats such as SRT have no place to save ASS Script Info, but their
+	// preview is still rendered as ASS. Use the opened video's properties for
+	// that temporary rendering state without committing a document change.
+	auto video_cs = new_provider->GetRealColorSpace();
+	auto [matrix, range] = video_cs;
+	ycbcr::guess_colorspace(matrix, range, new_provider->GetWidth(), new_provider->GetHeight());
+
+	auto [width, height] = new_provider->GetDisplayResolution();
+	file->SetScriptInfo("YCbCr Matrix", ycbcr::Header(matrix, range).to_best_practice().to_string().value());
+	file->SetScriptInfo("PlayResX", std::to_string(width));
+	file->SetScriptInfo("PlayResY", std::to_string(height));
+	file->SetScriptInfo("LayoutResX", std::to_string(width));
+	file->SetScriptInfo("LayoutResY", std::to_string(height));
 }

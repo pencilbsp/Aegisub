@@ -7496,3 +7496,27 @@ msgstr ""
 #: packages/win_installer/fragment_strings.iss:1
 msgid "This will install Aegisub {#BUILD_GIT_VERSION_STRING} on your computer.%n%nAegisub is covered by the GNU General Public License version 2. This means you may use the application for any purpose without charge, but that no warranties of any kind are given either.%n%nSee the Aegisub website for information on obtaining the source code."
 msgstr ""
+
+#: ../src/preferences.cpp:566
+msgid "Immediately"
+msgstr ""
+
+#: ../src/preferences.cpp:567
+msgid "When window receives focus"
+msgstr ""
+
+#: ../src/preferences.cpp:570
+msgid "Same-name video loading mode"
+msgstr ""
+
+#: ../src/preferences.cpp:562
+msgid "Same-name video"
+msgstr ""
+
+#: ../src/preferences.cpp:275
+msgid "Non-ASS subtitles"
+msgstr ""
+
+#: ../src/preferences.cpp:276
+msgid "Automatically match subtitle properties to video"
+msgstr ""

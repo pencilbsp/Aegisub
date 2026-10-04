@@ -64,6 +64,7 @@ class FrameMain : public wxFrame, private agi::signal::ConnectionScope {
 
 	void OnStatusClear(wxTimerEvent &event);
 	void OnCloseWindow (wxCloseEvent &event);
+	void OnChildFocus(wxChildFocusEvent &event);
 
 	void OnAudioOpen(agi::AudioProvider *provider);
 	void OnVideoOpen(AsyncVideoProvider *provider);

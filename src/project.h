@@ -38,6 +38,7 @@ class Project : private agi::signal::ConnectionScope {
 	agi::fs::path video_file;
 	agi::fs::path timecodes_file;
 	agi::fs::path keyframes_file;
+	agi::fs::path pending_auto_video;
 
 	agi::signal::Signal<agi::AudioProvider *> AnnounceAudioProviderModified;
 	agi::signal::Signal<AsyncVideoProvider *> AnnounceVideoProviderModified;
@@ -93,7 +94,10 @@ public:
 	bool CanCloseKeyframes() const { return !keyframes_file.empty(); }
 	std::vector<int> const& Keyframes() const { return keyframes; }
 
-	void LoadList(std::vector<agi::fs::path> const& files);
+	/// Load a set of files. When defer_auto_video is true, a same-name video
+	/// discovered by the automatic video-loading option is loaded on focus.
+	void LoadList(std::vector<agi::fs::path> const& files, bool defer_auto_video=false);
+	void LoadPendingVideo();
 
 	DEFINE_SIGNAL_ADDERS(AnnounceAudioProviderModified, AddAudioProviderListener)
 	DEFINE_SIGNAL_ADDERS(AnnounceVideoProviderModified, AddVideoProviderListener)

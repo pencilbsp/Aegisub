@@ -520,6 +520,7 @@ void AegisubApp::OpenFiles(wxArrayStringsAdapter filenames) {
 	if (videos.size() > num_projects) num_projects = videos.size();
 	if (audios.size() > num_projects) num_projects = audios.size();
 	if (num_projects == 0 && !others.empty()) num_projects = 1;
+	const bool defer_auto_video = num_projects > 1 && OPT_GET("Video/Auto Load Same Name Mode")->GetInt() == 1;
 
 	for (size_t i = 0; i < num_projects; ++i) {
 		std::vector<agi::fs::path> project_files;
@@ -542,6 +543,21 @@ void AegisubApp::OpenFiles(wxArrayStringsAdapter filenames) {
 		} else {
 			c = &NewProjectContext();
 		}
-		c->project->LoadList(project_files);
+		// In focus mode, do not start a decoder for any automatically discovered
+		// same-name video until every subtitle in the batch has been processed.
+		c->project->LoadList(project_files, defer_auto_video);
+	}
+
+	if (!defer_auto_video)
+		return;
+
+	// A newly-created frame may already have received its focus event before
+	// LoadList has recorded its deferred video. Once the batch is
+	// complete, load only the video for the frame which is actually active.
+	for (auto frame : frames) {
+		if (frame->IsActive()) {
+			frame->context->project->LoadPendingVideo();
+			break;
+		}
 	}
 }

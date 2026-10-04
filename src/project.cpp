@@ -449,7 +449,13 @@ bool Project::DoLoadVideo(agi::fs::path const& path) {
 
 	AnnounceVideoProviderModified(video_provider.get());
 
-	UpdateVideoProperties(context->ass.get(), video_provider.get(), context->parent);
+	auto is_ass = agi::fs::HasExtension(context->subsController->Filename(), "ass");
+	if (is_ass || !OPT_GET("Video/Non-ASS/Match Properties")->GetBool())
+		UpdateVideoProperties(context->ass.get(), video_provider.get(), context->parent);
+	else {
+		SetVideoPropertiesSilently(context->ass.get(), video_provider.get());
+		video_provider->SetColorSpace(context->ass->GetYCbCrMatrix());
+	}
 	video_provider->LoadSubtitles(context->ass.get());
 
 	timecodes = video_provider->GetFPS();
@@ -474,6 +480,7 @@ bool Project::DoLoadVideo(agi::fs::path const& path) {
 
 void Project::LoadVideo(agi::fs::path path) {
 	if (path.empty()) return;
+	pending_auto_video.clear();
 	if (!DoLoadVideo(path)) return;
 	if (OPT_GET("Video/Open Audio")->GetBool() && audio_file != video_file && video_provider->HasAudio())
 		DoLoadAudio(video_file, true);
@@ -487,6 +494,7 @@ void Project::LoadVideo(agi::fs::path path) {
 }
 
 void Project::CloseVideo() {
+	pending_auto_video.clear();
 	AnnounceVideoProviderModified(nullptr);
 	video_provider.reset();
 	SetPath(video_file, "?video", "", "");
@@ -552,7 +560,8 @@ void Project::CloseKeyframes() {
 	AnnounceKeyframesModified(keyframes);
 }
 
-void Project::LoadList(std::vector<agi::fs::path> const& files) {
+void Project::LoadList(std::vector<agi::fs::path> const& files, bool defer_auto_video) {
+	pending_auto_video.clear();
 	// Keep these lists sorted
 
 	// Subtitle formats
@@ -633,9 +642,18 @@ void Project::LoadList(std::vector<agi::fs::path> const& files) {
 			subs.clear();
 	}
 
+	agi::fs::path deferred_video;
 	bool prefer_matching_video = !subs.empty() && video.empty() && OPT_GET("Video/Auto Load Same Name")->GetBool() && OPT_GET("Video/Prefer Same Name")->GetBool();
-	if (prefer_matching_video)
+	if (prefer_matching_video) {
 		video = FindVideoWithSameName(subs);
+		if (defer_auto_video && !video.empty()) {
+			deferred_video = video;
+			video.clear();
+			// The same-name video takes precedence over the linked video, but it
+			// must remain deferred until this window is focused.
+			properties.video_file.clear();
+		}
+	}
 
 	if (!video.empty() && DoLoadVideo(video)) {
 		double dar = video_provider->GetDAR();
@@ -670,7 +688,22 @@ void Project::LoadList(std::vector<agi::fs::path> const& files) {
 
 	if (video_file.empty() && !subs.empty() && properties.video_file.empty() && OPT_GET("Video/Auto Load Same Name")->GetBool()) {
 		auto matching_video = FindVideoWithSameName(subs);
-		if (!matching_video.empty())
-			LoadVideo(matching_video);
+		if (!matching_video.empty()) {
+			if (defer_auto_video)
+				deferred_video = matching_video;
+			else
+				LoadVideo(matching_video);
+		}
 	}
+
+	pending_auto_video = std::move(deferred_video);
+}
+
+void Project::LoadPendingVideo() {
+	if (pending_auto_video.empty() || video_provider)
+		return;
+
+	auto video = std::move(pending_auto_video);
+	pending_auto_video.clear();
+	LoadVideo(video);
 }

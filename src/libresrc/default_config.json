@@ -648,6 +648,10 @@
 
 	"Video" : {
 		"Auto Load Same Name" : false,
+		"Auto Load Same Name Mode" : 1,
+		"Non-ASS" : {
+			"Match Properties" : true
+		},
 		"Prefer Same Name" : false,
 		"Same Name Search Path" : "",
 		"Default Zoom" : 7,

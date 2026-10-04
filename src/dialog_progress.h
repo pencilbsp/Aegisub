@@ -18,6 +18,7 @@
 ///
 
 #include <chrono>
+#include <atomic>
 #include <wx/dialog.h>
 #include <wx/timer.h>
 
@@ -42,6 +43,8 @@ class DialogProgress final : public wxDialog, public agi::BackgroundRunner {
 	wxTextCtrl *log_output;
 
 	wxTimer pulse_timer;
+	wxTimer completion_timer;
+	std::atomic<bool> task_complete{false};
 
 	wxString pending_log;
 	int progress_anim_start_value = 0;
@@ -53,6 +56,8 @@ class DialogProgress final : public wxDialog, public agi::BackgroundRunner {
 	void OnShow(wxShowEvent&);
 	void OnCancel(wxCommandEvent &);
 	void OnIdle(wxIdleEvent&);
+	void OnCompletionTimer(wxTimerEvent&);
+	void FinishTask();
 
 	void SetProgress(int target);
 

@@ -6791,6 +6791,30 @@ msgstr "Độ dài của bộ đệm"
 msgid "Automatically load video with the same name as the subtitle"
 msgstr "Tự động tải video có cùng tên với phụ đề"
 
+#: ../src/preferences.cpp:566
+msgid "Immediately"
+msgstr "Ngay lập tức"
+
+#: ../src/preferences.cpp:567
+msgid "When window receives focus"
+msgstr "Khi cửa sổ nhận focus"
+
+#: ../src/preferences.cpp:570
+msgid "Same-name video loading mode"
+msgstr "Chế độ tải video cùng tên"
+
+#: ../src/preferences.cpp:562
+msgid "Same-name video"
+msgstr "Video cùng tên"
+
+#: ../src/preferences.cpp:275
+msgid "Non-ASS subtitles"
+msgstr "Phụ đề không phải ASS"
+
+#: ../src/preferences.cpp:276
+msgid "Automatically match subtitle properties to video"
+msgstr "Tự động khớp thuộc tính phụ đề với video"
+
 #: ../src/preferences.cpp:565
 msgid "Prefer video with the same name over linked video"
 msgstr "Ưu tiên video có cùng tên thay vì video được liên kết"

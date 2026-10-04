@@ -54,6 +54,10 @@ bool PromptForResampleSettings(agi::Context *c, ResampleSettings &settings);
 /// Update the video properties for a newly opened video, possibly prompting the user about what to do
 void UpdateVideoProperties(AssFile *file, const AsyncVideoProvider *new_provider, wxWindow *parent);
 
+/// Set the rendering properties for a non-ASS subtitle from its video without
+/// committing ASS-only metadata to the subtitle document.
+void SetVideoPropertiesSilently(AssFile *file, const AsyncVideoProvider *new_provider);
+
 int GetSelectedChoices(wxWindow *parent, wxArrayInt& selections, wxString const& message, wxString const& caption, wxArrayString const& choices);
 
 std::string CreateDummyVideo(wxWindow *parent);

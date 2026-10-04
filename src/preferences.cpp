@@ -274,6 +274,10 @@ void Video(wxTreebook *book, Preferences *parent) {
 	wxArrayString choice_layoutresmismatch(3, clayoutresmismatch_arr);
 	p->OptionChoice(layoutres, _("Prompt on layout resolution mismatch"), choice_layoutresmismatch, "Video/LayoutRes Mismatch");
 
+	auto non_ass = p->PageSizer(_("Non-ASS subtitles"));
+	p->OptionAdd(non_ass, _("Automatically match subtitle properties to video"), "Video/Non-ASS/Match Properties");
+	p->CellSkip(non_ass);
+
 	auto ycbcr = p->PageSizer(_("YCbCr Matrix"));
 	p->OptionAdd(ycbcr, _("Warn on untagged video color matrix"), "Video/Untagged Matrix Warning");
 	p->OptionAdd(ycbcr, _("Warn on HDR/WCG video"), "Video/HDR Video Warning");
@@ -559,13 +563,21 @@ void Advanced_Audio(wxTreebook *book, Preferences *parent) {
 void Advanced_Video(wxTreebook *book, Preferences *parent) {
 	auto p = new OptionPage(book, parent, _("Video"), OptionPage::PAGE_SUB);
 
-	auto expert = p->PageSizer(_("Expert"));
-	auto auto_load_same_name = p->OptionAdd(expert, _("Automatically load video with the same name as the subtitle"), "Video/Auto Load Same Name");
-	p->CellSkip(expert);
+	auto same_name = p->PageSizer(_("Same-name video"));
+	auto auto_load_same_name = p->OptionAdd(same_name, _("Automatically load video with the same name as the subtitle"), "Video/Auto Load Same Name");
+	p->CellSkip(same_name);
+	const wxString auto_video_load_modes[] = {
+		_("Immediately"),
+		_("When window receives focus")
+	};
+	wxArrayString auto_video_load_modes_choice(2, auto_video_load_modes);
+	p->OptionChoice(same_name, _("Same-name video loading mode"), auto_video_load_modes_choice, "Video/Auto Load Same Name Mode");
 	p->EnableIfChecked(auto_load_same_name,
-		p->OptionAdd(expert, _("Prefer video with the same name over linked video"), "Video/Prefer Same Name"));
-	p->CellSkip(expert);
-	p->OptionBrowse(expert, _("Same-name video folder"), "Video/Same Name Search Path", auto_load_same_name, true);
+		p->OptionAdd(same_name, _("Prefer video with the same name over linked video"), "Video/Prefer Same Name"));
+	p->CellSkip(same_name);
+	p->OptionBrowse(same_name, _("Same-name video folder"), "Video/Same Name Search Path", auto_load_same_name, true);
+
+	auto expert = p->PageSizer(_("Expert"));
 
 	wxArrayString vp_choice = to_wx(VideoProviderFactory::GetClasses());
 	p->OptionChoice(expert, _("Video provider"), vp_choice, "Video/Provider");

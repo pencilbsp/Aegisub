@@ -348,6 +348,7 @@ void FrameMain::StatusTimeout(wxString text,int ms) {
 BEGIN_EVENT_TABLE(FrameMain, wxFrame)
 	EVT_TIMER(ID_APP_TIMER_STATUSCLEAR, FrameMain::OnStatusClear)
 	EVT_CLOSE(FrameMain::OnCloseWindow)
+	EVT_CHILD_FOCUS(FrameMain::OnChildFocus)
 	EVT_CHAR_HOOK(FrameMain::OnKeyDown)
 	EVT_MOUSEWHEEL(FrameMain::OnMouseWheel)
 END_EVENT_TABLE()
@@ -370,6 +371,11 @@ void FrameMain::OnCloseWindow(wxCloseEvent &event) {
 	OPT_SET("App/Maximized")->SetBool(IsMaximized());
 
 	Destroy();
+}
+
+void FrameMain::OnChildFocus(wxChildFocusEvent &event) {
+	context->project->LoadPendingVideo();
+	event.Skip();
 }
 
 void FrameMain::OnStatusClear(wxTimerEvent &) {

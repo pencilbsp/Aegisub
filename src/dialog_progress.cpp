@@ -37,8 +37,6 @@
 #include <shobjidl.h>
 #endif
 
-using agi::dispatch::Main;
-
 namespace {
 	void set_taskbar_progress([[maybe_unused]] int progress) {
 #ifdef _MSC_VER
@@ -75,23 +73,23 @@ public:
 	DialogProgressSink(DialogProgress *dialog) : dialog(dialog) { }
 
 	void SetTitle(std::string const& title) override {
-		Main().Async([=, this]{ dialog->title->SetLabelText(to_wx(title)); });
+		dialog->CallAfter([dialog = dialog, title] { dialog->title->SetLabelText(to_wx(title)); });
 	}
 
 	void SetMessage(std::string const& msg) override {
-		Main().Async([=, this]{ dialog->text->SetLabelText(to_wx(msg)); });
+		dialog->CallAfter([dialog = dialog, msg] { dialog->text->SetLabelText(to_wx(msg)); });
 	}
 
 	void SetProgress(int64_t cur, int64_t max) override {
 		int new_progress = mid<int>(0, double(cur) / max * 300, 300);
 		if (new_progress != progress) {
 			progress = new_progress;
-			Main().Async([=, this]{ dialog->SetProgress(new_progress); });
+			dialog->CallAfter([dialog = dialog, new_progress] { dialog->SetProgress(new_progress); });
 		}
 	}
 
 	void Log(std::string const& str) override {
-		Main().Async([=, this]{ dialog->pending_log += to_wx(str); });
+		dialog->CallAfter([dialog = dialog, str] { dialog->pending_log += to_wx(str); });
 	}
 
 	bool IsCancelled() override {
@@ -103,13 +101,14 @@ public:
 	}
 
 	void SetIndeterminate() override {
-		Main().Async([this]{ dialog->pulse_timer.Start(1000); });
+		dialog->CallAfter([dialog = dialog] { dialog->pulse_timer.Start(1000); });
 	}
 };
 
 DialogProgress::DialogProgress(wxWindow *parent, wxString const& title_text, wxString const& message)
 : wxDialog(parent, -1, title_text, wxDefaultPosition, wxDefaultSize, wxBORDER_RAISED)
 , pulse_timer(GetEventHandler())
+, completion_timer(GetEventHandler())
 {
 	title = new wxStaticText(this, -1, title_text, wxDefaultPosition, wxDefaultSize, wxALIGN_CENTRE | wxST_NO_AUTORESIZE);
 	gauge = new wxGauge(this, -1, 300, wxDefaultPosition, wxSize(300,20));
@@ -136,12 +135,17 @@ DialogProgress::DialogProgress(wxWindow *parent, wxString const& title_text, wxS
 	CenterOnParent();
 
 	Bind(wxEVT_SHOW, &DialogProgress::OnShow, this);
-	Bind(wxEVT_TIMER, [this](wxTimerEvent&) { gauge->Pulse(); });
+	Bind(wxEVT_TIMER, [this](wxTimerEvent& event) {
+		if (&event.GetTimer() == &pulse_timer)
+			gauge->Pulse();
+	});
+	Bind(wxEVT_TIMER, &DialogProgress::OnCompletionTimer, this);
 }
 
 void DialogProgress::Run(std::function<void(agi::ProgressSink*)> task) {
 	DialogProgressSink ps(this);
 	this->ps = &ps;
+	task_complete = false;
 
 	auto current_title = from_wx(title->GetLabelText());
 	agi::dispatch::Background().Async([=, this]{
@@ -153,34 +157,48 @@ void DialogProgress::Run(std::function<void(agi::ProgressSink*)> task) {
 			this->ps->Log(e.GetMessage());
 		}
 
-		Main().Async([this]{
-			pulse_timer.Stop();
-			Unbind(wxEVT_IDLE, &DialogProgress::OnIdle, this);
-
-			// Unbind the cancel handler so that the default behavior happens (i.e. the
-			// dialog is closed) as there's no longer a task to cancel
-			Unbind(wxEVT_BUTTON, &DialogProgress::OnCancel, this, wxID_CANCEL);
-
-			// If it ran to completion and there is debug output, leave the window open
-			// so the user can read the debug output and switch the cancel button to a
-			// close button
-			bool cancelled = this->ps->IsCancelled();
-			if (cancelled || (log_output->IsEmpty() && !pending_log))
-				EndModal(!cancelled);
-			else {
-				if (!pending_log.empty()) {
-					wxIdleEvent evt;
-					OnIdle(evt);
-				}
-				cancel_button->SetLabelText(_("Close"));
-				gauge->SetValue(300);
-			}
-			set_taskbar_progress(0);
-		});
+		task_complete = true;
 	});
 
+	// On Cocoa a queued completion event can be deferred until another input
+	// event while a modal dialog is active. The timer is owned by this dialog's
+	// modal event loop, so it reliably observes that the worker has finished.
+	completion_timer.Start(50);
 	if (!ShowModal())
 		throw agi::UserCancelException("Cancelled by user");
+}
+
+void DialogProgress::OnCompletionTimer(wxTimerEvent& event) {
+	if (&event.GetTimer() == &completion_timer && task_complete)
+		FinishTask();
+}
+
+void DialogProgress::FinishTask() {
+	if (!IsModal()) return;
+
+	completion_timer.Stop();
+	pulse_timer.Stop();
+	Unbind(wxEVT_IDLE, &DialogProgress::OnIdle, this);
+
+	// Unbind the cancel handler so that the default behavior happens (i.e. the
+	// dialog is closed) as there's no longer a task to cancel
+	Unbind(wxEVT_BUTTON, &DialogProgress::OnCancel, this, wxID_CANCEL);
+
+	// If it ran to completion and there is debug output, leave the window open
+	// so the user can read the debug output and switch the cancel button to a
+	// close button
+	bool cancelled = ps->IsCancelled();
+	if (cancelled || (log_output->IsEmpty() && !pending_log))
+		EndModal(!cancelled);
+	else {
+		if (!pending_log.empty()) {
+			wxIdleEvent evt;
+			OnIdle(evt);
+		}
+		cancel_button->SetLabelText(_("Close"));
+		gauge->SetValue(300);
+	}
+	set_taskbar_progress(0);
 }
 
 void DialogProgress::OnShow(wxShowEvent& evt) {
