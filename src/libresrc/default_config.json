@@ -679,7 +679,7 @@
 		"Last PlayRes Mismatch Choice" : 0,
 		"Untagged Matrix Warning" : true,
 		"HDR Video Warning" : true,
-		"No YCbCr Matrix in Script" : 1,
+		"No YCbCr Matrix in Script" : 2,
 		"Last No YCbCr Matrix in Script Choice" : 1,
 		"YCbCr Matrix Mismatch" : 1,
 		"Last YCbCr Matrix Mismatch Choice" : 1,
