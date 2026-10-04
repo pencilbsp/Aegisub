@@ -347,9 +347,13 @@ int AegisubApp::OnExit() {
 	// dispatches onto the GUI thread and touches frames, options and commands
 	mcp::Shutdown();
 
-	for (auto frame : frames)
-		delete frame;
+	// Deleting a frame emits wxEVT_DESTROY, whose handler removes that frame
+	// from `frames`. Move the list aside first so that its iteration cannot be
+	// invalidated by the destroy notification.
+	auto frames_to_destroy = std::move(frames);
 	frames.clear();
+	for (auto frame : frames_to_destroy)
+		delete frame;
 
 	if (wxTheClipboard->Open()) {
 		wxTheClipboard->Flush();
