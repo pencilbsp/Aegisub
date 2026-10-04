@@ -33,6 +33,10 @@
 #include <wx/stattext.h>
 #include <wx/textctrl.h>
 
+#ifdef __APPLE__
+#include <dispatch/dispatch.h>
+#endif
+
 #ifdef _MSC_VER
 #include <shobjidl.h>
 #endif
@@ -158,6 +162,15 @@ void DialogProgress::Run(std::function<void(agi::ProgressSink*)> task) {
 		}
 
 		task_complete = true;
+
+		// wx event delivery can be deferred by Cocoa while wxDialog runs its
+		// application-modal event loop. Dispatch directly to the native main
+		// queue so an indexing dialog is closed as soon as its worker finishes.
+#ifdef __APPLE__
+		dispatch_async_f(dispatch_get_main_queue(), this, [](void *context) {
+			static_cast<DialogProgress *>(context)->FinishTask();
+		});
+#endif
 	});
 
 	// On Cocoa a queued completion event can be deferred until another input

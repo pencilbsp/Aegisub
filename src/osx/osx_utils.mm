@@ -64,6 +64,18 @@ void RestartAegisub() {
 }
 
 namespace osx {
+void order_window_immediately_below(wxFrame *above, wxFrame *below) {
+	if (!above || !below || above == below)
+		return;
+
+	NSWindow *const above_window = above->GetWXWindow();
+	NSWindow *const below_window = below->GetWXWindow();
+	if (!above_window || !below_window || !below_window.isVisible)
+		return;
+
+	[below_window orderWindow:NSWindowBelow relativeTo:above_window.windowNumber];
+}
+
 void make_windows_menu(wxMenu* wxmenu) {
 	NSApp.windowsMenu = wxmenu->GetHMenu();
 }

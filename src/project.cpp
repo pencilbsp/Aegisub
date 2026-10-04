@@ -37,6 +37,12 @@
 #include "video_controller.h"
 #include "video_display.h"
 
+#ifdef __WXMAC__
+#include "frame_main.h"
+#include "main.h"
+#include "osx/osx_utils.h"
+#endif
+
 #include <libaegisub/audio/provider.h>
 #include <libaegisub/format_path.h>
 #include <libaegisub/fs.h>
@@ -45,6 +51,9 @@
 #include <libaegisub/path.h>
 
 #include <boost/algorithm/string/case_conv.hpp>
+#ifdef __WXMAC__
+#include <algorithm>
+#endif
 #include <cmath>
 #include <wx/msgdlg.h>
 
@@ -700,10 +709,20 @@ void Project::LoadList(std::vector<agi::fs::path> const& files, bool defer_auto_
 }
 
 void Project::LoadPendingVideo() {
-	if (pending_auto_video.empty() || video_provider)
-		return;
+	if (pending_auto_video.empty() || video_provider) return;
 
 	auto video = std::move(pending_auto_video);
 	pending_auto_video.clear();
 	LoadVideo(video);
+#ifdef __WXMAC__
+	// Cmd+` normally follows AppKit's transient z-order. A long indexing task
+	// resets that order to MRU, which reverses the remaining files in a Finder
+	// batch. Restore the batch's creation order for the following switch.
+	auto const& frames = wxGetApp().GetFrames();
+	auto const current = std::find(frames.begin(), frames.end(), context->frame);
+	if (video_provider && current != frames.end() && frames.size() > 1) {
+		auto next = current == frames.begin() ? frames.end() - 1 : current - 1;
+		osx::order_window_immediately_below(*current, *next);
+	}
+#endif
 }

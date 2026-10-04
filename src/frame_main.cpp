@@ -71,9 +71,11 @@
 #include <wx/statline.h>
 #include <wx/sysopt.h>
 #include <wx/toolbar.h>
+#include <wx/utils.h>
 
 enum {
-	ID_APP_TIMER_STATUSCLEAR = 12002
+	ID_APP_TIMER_STATUSCLEAR = 12002,
+	ID_APP_TIMER_PENDING_VIDEO_LOAD
 };
 
 #ifdef WITH_STARTUPLOG
@@ -347,6 +349,7 @@ void FrameMain::StatusTimeout(wxString text,int ms) {
 
 BEGIN_EVENT_TABLE(FrameMain, wxFrame)
 	EVT_TIMER(ID_APP_TIMER_STATUSCLEAR, FrameMain::OnStatusClear)
+	EVT_TIMER(ID_APP_TIMER_PENDING_VIDEO_LOAD, FrameMain::OnPendingVideoLoad)
 	EVT_CLOSE(FrameMain::OnCloseWindow)
 	EVT_CHILD_FOCUS(FrameMain::OnChildFocus)
 	EVT_CHAR_HOOK(FrameMain::OnKeyDown)
@@ -369,6 +372,7 @@ void FrameMain::OnCloseWindow(wxCloseEvent &event) {
 	// children. Do not treat that as an intentional focus of this document and
 	// start a deferred video load while its parent window is being destroyed.
 	is_closing = true;
+	PendingVideoLoad.Stop();
 	context->dialog.reset();
 
 	// Store maximization state
@@ -378,9 +382,36 @@ void FrameMain::OnCloseWindow(wxCloseEvent &event) {
 }
 
 void FrameMain::OnChildFocus(wxChildFocusEvent &event) {
-	if (!is_closing)
-		context->project->LoadPendingVideo();
+	// wxWidgets on macOS does not reliably send wxEVT_ACTIVATE when switching
+	// between this application's windows with Cmd+`. A child-focus event does
+	// arrive, but opening the progress dialog while Command is still held
+	// disrupts AppKit's window-cycling order. Defer the load until the shortcut
+	// has completed, then ensure this is still the active frame.
+	if (!is_closing && !pending_video_load_scheduled) {
+		pending_video_load_scheduled = true;
+		CallAfter([this] {
+			pending_video_load_scheduled = false;
+			bool const command_down = wxGetMouseState().CmdDown();
+			if (is_closing || !IsActive()) return;
+			if (command_down) {
+				PendingVideoLoad.SetOwner(this, ID_APP_TIMER_PENDING_VIDEO_LOAD);
+				PendingVideoLoad.StartOnce(50);
+			}
+			else
+				context->project->LoadPendingVideo();
+		});
+	}
 	event.Skip();
+}
+
+void FrameMain::OnPendingVideoLoad(wxTimerEvent &) {
+	bool const command_down = wxGetMouseState().CmdDown();
+	if (is_closing || !IsActive()) return;
+	if (command_down) {
+		PendingVideoLoad.StartOnce(50);
+		return;
+	}
+	context->project->LoadPendingVideo();
 }
 
 void FrameMain::OnStatusClear(wxTimerEvent &) {

@@ -54,7 +54,9 @@ class FrameMain : public wxFrame, private agi::signal::ConnectionScope {
 	bool showVideo = true; ///< Is the video display shown?
 	bool showAudio = true; ///< Is the audio display shown?
 	bool is_closing = false;
+	bool pending_video_load_scheduled = false;
 	wxTimer StatusClear;   ///< Status bar timeout timer
+	wxTimer PendingVideoLoad;
 
 	void InitContents();
 
@@ -64,6 +66,7 @@ class FrameMain : public wxFrame, private agi::signal::ConnectionScope {
 	void OnMouseWheel(wxMouseEvent &evt);
 
 	void OnStatusClear(wxTimerEvent &event);
+	void OnPendingVideoLoad(wxTimerEvent &event);
 	void OnCloseWindow (wxCloseEvent &event);
 	void OnChildFocus(wxChildFocusEvent &event);
 
