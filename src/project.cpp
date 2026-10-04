@@ -438,23 +438,30 @@ void Project::CloseAudio() {
 	SetPath(audio_file, "?audio", "", "");
 }
 
-bool Project::DoLoadVideo(agi::fs::path const& path) {
+bool Project::DoLoadVideo(agi::fs::path const& path, bool modeless_progress) {
 	if (!progress)
 		progress = new DialogProgress(context->parent);
+	progress->SetRunModeless(modeless_progress);
 
 	try {
 		video_provider = std::make_unique<AsyncVideoProvider>(path, context->ass->GetYCbCrMatrix(), context->videoController.get(), progress);
 	}
-	catch (agi::UserCancelException const&) { return false; }
+	catch (agi::UserCancelException const&) {
+		progress->SetRunModeless(false);
+		return false;
+	}
 	catch (agi::fs::FileSystemError const& err) {
+		progress->SetRunModeless(false);
 		config::mru->Remove("Video", path);
 		ShowError(to_wx(err.GetMessage()));
 		return false;
 	}
 	catch (VideoProviderError const& err) {
+		progress->SetRunModeless(false);
 		ShowError(to_wx(err.GetMessage()));
 		return false;
 	}
+	progress->SetRunModeless(false);
 
 	AnnounceVideoProviderModified(video_provider.get());
 
@@ -487,10 +494,10 @@ bool Project::DoLoadVideo(agi::fs::path const& path) {
 	return true;
 }
 
-void Project::LoadVideo(agi::fs::path path) {
+void Project::LoadVideo(agi::fs::path path, bool modeless_progress) {
 	if (path.empty()) return;
 	pending_auto_video.clear();
-	if (!DoLoadVideo(path)) return;
+	if (!DoLoadVideo(path, modeless_progress)) return;
 	if (OPT_GET("Video/Open Audio")->GetBool() && audio_file != video_file && video_provider->HasAudio())
 		DoLoadAudio(video_file, true);
 
@@ -713,7 +720,7 @@ void Project::LoadPendingVideo() {
 
 	auto video = std::move(pending_auto_video);
 	pending_auto_video.clear();
-	LoadVideo(video);
+	LoadVideo(video, true);
 #ifdef __WXMAC__
 	// Cmd+` normally follows AppKit's transient z-order. A long indexing task
 	// resets that order to MRU, which reverses the remaining files in a Finder

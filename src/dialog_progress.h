@@ -26,6 +26,7 @@
 
 class DialogProgressSink;
 class wxButton;
+class wxEventLoopBase;
 class wxGauge;
 class wxStaticText;
 class wxTextCtrl;
@@ -45,6 +46,8 @@ class DialogProgress final : public wxDialog, public agi::BackgroundRunner {
 	wxTimer pulse_timer;
 	wxTimer completion_timer;
 	std::atomic<bool> task_complete{false};
+	bool run_modeless = false;
+	wxEventLoopBase *modeless_event_loop = nullptr;
 
 	wxString pending_log;
 	int progress_anim_start_value = 0;
@@ -67,6 +70,9 @@ public:
 	/// @param title Initial title of the dialog
 	/// @param message Initial message of the dialog
 	DialogProgress(wxWindow *parent, wxString const& title="", wxString const& message="");
+
+	/// Avoid a Cocoa application-modal loop for deferred same-name video loads.
+	void SetRunModeless(bool modeless) { run_modeless = modeless; }
 
 	/// BackgroundWorker implementation
 	void Run(std::function<void(agi::ProgressSink *)> task) override;

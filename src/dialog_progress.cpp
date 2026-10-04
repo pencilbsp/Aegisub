@@ -28,6 +28,7 @@
 
 #include <atomic>
 #include <wx/button.h>
+#include <wx/evtloop.h>
 #include <wx/gauge.h>
 #include <wx/sizer.h>
 #include <wx/stattext.h>
@@ -177,7 +178,19 @@ void DialogProgress::Run(std::function<void(agi::ProgressSink*)> task) {
 	// event while a modal dialog is active. The timer is owned by this dialog's
 	// modal event loop, so it reliably observes that the worker has finished.
 	completion_timer.Start(50);
-	if (!ShowModal())
+	if (run_modeless) {
+		ShowWithoutActivating();
+		wxEventLoop loop;
+		modeless_event_loop = &loop;
+		if (task_complete)
+			FinishTask();
+		else
+			loop.Run();
+		modeless_event_loop = nullptr;
+		if (ps.IsCancelled())
+			throw agi::UserCancelException("Cancelled by user");
+	}
+	else if (!ShowModal())
 		throw agi::UserCancelException("Cancelled by user");
 }
 
@@ -187,6 +200,20 @@ void DialogProgress::OnCompletionTimer(wxTimerEvent& event) {
 }
 
 void DialogProgress::FinishTask() {
+	if (run_modeless) {
+		if (!IsShown()) return;
+
+		completion_timer.Stop();
+		pulse_timer.Stop();
+		Unbind(wxEVT_IDLE, &DialogProgress::OnIdle, this);
+		Unbind(wxEVT_BUTTON, &DialogProgress::OnCancel, this, wxID_CANCEL);
+		Hide();
+		if (modeless_event_loop)
+			modeless_event_loop->ScheduleExit();
+		set_taskbar_progress(0);
+		return;
+	}
+
 	if (!IsModal()) return;
 
 	completion_timer.Stop();

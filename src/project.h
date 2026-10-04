@@ -54,7 +54,7 @@ class Project : private agi::signal::ConnectionScope {
 
 	bool DoLoadSubtitles(agi::fs::path const& path, std::string encoding, ProjectProperties &properties);
 	void DoLoadAudio(agi::fs::path const& path, bool quiet);
-	bool DoLoadVideo(agi::fs::path const& path);
+	bool DoLoadVideo(agi::fs::path const& path, bool modeless_progress = false);
 	void DoLoadTimecodes(agi::fs::path const& path);
 	void DoLoadKeyframes(agi::fs::path const& path);
 
@@ -79,7 +79,7 @@ public:
 	agi::AudioProvider *AudioProvider() const { return audio_provider.get(); }
 	agi::fs::path const& AudioName() const { return audio_file; }
 
-	void LoadVideo(agi::fs::path path);
+	void LoadVideo(agi::fs::path path, bool modeless_progress = false);
 	void CloseVideo();
 	AsyncVideoProvider *VideoProvider() const { return video_provider.get(); }
 	agi::fs::path const& VideoName() const { return video_file; }
