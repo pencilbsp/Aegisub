@@ -58,7 +58,8 @@ class Project : private agi::signal::ConnectionScope {
 	void DoLoadTimecodes(agi::fs::path const& path);
 	void DoLoadKeyframes(agi::fs::path const& path);
 
-	void LoadUnloadFiles(ProjectProperties properties, bool ignore_linked_video = false);
+	void LoadUnloadFiles(ProjectProperties properties, bool ignore_linked_video = false,
+	                     agi::fs::path const& same_name_video = {});
 	void UpdateRelativePaths();
 	void ReloadAudio();
 	void ReloadVideo();

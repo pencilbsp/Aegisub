@@ -260,7 +260,8 @@ void Project::CloseSubtitles() {
 	context->selectionController->SetSelectionAndActive({line}, line);
 }
 
-void Project::LoadUnloadFiles(ProjectProperties properties, bool ignore_linked_video) {
+void Project::LoadUnloadFiles(ProjectProperties properties, bool ignore_linked_video,
+                              agi::fs::path const& same_name_video) {
 	auto load_linked = OPT_GET("App/Auto/Load Linked Files")->GetInt();
 	if (!load_linked) return;
 
@@ -270,6 +271,11 @@ void Project::LoadUnloadFiles(ProjectProperties properties, bool ignore_linked_v
 	auto keyframes = context->path->MakeAbsolute(properties.keyframes_file, "?script");
 	if (ignore_linked_video)
 		video = video_file;
+
+	// A same-name video will open its audio track automatically. Do not prompt to
+	// load the exact same file a second time via the subtitle's Audio URI.
+	if (!same_name_video.empty() && OPT_GET("Video/Open Audio")->GetBool() && audio == same_name_video)
+		audio = audio_file;
 
 	if (video == video_file && audio == audio_file && keyframes == keyframes_file && timecodes == timecodes_file)
 		return;
@@ -661,10 +667,12 @@ void Project::LoadList(std::vector<agi::fs::path> const& files, bool defer_auto_
 	}
 
 	agi::fs::path deferred_video;
+	agi::fs::path preferred_matching_video;
 	bool prefer_matching_video = !subs.empty() && video.empty() && OPT_GET("Video/Auto Load Same Name")->GetBool() && OPT_GET("Video/Prefer Same Name")->GetBool();
 	bool matching_video_preferred = false;
 	if (prefer_matching_video) {
 		video = FindVideoWithSameName(subs);
+		preferred_matching_video = video;
 		matching_video_preferred = !video.empty();
 		if (defer_auto_video && !video.empty()) {
 			deferred_video = video;
@@ -703,7 +711,7 @@ void Project::LoadList(std::vector<agi::fs::path> const& files, bool defer_auto_
 			if (!audio_file.empty())
 				properties.audio_file = audio_file.string();
 		}
-		LoadUnloadFiles(properties, matching_video_preferred);
+		LoadUnloadFiles(properties, matching_video_preferred, preferred_matching_video);
 	}
 
 	if (video_file.empty() && !subs.empty() && properties.video_file.empty() && OPT_GET("Video/Auto Load Same Name")->GetBool()) {
