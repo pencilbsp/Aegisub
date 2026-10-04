@@ -49,6 +49,7 @@
 VideoController::VideoController(agi::Context *c)
 : context(c)
 , playAudioOnStep(OPT_GET("Audio/Plays When Stepping Video"))
+, playback_speed(mid(MinPlaybackSpeed, OPT_GET("Video/Playback Speed")->GetDouble(), MaxPlaybackSpeed))
 , connections(agi::signal::make_vector({
 	context->ass->AddCommitListener(&VideoController::OnSubtitlesCommit, this),
 	context->project->AddVideoProviderListener(&VideoController::OnNewVideoProvider, this),
@@ -195,6 +196,7 @@ void VideoController::OnPlayTimer(wxTimerEvent &) {
 
 void VideoController::SetPlaybackSpeed(double speed) {
 	speed = mid(MinPlaybackSpeed, speed, MaxPlaybackSpeed);
+	OPT_SET("Video/Playback Speed")->SetDouble(speed);
 	if (speed == playback_speed) return;
 
 	// Keep playback position continuous when speed changes mid-playback.

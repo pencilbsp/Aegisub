@@ -47,6 +47,7 @@ Context::Context()
 , dialog(std::make_unique<DialogManager>())
 {
 	subsController->SetSelectionController(selectionController.get());
+	audioController->SetPlaybackSpeed(videoController->GetPlaybackSpeed());
 }
 
 Context::~Context() = default;
