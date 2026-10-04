@@ -238,7 +238,7 @@ void Project::LoadSubtitles(agi::fs::path path, std::string encoding, bool load_
 	}
 
 	if (load_linked)
-		LoadUnloadFiles(properties);
+		LoadUnloadFiles(properties, !matching_video.empty() && OPT_GET("Video/Prefer Same Name")->GetBool());
 	else
 		UpdateRelativePaths();
 
@@ -260,7 +260,7 @@ void Project::CloseSubtitles() {
 	context->selectionController->SetSelectionAndActive({line}, line);
 }
 
-void Project::LoadUnloadFiles(ProjectProperties properties) {
+void Project::LoadUnloadFiles(ProjectProperties properties, bool ignore_linked_video) {
 	auto load_linked = OPT_GET("App/Auto/Load Linked Files")->GetInt();
 	if (!load_linked) return;
 
@@ -268,6 +268,8 @@ void Project::LoadUnloadFiles(ProjectProperties properties) {
 	auto video     = context->path->MakeAbsolute(properties.video_file, "?script");
 	auto timecodes = context->path->MakeAbsolute(properties.timecodes_file, "?script");
 	auto keyframes = context->path->MakeAbsolute(properties.keyframes_file, "?script");
+	if (ignore_linked_video)
+		video = video_file;
 
 	if (video == video_file && audio == audio_file && keyframes == keyframes_file && timecodes == timecodes_file)
 		return;
@@ -660,8 +662,10 @@ void Project::LoadList(std::vector<agi::fs::path> const& files, bool defer_auto_
 
 	agi::fs::path deferred_video;
 	bool prefer_matching_video = !subs.empty() && video.empty() && OPT_GET("Video/Auto Load Same Name")->GetBool() && OPT_GET("Video/Prefer Same Name")->GetBool();
+	bool matching_video_preferred = false;
 	if (prefer_matching_video) {
 		video = FindVideoWithSameName(subs);
+		matching_video_preferred = !video.empty();
 		if (defer_auto_video && !video.empty()) {
 			deferred_video = video;
 			video.clear();
@@ -699,7 +703,7 @@ void Project::LoadList(std::vector<agi::fs::path> const& files, bool defer_auto_
 			if (!audio_file.empty())
 				properties.audio_file = audio_file.string();
 		}
-		LoadUnloadFiles(properties);
+		LoadUnloadFiles(properties, matching_video_preferred);
 	}
 
 	if (video_file.empty() && !subs.empty() && properties.video_file.empty() && OPT_GET("Video/Auto Load Same Name")->GetBool()) {
