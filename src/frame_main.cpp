@@ -365,6 +365,10 @@ void FrameMain::OnCloseWindow(wxCloseEvent &event) {
 		return;
 	}
 
+	// Destroying a Cocoa window can move first responder status between its
+	// children. Do not treat that as an intentional focus of this document and
+	// start a deferred video load while its parent window is being destroyed.
+	is_closing = true;
 	context->dialog.reset();
 
 	// Store maximization state
@@ -374,7 +378,8 @@ void FrameMain::OnCloseWindow(wxCloseEvent &event) {
 }
 
 void FrameMain::OnChildFocus(wxChildFocusEvent &event) {
-	context->project->LoadPendingVideo();
+	if (!is_closing)
+		context->project->LoadPendingVideo();
 	event.Skip();
 }
 

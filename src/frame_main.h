@@ -53,6 +53,7 @@ class FrameMain : public wxFrame, private agi::signal::ConnectionScope {
 
 	bool showVideo = true; ///< Is the video display shown?
 	bool showAudio = true; ///< Is the audio display shown?
+	bool is_closing = false;
 	wxTimer StatusClear;   ///< Status bar timeout timer
 
 	void InitContents();
