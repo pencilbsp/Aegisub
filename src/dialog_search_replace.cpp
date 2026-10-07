@@ -576,11 +576,14 @@ void DialogSearchReplace<has_replace>::SaveSettings() {
 }
 
 static void update_mru(wxComboBox *cb, const char *mru_name) {
+	// Rebuilding the MRU list clears the editable value. Preserve it instead
+	// of selecting the first history entry; an empty replacement is meaningful
+	// and must not be replaced with an older non-empty MRU value.
+	auto value = cb->GetValue();
 	cb->Freeze();
 	cb->Clear();
 	cb->Append(lagi_MRU_wxAS(mru_name));
-	if (!cb->IsListEmpty())
-		cb->SetSelection(0);
+	cb->SetValue(value);
 	cb->Thaw();
 }
 
